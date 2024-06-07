@@ -30,12 +30,14 @@ jobs:
     - name: Output environment variables
       run: printenv
 
-    # - name: Build and push the Docker image
-    #   uses: docker/build-push-action@v3
-    #   with:
-    #     context: .
-    #     push: true
-    #     tags: joewalters/nua:latest,joewalters/nua:${{ env.VERSION }}
+    - name: Build and push the Docker image
+      uses: docker/build-push-action@v3
+      with:
+        context: .
+        push: true
+        tags: | 
+          joewalters/nua:latest
+          joewalters/nua:${{ env.VERSION }}
 
     # - name: Output version
     #   run: echo "Docker image version: ${{ env.VERSION }}"
