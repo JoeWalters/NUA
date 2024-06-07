@@ -36,4 +36,4 @@ jobs:
               joewalters/nua:${{ env.VERSION }}
 
     - name: Output version
-      run: echo "Docker image version: ${{ env.VERSION }}"
+      run: echo "Docker image version: ${{ env.VERSION }}
