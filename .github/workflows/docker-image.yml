@@ -37,8 +37,8 @@ jobs:
         context: .
         push: true
         tags: | 
-          joewalters/nua:latest
-          joewalters/nua:${{ env.VERSION }}
+          ${{ secrets.DOCKER_REPO }}:latest
+          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}
 
     # - name: Output image version tag
     #   run: | 
