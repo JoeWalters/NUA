@@ -22,6 +22,9 @@ RUN npm i
 # Initiate Prisma DB
 RUN npm run db
 
+# Change to app dir
+WORKDIR /usr/src/app
+
 # Build app
 RUN npm run build
 
