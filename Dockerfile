@@ -28,6 +28,8 @@ WORKDIR /usr/src/app
 # Build app
 RUN npm run build
 
+WORKDIR /usr/src/app/server
+
 # Expose the port your app runs on
 EXPOSE 4323
 
