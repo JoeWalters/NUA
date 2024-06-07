@@ -27,8 +27,9 @@ jobs:
       id: version
       run: echo "VERSION=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
-    - name: Output environment variables
-      run: printenv
+    # DEBUG
+    # - name: Output environment variables
+    #   run: printenv
 
     - name: Build and push the Docker image
       uses: docker/build-push-action@v3
@@ -39,5 +40,5 @@ jobs:
           joewalters/nua:latest
           joewalters/nua:${{ env.VERSION }}
 
-    # - name: Output version
-    #   run: echo "Docker image version: ${{ env.VERSION }}"
+    - name: Output version
+      run: echo "Docker image version: $VERSION"
