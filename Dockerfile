@@ -17,6 +17,9 @@ WORKDIR /usr/src/app/server
 
 RUN npm i
 
+# Initiate Prisma DB
+RUN npm run db
+
 # Expose the port your app runs on
 EXPOSE 4323
 
