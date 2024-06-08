@@ -34,4 +34,5 @@ WORKDIR /usr/src/app/server
 EXPOSE 4323
 
 # Command to run the application
-CMD ["npm", "run", "start"]
+# CMD ["npm", "run", "start"]
+CMD ["./scripts/startup.sh"]

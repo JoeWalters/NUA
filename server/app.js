@@ -16,7 +16,7 @@ const fs = require('fs');
 // Init sqlite db
 (async () => {
     const db = await open({
-        filename: './nodeunifi.db',
+        filename: './config/nodeunifi.db',
         driver: sqlite3.Database
     })
 })();
