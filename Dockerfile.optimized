@@ -1,0 +1,97 @@
+# Multi-stage Dockerfile for optimized NUA application build
+# This version provides better layer caching and smaller final image
+
+#
+# Stage 1: Frontend Build
+#
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app
+
+# Copy frontend package files
+COPY package*.json ./
+
+# Install frontend dependencies
+RUN npm ci
+
+# Copy frontend source code
+COPY src/ ./src/
+COPY index.html vite.config.js tailwind.config.js postcss.config.js ./
+
+# Build the frontend
+RUN npm run build
+
+#
+# Stage 2: Backend Dependencies
+#
+FROM node:18-alpine AS backend-deps
+
+WORKDIR /app
+
+# Copy server package files
+COPY server/package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+#
+# Stage 3: Production Runtime
+#
+FROM node:18-alpine AS runtime
+
+# Install system dependencies for enhanced startup script and health checks
+RUN apk add --no-cache curl bash dumb-init
+
+# Create app user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nuaapp -u 1001 -G nodejs
+
+# Set working directory
+WORKDIR /usr/src/app
+
+# Copy backend dependencies from deps stage
+COPY --from=backend-deps --chown=nuaapp:nodejs /app/node_modules ./server/node_modules
+
+# Copy built frontend from frontend-builder stage
+COPY --from=frontend-builder --chown=nuaapp:nodejs /app/dist ./dist
+
+# Copy server application files
+COPY --chown=nuaapp:nodejs server/ ./server/
+
+# Copy root package.json (needed for some scripts)
+COPY --chown=nuaapp:nodejs package.json ./
+
+# Make all script files executable
+RUN chmod +x ./server/scripts/*.sh ./server/scripts/*.js
+
+# Create required directories with proper permissions
+RUN mkdir -p ./server/config/server_logs && \
+    chown -R nuaapp:nodejs /usr/src/app
+
+# Generate Prisma client
+WORKDIR /usr/src/app/server
+RUN npx prisma generate
+
+# Add health check using our new health endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:4323/health || exit 1
+
+# Switch to non-root user
+USER nuaapp
+
+# Set production environment variables
+ENV NODE_ENV=production \
+    LOG_LEVEL=INFO \
+    UNIFI_RETRY_ATTEMPTS=5 \
+    UNIFI_RETRY_DELAY=5000 \
+    REQUEST_TIMEOUT=30000 \
+    SHUTDOWN_TIMEOUT=10000
+
+# Expose application port
+EXPOSE 4323
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application with our enhanced startup script
+CMD ["/usr/src/app/server/scripts/docker-startup.sh"]

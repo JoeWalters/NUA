@@ -16,7 +16,7 @@ const { updateRecurringSchedule } = require('./ez_sched_funcs/update_ez_schedule
 const { serverLogger } = require('./server_util_funcs/server_log_utils/serverLogger');
 const { validateCron } = require('./server_util_funcs/validateCron');
 const { consoleReader } = require('./server_util_funcs/server_log_utils/consoleReader');
-const { logger } = require("./server_util_funcs/server_log_utils/customLogger");
+const { logger: fileLogger } = require("./server_util_funcs/server_log_utils/customLogger");
 const { cronBonusTimeEndJobReinitiation } = require("./server_util_funcs/cronBonusTimeEndJobReinitiation");
 const { easyBonusTimeEndJobReinitiation } = require("./server_util_funcs/easyBonusTimeEndJobReinitiation");
 const { minutesHoursToMilli } = require("./server_util_funcs/minutesHoursToMilli");
@@ -24,6 +24,12 @@ const { convertToMilitaryTime } = require('./server_util_funcs/convert_to_milita
 const { dateFromDateString } = require('./server_util_funcs/ez_sched_utils/dateFromDateString');
 const { startTimeout, endTimeout, timeoutMap } = require('./server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
 const { stopBonusTime } = require('./server_util_funcs/stop_bonus_time/stopBonusTimeViaToggleOff');
+
+// Enhanced logging and error handling
+const { logger, ErrorHandler } = require('./server_util_funcs/enhanced_logging');
+
+// Setup global error handlers
+ErrorHandler.setupGlobalErrorHandlers();
 
 
 
@@ -39,8 +45,52 @@ const prisma = new PrismaClient();
 
 // create server & add middleware
 const app = express();
+
+// Security and parsing middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({
+    limit: '10mb',
+    verify: (req, res, buf) => {
+        try {
+            JSON.parse(buf);
+        } catch (e) {
+            logger.warn('Invalid JSON received', { 
+                ip: req.ip, 
+                userAgent: req.get('User-Agent') 
+            });
+            res.status(400).json({ error: 'Invalid JSON' });
+            return;
+        }
+    }
+}));
+
+// Request logging middleware
+app.use((req, res, next) => {
+    const start = Date.now();
+    
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        const logData = {
+            method: req.method,
+            url: req.url,
+            statusCode: res.statusCode,
+            duration: `${duration}ms`,
+            ip: req.ip,
+            userAgent: req.get('User-Agent')
+        };
+        
+        if (res.statusCode >= 400) {
+            logger.warn(`Request completed with error`, logData);
+        } else if (duration > 1000) {
+            logger.warn(`Slow request detected`, logData);
+        } else {
+            logger.debug(`Request completed`, logData);
+        }
+    });
+    
+    next();
+});
+
 app.use(express.static(process.cwd().slice(0, -7) + '/dist'));
 consoleReader(schedule);
 
@@ -78,16 +128,19 @@ function writeJSONApps(successfulData) {
 
 }
 
-// initial check for existing credentials in db
-const checkForCredentials = async () => {
+// Initial check for existing credentials in db with enhanced error handling
+const checkForCredentials = ErrorHandler.handleAsync(async () => {
     try {
+        logger.debug('Checking for existing credentials in database');
+        
         const creds = await prisma.credentials.findUnique({
-            where: {
-                id: 1
-            }
+            where: { id: 1 }
         });
+        
         if (creds === null) {
-            const initialSiteCredentials = await prisma.credentials.create({
+            logger.info('No credentials found, creating initial credentials entry');
+            
+            await prisma.credentials.create({
                 data: {
                     username: '',
                     password: '',
@@ -100,15 +153,21 @@ const checkForCredentials = async () => {
                     initialSetup: true
                 }
             });
+            
+            logger.info('✅ Initial credentials entry created successfully');
         } else {
-            red('Credentials already exist!', 'teal')
-            return;
+            logger.debug('Credentials already exist in database');
         }
     } catch (error) {
-        console.error(error)
+        logger.error('Failed to check or create credentials', error);
+        throw error; // Re-throw to be handled by ErrorHandler.handleAsync
     }
-}
-checkForCredentials();
+});
+// Initialize credentials check
+checkForCredentials().catch(error => {
+    logger.error('Failed to initialize credentials', error);
+    // Continue startup - this is not critical for basic operation
+});
 
 // unifi connection instance // original
 // let unifi;
@@ -171,22 +230,106 @@ const fetchLoginInfo = async () => {
 }
 
 let unifi;
+let unifiConnectionStatus = 'disconnected'; // Track UniFi connection state
+
+// Enhanced UniFi connection with retry logic
+async function initializeUnifiWithRetry(maxRetries = 5, retryDelay = 5000) {
+    const maxRetryAttempts = parseInt(process.env.UNIFI_RETRY_ATTEMPTS) || maxRetries;
+    const retryDelayMs = parseInt(process.env.UNIFI_RETRY_DELAY) || retryDelay;
+    
+    console.log(`🔄 Attempting UniFi connection (max ${maxRetryAttempts} attempts)...`);
+    
+    for (let attempt = 1; attempt <= maxRetryAttempts; attempt++) {
+        try {
+            const loginData = await fetchLoginInfo();
+            
+            if (!loginData || !loginData.hostname || !loginData.username) {
+                console.log(`⚠️ Attempt ${attempt}/${maxRetryAttempts}: Incomplete UniFi credentials, skipping connection`);
+                if (attempt === maxRetryAttempts) {
+                    console.log('🟡 Starting in offline mode - UniFi credentials not configured');
+                    unifiConnectionStatus = 'offline';
+                    return false;
+                }
+                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+                continue;
+            }
+            
+            await logIntoUnifi(loginData?.hostname, loginData?.port, loginData?.sslverify, loginData?.username, loginData?.password);
+            console.log(`✅ UniFi connection established successfully on attempt ${attempt}`);
+            unifiConnectionStatus = 'connected';
+            return true;
+            
+        } catch (error) {
+            const errorMsg = error.message || error.toString();
+            console.warn(`⚠️ UniFi connection attempt ${attempt}/${maxRetryAttempts} failed: ${errorMsg}`);
+            
+            if (attempt === maxRetryAttempts) {
+                console.error('🔴 Max UniFi connection retries exceeded. Starting in offline mode.');
+                console.error('🔴 Some features may be limited without UniFi connection.');
+                unifiConnectionStatus = 'failed';
+                return false;
+            }
+            
+            // Exponential backoff with jitter
+            const backoffDelay = retryDelayMs * Math.pow(1.5, attempt - 1) + Math.random() * 1000;
+            console.log(`⏳ Retrying in ${Math.round(backoffDelay / 1000)} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        }
+    }
+    return false;
+}
+
+// Enhanced initialization sequence
 const init = async () => {
+    console.log('🚀 Starting NUA application initialization...');
+    
     try {
-        const loginData = await fetchLoginInfo();
-        await logIntoUnifi(loginData?.hostname, loginData?.port, loginData?.sslverify, loginData?.username, loginData?.password);
-        ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction);
+        // Step 1: Check database connection
+        console.log('📊 Verifying database connection...');
+        await prisma.$queryRaw`SELECT 1`;
+        console.log('✅ Database connection verified');
+        
+        // Step 2: Attempt UniFi connection (non-blocking)
+        const unifiConnected = await initializeUnifiWithRetry();
+        
+        // Step 3: Initialize routes (some routes work without UniFi)
+        console.log('🛣️ Initializing application routes...');
+        try {
+            ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction);
+            console.log('✅ Application routes initialized');
+        } catch (error) {
+            console.error('⚠️ Error initializing routes:', error.message);
+            // Continue anyway - basic routes should still work
+        }
+        
+        // Step 4: Log initialization status
+        if (unifiConnected) {
+            console.log('🎉 NUA initialization completed successfully with UniFi connection');
+        } else {
+            console.log('🟡 NUA initialization completed in offline mode (without UniFi)');
+            console.log('🔧 Configure UniFi credentials in /sitesettings to enable full functionality');
+        }
+        
+        return true;
+        
     } catch (error) {
-        throw Error("Could not establish UNIFI INSTANCE.");
+        console.error('❌ Critical error during initialization:', error.message);
+        console.error('🔴 Application may not function properly');
+        throw error;
     }
 }
-init();
-// console.log('unifi\t', unifi);
 
-// info
-//     .then(() => logIntoUnifi(loginData?.hostname, loginData?.port, loginData?.sslverify, loginData?.username, loginData?.password))
-//     .then(() => console.log('.then() => unifi \t'))
-//     .catch((error) => console.error(error))
+// Add function to get UniFi connection status for health checks
+function getUnifiConnectionStatus() {
+    return unifiConnectionStatus;
+}
+
+// Start initialization
+init().catch(error => {
+    console.error('💥 Fatal initialization error:', error);
+    console.error('🔴 Application startup failed');
+    process.exit(1);
+});
 
 async function getBlockedUsers() {
     const blockedUsers = await unifi.getBlockedUsers();
@@ -1065,17 +1208,25 @@ app.post('/getscheduledata', async (req, res) => { // fetches cron data specific
 // ~~~~~~~schedules~~~~~~~~~~
 
 // ~~~~~~
-app.post('/savesitesettings', async (req, res) => {
+app.post('/savesitesettings', ErrorHandler.wrapRoute(async (req, res) => {
     const { username, password, hostname, port, sslverify, refreshRate } = req.body;
-    console.log(req.body);
-
-    red(sslverify, 'teal')
-    let sslBool;
-    if (sslverify === 'false') {
-        sslBool = false;
-    } else if (sslverify === 'true') {
-        sslBool = true;
+    
+    // Input validation
+    if (!hostname || !username || !password) {
+        return res.status(400).json({
+            error: 'Missing required fields',
+            required: ['hostname', 'username', 'password']
+        });
     }
+    
+    logger.info('Saving site settings', { 
+        hostname: hostname,
+        username: username,
+        port: port,
+        sslverify: sslverify 
+    });
+
+    const sslBool = sslverify === 'true' || sslverify === true;
     try {
         const siteCredentials = await prisma.credentials.create({
             data: {
@@ -1087,11 +1238,17 @@ app.post('/savesitesettings', async (req, res) => {
                 refreshRate: parseInt(refreshRate)
             }
         });
-        res.json({ siteCredentials })
+        
+        logger.info('Site settings saved successfully');
+        res.json({ 
+            siteCredentials,
+            message: 'Site settings saved successfully' 
+        });
     } catch (error) {
-        if(error) throw error;
+        logger.error('Failed to save site settings', error);
+        throw error; // Will be handled by ErrorHandler.wrapRoute
     }
-});
+}));
 
 app.put('/updatesitesettings', async (req, res) => {
     const { username, password, hostname, port, sslverify, id, refreshRate } = req.body;
@@ -2090,19 +2247,222 @@ app.delete('/deletetestids', async (req, res) => {
     //     }).catch(error => console.error(error, 'Error deleting many...'))
 });
 
+//~~~~~~Health Check Endpoints~~~~~~
+// Health check system class
+class HealthChecker {
+    static async checkDatabase() {
+        try {
+            await prisma.$queryRaw`SELECT 1`;
+            return { status: 'healthy', component: 'database', message: 'Database connection successful' };
+        } catch (error) {
+            return { status: 'unhealthy', component: 'database', error: error.message };
+        }
+    }
+    
+    static async checkUnifi() {
+        try {
+            const status = getUnifiConnectionStatus();
+            
+            if (status === 'connected' && unifi && typeof unifi.getSitesStats === 'function') {
+                const sites = await unifi.getSitesStats();
+                return { status: 'healthy', component: 'unifi', message: 'UniFi connection active and responding' };
+            } else if (status === 'offline') {
+                return { status: 'degraded', component: 'unifi', message: 'Running in offline mode - UniFi credentials not configured' };
+            } else if (status === 'failed') {
+                return { status: 'degraded', component: 'unifi', message: 'UniFi connection failed but application running in offline mode' };
+            } else {
+                return { status: 'degraded', component: 'unifi', message: 'UniFi connection status unknown' };
+            }
+        } catch (error) {
+            return { status: 'unhealthy', component: 'unifi', error: error.message };
+        }
+    }
+    
+    static async getOverallHealth() {
+        const checks = await Promise.all([
+            this.checkDatabase(),
+            this.checkUnifi()
+        ]);
+        
+        const hasUnhealthy = checks.some(check => check.status === 'unhealthy');
+        const hasDegraded = checks.some(check => check.status === 'degraded');
+        
+        let status = 'healthy';
+        if (hasUnhealthy) status = 'unhealthy';
+        else if (hasDegraded) status = 'degraded';
+        
+        return { 
+            status, 
+            checks, 
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            version: '2.2.0'
+        };
+    }
+}
+
+// Main health check endpoint
+app.get('/health', async (req, res) => {
+    try {
+        const health = await HealthChecker.getOverallHealth();
+        
+        const statusCode = health.status === 'healthy' ? 200 : 
+                          health.status === 'degraded' ? 200 : 503;
+        
+        res.status(statusCode).json(health);
+    } catch (error) {
+        console.error('Health check failed:', error);
+        res.status(503).json({
+            status: 'unhealthy',
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime()
+        });
+    }
+});
+
+// Readiness check (for container orchestration)
+app.get('/ready', async (req, res) => {
+    try {
+        const health = await HealthChecker.getOverallHealth();
+        // Only return ready if database is healthy (UniFi can be degraded)
+        const isReady = health.checks.every(check => 
+            check.component === 'unifi' || check.status === 'healthy'
+        );
+        
+        res.status(isReady ? 200 : 503).json({ 
+            ready: isReady,
+            status: health.status,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Readiness check failed:', error);
+        res.status(503).json({ 
+            ready: false, 
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Global error handling middleware (must be after all routes)
+app.use((error, req, res, next) => {
+    logger.error(`Unhandled route error: ${req.method} ${req.path}`, error, {
+        method: req.method,
+        path: req.path,
+        query: req.query,
+        body: Object.keys(req.body || {}).length > 0 ? '[REDACTED]' : undefined,
+        userAgent: req.get('User-Agent'),
+        ip: req.ip
+    });
+
+    if (!res.headersSent) {
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        res.status(500).json({
+            error: 'Internal server error',
+            message: isDevelopment ? error.message : 'Something went wrong on our end',
+            timestamp: new Date().toISOString(),
+            ...(isDevelopment && { stack: error.stack })
+        });
+    }
+});
+
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
+    logger.warn(`API endpoint not found: ${req.method} ${req.path}`, {
+        method: req.method,
+        path: req.path,
+        ip: req.ip
+    });
+    
+    res.status(404).json({
+        error: 'API endpoint not found',
+        path: req.path,
+        timestamp: new Date().toISOString()
+    });
+});
 
 //~~~~~~refresh redirect~~~~~~
 app.get('**', async (req, res) => {
-    res.sendFile(process.cwd().slice(0, -7) + '/dist/index.html')
+    try {
+        res.sendFile(process.cwd().slice(0, -7) + '/dist/index.html');
+    } catch (error) {
+        logger.error('Failed to serve index.html', error);
+        res.status(500).json({
+            error: 'Failed to load application',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
-const PORT = process.env.PORT || customPORT; // portSettings.js
-app.listen(PORT, () => {
-    console.log(`Server listening on ${PORT}....`)
-});
+// Enhanced server startup with error handling
+const PORT = process.env.PORT || customPORT;
 
-process.on('SIGINT', function () {
-    console.log('~SIGINT FIRED~');
-    schedule.gracefulShutdown()
-    .then(() => process.exit(0))
-});
+const startServer = () => {
+    return new Promise((resolve, reject) => {
+        const server = app.listen(PORT, (err) => {
+            if (err) {
+                logger.error('Failed to start server', err);
+                reject(err);
+                return;
+            }
+            
+            logger.info(`🚀 NUA Server started successfully on port ${PORT}`);
+            logger.info(`🌐 Application URL: http://localhost:${PORT}`);
+            logger.info(`📊 Health check: http://localhost:${PORT}/health`);
+            logger.info(`🔧 Ready check: http://localhost:${PORT}/ready`);
+            resolve(server);
+        });
+        
+        server.on('error', (error) => {
+            if (error.code === 'EADDRINUSE') {
+                logger.error(`Port ${PORT} is already in use`);
+                reject(new Error(`Port ${PORT} is already in use`));
+            } else {
+                logger.error('Server error', error);
+                reject(error);
+            }
+        });
+        
+        server.on('close', () => {
+            logger.info('Server closed');
+        });
+    });
+};
+
+// Enhanced graceful shutdown
+const gracefulShutdown = (signal) => {
+    logger.info(`🛑 Received ${signal}. Starting graceful shutdown...`);
+    
+    const shutdownTimeout = setTimeout(() => {
+        logger.error('⚠️ Graceful shutdown timeout. Forcing exit.');
+        process.exit(1);
+    }, 10000); // 10 second timeout
+    
+    Promise.all([
+        schedule.gracefulShutdown(),
+        prisma.$disconnect()
+    ])
+    .then(() => {
+        logger.info('✅ Graceful shutdown completed');
+        clearTimeout(shutdownTimeout);
+        process.exit(0);
+    })
+    .catch((error) => {
+        logger.error('❌ Error during graceful shutdown', error);
+        clearTimeout(shutdownTimeout);
+        process.exit(1);
+    });
+};
+
+// Setup signal handlers
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+// Handle server startup
+if (require.main === module) {
+    startServer().catch((error) => {
+        logger.error('💥 Failed to start server', error);
+        process.exit(1);
+    });
+}
