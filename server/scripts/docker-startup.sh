@@ -11,6 +11,11 @@ SERVER_LOGS="${BASE_LOC}/config/server_logs"
 HEALTH_CHECK_URL="http://localhost:4323/health"
 MAX_STARTUP_TIME=120  # seconds
 
+# Version and timing information
+STARTUP_TIMESTAMP="$(date +%s)"
+CURRENT_VERSION="${VERSION:-dev-$(date +'%Y%m%d%H%M%S')}"
+GIT_COMMIT="${GIT_COMMIT:-unknown}"
+
 cd "${BASE_LOC}"
 
 # Function for consistent logging
@@ -44,6 +49,21 @@ wait_for_condition() {
 }
 
 log "🚀 Starting NUA Application startup sequence..."
+
+# Show version information
+CURRENT_VERSION=$(date +'%Y%m%d%H%M%S')
+STARTUP_TIME=$(date '+%Y-%m-%d %H:%M:%S %Z')
+log "📋 NUA Application v2.2.0"
+log "🏷️ Version Tag: ${CURRENT_VERSION}"  
+log "🐳 Container Started: ${STARTUP_TIME}"
+
+# Try to get build info from environment (set by Docker build)
+if [ -n "${BUILD_DATE}" ]; then
+    log "� Built: ${BUILD_DATE}"
+fi
+if [ -n "${GIT_COMMIT}" ]; then
+    log "📝 Git Commit: ${GIT_COMMIT:0:8}"
+fi
 
 # Pre-startup system checks
 log "🔍 Running pre-startup system checks..."
@@ -243,8 +263,12 @@ done
 
 if [ "$app_ready" = true ]; then
     log "🎉 NUA Application startup completed successfully!"
-    log "🌐 Application should be available on port 4323"
-    log "📊 Health check endpoint: ${HEALTH_CHECK_URL}"
+    log "📋 Application: NUA v2.2.0"
+    log "🏷️ Version: ${CURRENT_VERSION}"
+    log "⏱️  Startup Duration: $(($(date +%s) - ${STARTUP_TIMESTAMP:-$(date +%s)})) seconds"
+    log "🌐 Application URL: http://localhost:4323"
+    log "📊 Health check: ${HEALTH_CHECK_URL}"
+    log "🔧 Ready endpoint: http://localhost:4323/ready"
     
     # Final process check and hand over control
     if kill -0 $APP_PID 2>/dev/null; then
