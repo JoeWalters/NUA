@@ -224,6 +224,30 @@ export default function SiteSettings()
             // if (error) throw error;
         }
     }
+    
+    const [debugStatus, setDebugStatus] = useState(null);
+    const [showDebugStatus, setShowDebugStatus] = useState(false);
+    
+    const handleDebugStatus = async () => {
+        try {
+            const response = await fetch('/debug-status');
+            if (response.ok) {
+                const status = await response.json();
+                setDebugStatus(status);
+                setShowDebugStatus(true);
+                console.log('Debug Status:', status);
+            } else {
+                console.error('Failed to fetch debug status');
+                setDebugStatus({ error: 'Failed to fetch status' });
+                setShowDebugStatus(true);
+            }
+        } catch (error) {
+            console.error('Debug status error:', error);
+            setDebugStatus({ error: error.message });
+            setShowDebugStatus(true);
+        }
+    }
+    
     const handleRange = e => {
 
         setRangeValue(e.target.value);
@@ -357,6 +381,12 @@ export default function SiteSettings()
                             >
                                 Test Connection
                             </div>
+                            <div 
+                                className="flex m-8 btn btn-outline btn-info"
+                                onClick={handleDebugStatus}
+                            >
+                                Debug Status
+                            </div>
                             <div className={`flex m-8 btn ${locked ? 'hidden' : 'block'}`}>
                                 <GoUnlock
                                     className={`w-8 h-8 hover:cursor-pointer `}
@@ -396,6 +426,59 @@ export default function SiteSettings()
                         </div>
                     </div> */}
             </div>
+            
+            {/* Debug Status Modal */}
+            {showDebugStatus && (
+                <div className="modal modal-open">
+                    <div className="modal-box">
+                        <h3 className="font-bold text-lg">System Debug Status</h3>
+                        <div className="py-4">
+                            {debugStatus ? (
+                                <div className="space-y-2">
+                                    <div className={`alert ${debugStatus.unifiConnected ? 'alert-success' : 'alert-warning'}`}>
+                                        <span>UniFi Connected: {debugStatus.unifiConnected ? '✅ Yes' : '❌ No'}</span>
+                                    </div>
+                                    <div className={`alert ${!debugStatus.initialSetup ? 'alert-success' : 'alert-warning'}`}>
+                                        <span>Setup Complete: {!debugStatus.initialSetup ? '✅ Yes' : '⚠️ No (Still in setup mode)'}</span>
+                                    </div>
+                                    <div className={`alert ${debugStatus.hasCredentials ? 'alert-success' : 'alert-error'}`}>
+                                        <span>Credentials Configured: {debugStatus.hasCredentials ? '✅ Yes' : '❌ No'}</span>
+                                    </div>
+                                    <div className="collapse collapse-arrow border border-base-300">
+                                        <input type="checkbox" />
+                                        <div className="collapse-title text-xl font-medium">
+                                            Credential Details
+                                        </div>
+                                        <div className="collapse-content">
+                                            <div className="text-sm space-y-1">
+                                                <p><strong>Hostname:</strong> {debugStatus.credentials?.hostname}</p>
+                                                <p><strong>Username:</strong> {debugStatus.credentials?.username}</p>
+                                                <p><strong>Password:</strong> {debugStatus.credentials?.password}</p>
+                                                <p><strong>Port:</strong> {debugStatus.credentials?.port}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {debugStatus.error && (
+                                        <div className="alert alert-error">
+                                            <span>Error: {debugStatus.error}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="loading loading-spinner loading-lg"></div>
+                            )}
+                        </div>
+                        <div className="modal-action">
+                            <button 
+                                className="btn" 
+                                onClick={() => setShowDebugStatus(false)}
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     )
 }

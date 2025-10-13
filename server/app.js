@@ -176,14 +176,16 @@ const init = async () => {
         
         const loginData = await fetchLoginInfo();
         
-        // Check if credentials are actually configured (not just empty)
-        if (loginData && loginData.hostname && loginData.username && loginData.password) {
+        // Check if credentials are actually configured (not just empty) and initial setup is complete
+        if (loginData && loginData.hostname && loginData.username && loginData.password && !loginData.initialSetup) {
             console.log('Attempting to connect to UniFi controller...');
             await logIntoUnifi(loginData?.hostname, loginData?.port, loginData?.sslverify, loginData?.username, loginData?.password);
             console.log('✅ Successfully connected to UniFi controller');
+        } else if (loginData && loginData.initialSetup) {
+            console.log('⚠️ Initial setup required. Please complete setup at /sitesettings');
+            unifi = null;
         } else {
             console.log('⚠️ UniFi credentials not configured. Please set them up at /sitesettings');
-            // Create a dummy unifi object for routes that expect it
             unifi = null;
         }
         
@@ -440,6 +442,8 @@ app.get('/getmacaddresses', async (req, res) => {
             }
         });
         const { initialSetup } = currentCredentials;
+        
+        console.log('🔍 /getmacaddresses - initialSetup:', initialSetup, 'unifi connected:', !!unifi);
 
         if (!initialSetup) {
             let macData = await prisma.device.findMany();
@@ -511,7 +515,24 @@ app.get('/getmacaddresses', async (req, res) => {
                 updateRecordsToActive(recordIds, updateData);
             }
         } else {
-            throw new Error('This is the initial setup, redirect.');
+            console.log('⚠️ Initial setup flag is true, checking if UniFi is actually connected...');
+            
+            // If UniFi is connected but initialSetup is still true, fix the flag
+            if (unifi) {
+                console.log('🔧 UniFi is connected but initialSetup is true - fixing database flag');
+                await prisma.credentials.update({ 
+                    where: { id: 1 }, 
+                    data: { initialSetup: false } 
+                });
+                
+                // Now proceed with normal device loading
+                let macData = await prisma.device.findMany();
+                const blockedUsers = await getBlockedUsers();
+                
+                res.json({ macData: macData, blockedUsers: blockedUsers });
+            } else {
+                throw new Error('This is the initial setup, redirect.');
+            }
         }
     } catch (error) {
         if (error) {
@@ -1214,13 +1235,32 @@ app.get('/testconnection', async (req, res) => {
             const testCredentials = await unifiTest.login(adminLogin.username, adminLogin.password);
             console.log("Test Credentials: ", testCredentials); // returns true, not login info
         if (testCredentials === true) {
-            const info = fetchLoginInfo();
-            info
-                .then(() => logIntoUnifi(loginData?.hostname, loginData?.port, loginData?.sslverify, loginData?.username, loginData?.password))
-                .then(() => console.log('.then() => unifi \t'))
-                .catch((error) => console.error(error))
-            const setInitialSetupFalse = await prisma.credentials.update({ where: { id: 1 }, data: { initialSetup: false } }); // setup complete
-            res.sendStatus(200);
+            console.log('🔧 Test connection successful, establishing global UniFi connection...');
+            
+            // The test already created a connection, so we can reuse the tested controller
+            // But let's be explicit and create a fresh connection for the global unifi variable
+            try {
+                const result = await logIntoUnifi(adminLogin.hostname, adminLogin.port, adminLogin.sslverify, adminLogin.username, adminLogin.password);
+                
+                if (result && result.validCredentials) {
+                    console.log('✅ Successfully established global UniFi connection');
+                    
+                    // Mark setup as complete
+                    const setInitialSetupFalse = await prisma.credentials.update({ where: { id: 1 }, data: { initialSetup: false } }); 
+                    console.log('✅ Initial setup completed - UniFi ready for use');
+                    
+                    res.sendStatus(200);
+                } else {
+                    console.error('❌ UniFi login failed despite successful test');
+                    res.status(500).json({ error: 'UniFi login failed' });
+                }
+            } catch (unifiError) {
+                console.error('❌ Failed to establish UniFi connection:', unifiError);
+                res.status(500).json({ error: 'Failed to establish UniFi connection', details: unifiError.message });
+            }
+        } else {
+            console.log('❌ Test credentials returned:', testCredentials);
+            res.status(401).json({ error: 'Invalid credentials' });
         }
 
         } catch (error) {
@@ -1236,6 +1276,108 @@ app.get('/testconnection', async (req, res) => {
         }
     // }
     // getAdminLoginInfo();
+});
+
+// Debug status endpoint
+app.get('/debug-status', async (req, res) => {
+    try {
+        const credentials = await prisma.credentials.findUnique({ where: { id: 1 }});
+        res.json({
+            unifiConnected: !!unifi,
+            initialSetup: credentials?.initialSetup,
+            hasCredentials: !!(credentials?.hostname && credentials?.username && credentials?.password),
+            credentials: {
+                hostname: credentials?.hostname || 'not set',
+                username: credentials?.username ? 'configured' : 'not set',
+                password: credentials?.password ? 'configured' : 'not set',
+                port: credentials?.port
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Reinitialize connection after credentials change
+app.post('/reinitialize-connection', async (req, res) => {
+    try {
+        console.log('🔄 Reinitializing UniFi connection...');
+        
+        const loginData = await prisma.credentials.findUnique({ where: { id: 1 }});
+        
+        if (!loginData) {
+            return res.status(400).json({ error: 'No credentials found' });
+        }
+        
+        // Check if credentials are configured and setup is complete
+        if (loginData.hostname && loginData.username && loginData.password && !loginData.initialSetup) {
+            console.log('🔧 Attempting to establish UniFi connection...');
+            
+            const result = await logIntoUnifi(loginData.hostname, loginData.port, loginData.sslverify, loginData.username, loginData.password);
+            
+            if (result && result.validCredentials) {
+                console.log('✅ UniFi connection reinitialized successfully');
+                res.json({ 
+                    message: 'UniFi connection reinitialized successfully', 
+                    connected: true,
+                    initialSetup: false
+                });
+            } else {
+                console.log('❌ UniFi connection failed');
+                res.status(500).json({ error: 'UniFi connection failed', connected: false });
+            }
+        } else if (loginData.initialSetup) {
+            res.status(400).json({ 
+                error: 'Initial setup not complete',
+                message: 'Please complete setup first',
+                initialSetup: true
+            });
+        } else {
+            res.status(400).json({ error: 'UniFi credentials not properly configured' });
+        }
+    } catch (error) {
+        console.error('❌ Reinitialize connection error:', error);
+        res.status(500).json({ error: error.message, connected: false });
+    }
+});
+
+// Manual UniFi connection endpoint for troubleshooting
+app.post('/connect-unifi', async (req, res) => {
+    try {
+        if (unifi) {
+            return res.json({ message: 'UniFi already connected', connected: true });
+        }
+
+        const loginData = await prisma.credentials.findUnique({ where: { id: 1 }});
+        
+        if (!loginData || !loginData.hostname || !loginData.username || !loginData.password) {
+            return res.status(400).json({ error: 'UniFi credentials not configured' });
+        }
+
+        console.log('🔧 Attempting manual UniFi connection...');
+        const result = await logIntoUnifi(loginData.hostname, loginData.port, loginData.sslverify, loginData.username, loginData.password);
+        
+        if (result && result.validCredentials) {
+            console.log('✅ Manual UniFi connection successful');
+            
+            // Also fix the initialSetup flag if needed
+            if (loginData.initialSetup) {
+                await prisma.credentials.update({ 
+                    where: { id: 1 }, 
+                    data: { initialSetup: false } 
+                });
+                console.log('🔧 Updated initialSetup flag to false');
+            }
+            
+            res.json({ message: 'UniFi connection established', connected: true });
+        } else {
+            console.log('❌ Manual UniFi connection failed');
+            res.status(500).json({ error: 'UniFi connection failed', connected: false });
+        }
+    } catch (error) {
+        console.error('❌ Manual UniFi connection error:', error);
+        res.status(500).json({ error: error.message, connected: false });
+    }
 });
 
 app.get('/getallblockeddevices', async (req, res) => {
