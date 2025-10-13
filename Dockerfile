@@ -1,9 +1,5 @@
 # Use the official Node.js image as the base image
-FROM node:18-alpine
-
-# Install system dependencies needed by our enhanced startup script
-# Include openssl for Prisma compatibility
-RUN apk add --no-cache curl bash openssl openssl-dev
+FROM node:18
 
 # Create app user for security
 RUN addgroup -g 1001 -S nodejs && \
