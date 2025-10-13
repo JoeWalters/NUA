@@ -163,21 +163,40 @@ const fetchLoginInfo = async () => {
             throw Error("Could NOT FETCH LOGIN DATA.");
         }
     } catch (error) {
-        if (error) {
-            console.error('getAdminLoginInfo error in fetchLoginInfo: ', error);
-            throw new Error('No credentials were found');
-        }
+        console.error('getAdminLoginInfo error in fetchLoginInfo: ', error);
+        throw new Error('No credentials were found');
     }
 }
 
 let unifi;
 const init = async () => {
     try {
+        // Ensure credentials record exists
+        await checkForCredentials();
+        
         const loginData = await fetchLoginInfo();
-        await logIntoUnifi(loginData?.hostname, loginData?.port, loginData?.sslverify, loginData?.username, loginData?.password);
+        
+        // Check if credentials are actually configured (not just empty)
+        if (loginData && loginData.hostname && loginData.username && loginData.password) {
+            console.log('Attempting to connect to UniFi controller...');
+            await logIntoUnifi(loginData?.hostname, loginData?.port, loginData?.sslverify, loginData?.username, loginData?.password);
+            console.log('✅ Successfully connected to UniFi controller');
+        } else {
+            console.log('⚠️ UniFi credentials not configured. Please set them up at /sitesettings');
+            // Create a dummy unifi object for routes that expect it
+            unifi = null;
+        }
+        
+        // Always initialize routes, even without UniFi connection
         ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction);
+        
     } catch (error) {
-        throw Error("Could not establish UNIFI INSTANCE.");
+        console.error('⚠️ Could not establish UniFi connection:', error.message);
+        console.log('🌐 Application will start without UniFi connection. Configure credentials at /sitesettings');
+        
+        // Set unifi to null and continue - app can still serve the web interface
+        unifi = null;
+        ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction);
     }
 }
 init();
@@ -189,14 +208,28 @@ init();
 //     .catch((error) => console.error(error))
 
 async function getBlockedUsers() {
-    const blockedUsers = await unifi.getBlockedUsers();
-    if (blockedUsers === undefined) {
+    if (!unifi) {
+        console.log('⚠️ UniFi not connected - returning empty blocked users list');
         return [];
-    } else {
-        return blockedUsers;
+    }
+    
+    try {
+        const blockedUsers = await unifi.getBlockedUsers();
+        if (blockedUsers === undefined) {
+            return [];
+        } else {
+            return blockedUsers;
+        }
+    } catch (error) {
+        console.error('Error getting blocked users:', error.message);
+        return [];
     }
 }
 async function blockMultiple(reqBodyArr) {
+    if (!unifi) {
+        throw new Error('UniFi controller not connected. Please configure credentials at /sitesettings');
+    }
+    
     for (const mac of reqBodyArr) {
         try {
             const result = await unifi.blockClient(mac);
@@ -211,6 +244,10 @@ async function blockMultiple(reqBodyArr) {
     }
 }
 async function unBlockMultiple(reqBodyArr) {
+    if (!unifi) {
+        throw new Error('UniFi controller not connected. Please configure credentials at /sitesettings');
+    }
+    
     for (const mac of reqBodyArr) {
         try {
             const result = await unifi.unblockClient(mac);
@@ -225,6 +262,10 @@ async function unBlockMultiple(reqBodyArr) {
     }
 }
 async function unblockSingle(reqBodyMac) {
+    if (!unifi) {
+        throw new Error('UniFi controller not connected. Please configure credentials at /sitesettings');
+    }
+    
     try {
         const result = await unifi.unblockClient(reqBodyMac);
         if (typeof result === 'undefined' || result.length <= 0) {
@@ -635,6 +676,15 @@ app.post('/getspecificdevice', async (req, res) => { // fetch individual device 
 
 app.put('/updatemacaddressstatus', async (req, res) => { // toggler
     try {
+        // Check if UniFi is connected
+        if (!unifi) {
+            return res.status(503).json({ 
+                error: 'UniFi controller not connected', 
+                message: 'Please configure UniFi credentials at /sitesettings',
+                success: false
+            });
+        }
+
         //bypass front end active for now
         const { id, macAddress, active, bonusTimeActive } = req.body;
         if (timeoutMap.get(id)) {
