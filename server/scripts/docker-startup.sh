@@ -20,7 +20,6 @@ cd "${BASE_LOC}"
 
 # Set OpenSSL environment for Prisma compatibility
 export OPENSSL_CONF=/etc/ssl/
-export PRISMA_CLI_BINARY_TARGETS="native"
 
 # Function for consistent logging
 log() {
@@ -151,9 +150,14 @@ if [ ! -f ./config/nodeunifi.db ]; then
         log "🔧 Running: npx prisma generate && npx prisma migrate deploy"
         
         # First generate Prisma client
-        if ! timeout 60 npx prisma generate --schema="$SCHEMA_PATH"; then
+        log "🔧 Generating Prisma client..."
+        if ! timeout 60 npx prisma generate --schema="$SCHEMA_PATH" 2>&1; then
             log "❌ Prisma client generation failed or timed out"
-            exit 1
+            log "🔍 Attempting Prisma generation without explicit schema path..."
+            if ! timeout 60 npx prisma generate 2>&1; then
+                log "❌ Prisma generation failed completely"
+                exit 1
+            fi
         fi
         log "✅ Prisma client generated successfully"
         
