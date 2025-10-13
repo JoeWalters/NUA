@@ -27,6 +27,14 @@ jobs:
       id: version
       run: echo "VERSION=$(date +'%Y%m%d%H%M%S')" >> $GITHUB_ENV
 
+    - name: Set Docker repository
+      id: repo
+      run: |
+        # Use GitHub repository owner/name (converts to lowercase for Docker Hub compatibility)
+        REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+        echo "DOCKER_REPO=${REPO_NAME}" >> $GITHUB_ENV
+        echo "Using Docker repository: ${REPO_NAME}"
+
     # DEBUG
     # - name: Output environment variables
     #   run: printenv
@@ -38,8 +46,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_REPO }}:latest
-          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}
+          ${{ env.DOCKER_REPO }}:latest
+          ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
 
     - name: Build and push the Docker image (other branches)
       if: github.ref_name != 'master'
@@ -48,8 +56,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_REPO }}:dev
-          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}
+          ${{ env.DOCKER_REPO }}:dev
+          ${{ env.DOCKER_REPO }}:${{ env.VERSION }}
 
     # - name: Output image version tag
     #   run: |
