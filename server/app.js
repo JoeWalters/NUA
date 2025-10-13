@@ -642,37 +642,78 @@ app.put('/updatemacaddressstatus', async (req, res) => { // toggler
             res.json({ msg: "Stop Bonus Time fired in updatemacaddressstatus"});
             return;
         }
-        // console.log('Login Data: ', loginData);
-        const blockedUsers = await unifi.getBlockedUsers();
 
-    ///////////////////////////////////// confirm user is blocked below////////////////
-        const filterBlockedUsers = blockedUsers.filter((device) => {
-            return device.mac === macAddress
-        });
-        let updateUser;
-        if (active) {
-            await unifi.blockClient(macAddress);
-        } else {
-            await unifi.unblockClient(macAddress);
-        }
-        updateUser = await prisma.device.update({
-            where: {
-                id,
-                macAddress
-            },
-            data: {
-                active: !active,
-                // bonusTimeActive: false // necessary 11/26/2024
+        let unifiSuccess = false;
+        let actualStatus = active;
+        let operationMessage = '';
+        
+        try {
+            if (active) {
+                // Device is currently active, so we want to block it
+                const result = await unifi.blockClient(macAddress);
+                unifiSuccess = result && (Array.isArray(result) ? result.length > 0 : result);
+                actualStatus = !unifiSuccess; // If blocked successfully, device becomes inactive
+                operationMessage = unifiSuccess ? 'blocked' : 'block failed';
+                console.log(`Block operation for ${macAddress}: ${unifiSuccess ? 'SUCCESS' : 'FAILED'}`, result);
+            } else {
+                // Device is currently blocked, so we want to unblock it
+                const result = await unifi.unblockClient(macAddress);
+                unifiSuccess = result && (Array.isArray(result) ? result.length > 0 : result);
+                actualStatus = unifiSuccess; // If unblocked successfully, device becomes active
+                operationMessage = unifiSuccess ? 'unblocked' : 'unblock failed';
+                console.log(`Unblock operation for ${macAddress}: ${unifiSuccess ? 'SUCCESS' : 'FAILED'}`, result);
             }
-        });
-        /////////////////////////////////////update to database here///////////////////////
+        } catch (unifiError) {
+            console.error('UniFi operation failed:', unifiError);
+            return res.status(500).json({ 
+                error: 'UniFi operation failed', 
+                details: unifiError.message,
+                success: false,
+                currentStatus: active
+            });
+        }
 
-
-    ////////////////////////////////////send back to front end ////////////////////////
-        res.json({ updatedUser: updateUser, blockedUsers: blockedUsers });
-        // const logoutData = await unifi.logout(); // getting an error when logging out after each request, perhaps too many requests in a short period of time?
+        // Only update database if UniFi operation succeeded
+        if (unifiSuccess) {
+            const updateUser = await prisma.device.update({
+                where: {
+                    id,
+                    macAddress
+                },
+                data: {
+                    active: actualStatus,
+                    // bonusTimeActive: false // necessary 11/26/2024
+                }
+            });
+            
+            // Get current blocked users for response consistency
+            const blockedUsers = await unifi.getBlockedUsers();
+            
+            res.json({ 
+                updatedUser: updateUser, 
+                blockedUsers: blockedUsers,
+                success: true,
+                message: `Device ${operationMessage} successfully`,
+                actualStatus: actualStatus
+            });
+        } else {
+            // UniFi operation failed - don't update database
+            console.error(`Failed to ${active ? 'block' : 'unblock'} device ${macAddress}`);
+            res.status(500).json({ 
+                error: `Failed to ${active ? 'block' : 'unblock'} device`,
+                success: false,
+                currentStatus: active,
+                message: `UniFi ${operationMessage}`
+            });
+        }
+        
     } catch (error) {
-        if (error) throw error;
+        console.error('Toggle operation failed:', error);
+        res.status(500).json({ 
+            error: 'Internal server error',
+            success: false,
+            details: error.message
+        });
     }
 });
 
