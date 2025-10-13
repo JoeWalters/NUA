@@ -5,7 +5,7 @@
 
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
 
-BASE_LOC="/usr/src/app/server/"
+BASE_LOC="/usr/src/app/server"
 SCHEMA_PATH="${BASE_LOC}/schema.prisma"
 SERVER_LOGS="${BASE_LOC}/config/server_logs"
 HEALTH_CHECK_URL="http://localhost:4323/health"
@@ -89,17 +89,19 @@ if command_exists df; then
     fi
 fi
 
-# Create server_logs folder if it doesn't exist
-log "📁 Ensuring server_logs directory exists..."
+# Ensure server_logs directory exists (should be created during build)
+log "📁 Checking server_logs directory..."
 if [ ! -d "${SERVER_LOGS}" ]; then
-    log "📁 Creating server_logs directory"
-    mkdir -p "$SERVER_LOGS" || {
-        log "❌ Failed to create server_logs directory"
-        exit 1
-    }
-    log "✅ server_logs directory created"
+    log "📁 Attempting to create server_logs directory"
+    if mkdir -p "$SERVER_LOGS" 2>/dev/null; then
+        log "✅ server_logs directory created"
+    else
+        log "⚠️ Could not create server_logs directory, but continuing (may already exist or have permission issues)"
+        # Try to create parent directory and continue
+        mkdir -p "${BASE_LOC}/config" 2>/dev/null || true
+    fi
 else
-    log "📁 server_logs directory already exists"
+    log "✅ server_logs directory already exists"
 fi
 
 # Database initialization

@@ -32,19 +32,18 @@ RUN npm prune --production
 WORKDIR /usr/src/app
 COPY . .
 
-# Make all script files executable and ensure proper permissions
-RUN chmod +x /usr/src/app/server/scripts/*.sh && \
-    chmod +x /usr/src/app/server/scripts/*.js
-
-# Create required directories with proper permissions
-RUN mkdir -p /usr/src/app/server/config/server_logs && \
-    chown -R nuaapp:nodejs /usr/src/app
-
-# Build the frontend application
+# Build the frontend application (do this before changing ownership)
 RUN npm run build
 
 # Remove dev dependencies after build to reduce image size
 RUN npm prune --production
+
+# Make all script files executable and set up proper permissions
+RUN chmod +x /usr/src/app/server/scripts/*.sh && \
+    chmod +x /usr/src/app/server/scripts/*.js && \
+    mkdir -p /usr/src/app/server/config/server_logs && \
+    mkdir -p /usr/src/app/server/config && \
+    chown -R nuaapp:nodejs /usr/src/app
 
 # Add health check using our new endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
