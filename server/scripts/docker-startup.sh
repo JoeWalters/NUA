@@ -107,15 +107,41 @@ else
 fi
 
 # Database initialization
+log "🗄️ Checking database..."
+log "Environment: ${NODE_ENV:-development}"
+log "Working directory: $(pwd)"
+log "Database path: ./config/nodeunifi.db"
+
+# Ensure config directory exists for database
+mkdir -p ./config
+
 if [ ! -f ./config/nodeunifi.db ]; then
     log "🗄️ Database not found. Initializing..."
-    if ! timeout 90 npm run db; then
-        log "❌ Database initialization failed or timed out"
+    
+    # Check if schema file exists
+    if [ ! -f schema.prisma ]; then
+        log "❌ schema.prisma not found in $(pwd)"
         exit 1
+    fi
+    
+    if [ "$NODE_ENV" = "production" ]; then
+        # Use deploy for production (no interactive prompts)
+        log "Using production database initialization (migrate deploy)"
+        if ! timeout 90 npm run db:deploy; then
+            log "❌ Database initialization failed or timed out"
+            exit 1
+        fi
+    else
+        # Use dev for development  
+        log "Using development database initialization (migrate dev)"
+        if ! timeout 90 npm run db; then
+            log "❌ Database initialization failed or timed out"
+            exit 1
+        fi
     fi
     log "✅ Database initialized successfully"
 else
-    log "🗄️ Database found, skipping initialization"
+    log "✅ Database found, skipping initialization"
 fi
 
 # Database migration with enhanced error handling
