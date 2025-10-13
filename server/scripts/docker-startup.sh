@@ -57,11 +57,8 @@ log "📋 NUA Application v2.2.0"
 log "🏷️ Version Tag: ${CURRENT_VERSION}"  
 log "🐳 Container Started: ${STARTUP_TIME}"
 
-# Try to get build info from environment (set by Docker build)
-if [ -n "${BUILD_DATE}" ]; then
-    log "� Built: ${BUILD_DATE}"
-fi
-if [ -n "${GIT_COMMIT}" ]; then
+# Show git commit if available
+if [ -n "${GIT_COMMIT:-}" ] && [ "${GIT_COMMIT}" != "unknown" ]; then
     log "📝 Git Commit: ${GIT_COMMIT:0:8}"
 fi
 
