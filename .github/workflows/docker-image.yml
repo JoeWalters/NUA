@@ -38,8 +38,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_REPO }}:latest
-          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}
+          ${{ secrets.DOCKERHUB_REPO }}:latest
+          ${{ secrets.DOCKERHUB_REPO }}:${{ env.VERSION }}
 
     - name: Build and push the Docker image (other branches)
       if: github.ref_name != 'master'
@@ -48,8 +48,8 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_REPO }}:dev-latest
-          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}
+          ${{ secrets.DOCKERHUB_REPO }}:dev-latest
+          ${{ secrets.DOCKERHUB_REPO }}:${{ env.VERSION }}
 
     # - name: Output image version tag
     #   run: |
