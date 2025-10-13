@@ -92,16 +92,18 @@ fi
 # Ensure server_logs directory exists (should be created during build)
 log "📁 Checking server_logs directory..."
 if [ ! -d "${SERVER_LOGS}" ]; then
-    log "📁 Attempting to create server_logs directory"
-    if mkdir -p "$SERVER_LOGS" 2>/dev/null; then
-        log "✅ server_logs directory created"
-    else
-        log "⚠️ Could not create server_logs directory, but continuing (may already exist or have permission issues)"
-        # Try to create parent directory and continue
-        mkdir -p "${BASE_LOC}/config" 2>/dev/null || true
-    fi
+    log "⚠️ server_logs directory missing, will attempt creation but application can continue without it"
+    # Try to create it, but don't fail if we can't
+    mkdir -p "$SERVER_LOGS" 2>/dev/null && log "✅ server_logs directory created" || log "📁 Using fallback logging (directory creation failed)"
 else
-    log "✅ server_logs directory already exists"
+    log "✅ server_logs directory exists"
+fi
+
+# Ensure the directory is writable by testing a write operation
+if [ -w "${SERVER_LOGS}" ] || [ -w "${BASE_LOC}/config" ]; then
+    log "✅ Logging directory is writable"
+else
+    log "⚠️ Logging directory not writable, logs may go to stdout only"
 fi
 
 # Database initialization

@@ -43,6 +43,8 @@ RUN chmod +x /usr/src/app/server/scripts/*.sh && \
     chmod +x /usr/src/app/server/scripts/*.js && \
     mkdir -p /usr/src/app/server/config/server_logs && \
     mkdir -p /usr/src/app/server/config && \
+    chmod 755 /usr/src/app/server/config && \
+    chmod 755 /usr/src/app/server/config/server_logs && \
     chown -R nuaapp:nodejs /usr/src/app
 
 # Add health check using our new endpoint
