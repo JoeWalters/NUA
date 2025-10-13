@@ -12,8 +12,8 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 COPY server/package*.json ./server/
 
-# Install root dependencies
-RUN npm ci --omit=dev
+# Install ALL dependencies first (needed for build)
+RUN npm ci
 
 # Change to server dir and install server dependencies  
 WORKDIR /usr/src/app/server
@@ -26,8 +26,11 @@ COPY . .
 # Make startup script executable
 RUN chmod +x /usr/src/app/server/scripts/docker-startup.sh
 
-# Build the frontend application
+# Build the frontend application (needs devDependencies like vite)
 RUN npm run build
+
+# Clean up devDependencies after build to reduce image size
+RUN npm prune --omit=dev
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /usr/src/app/server/config && \
