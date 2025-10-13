@@ -18,6 +18,10 @@ GIT_COMMIT="${GIT_COMMIT:-unknown}"
 
 cd "${BASE_LOC}"
 
+# Set OpenSSL environment for Prisma compatibility
+export OPENSSL_CONF=/etc/ssl/
+export PRISMA_CLI_BINARY_TARGETS="native"
+
 # Function for consistent logging
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') [STARTUP] $1"
@@ -144,14 +148,24 @@ if [ ! -f ./config/nodeunifi.db ]; then
     if [ "$NODE_ENV" = "production" ]; then
         # Use deploy for production (no interactive prompts)
         log "Using production database initialization (migrate deploy)"
-        if ! timeout 90 npm run db:deploy; then
-            log "❌ Database initialization failed or timed out"
+        log "🔧 Running: npx prisma generate && npx prisma migrate deploy"
+        
+        # First generate Prisma client
+        if ! timeout 60 npx prisma generate --schema="$SCHEMA_PATH"; then
+            log "❌ Prisma client generation failed or timed out"
+            exit 1
+        fi
+        log "✅ Prisma client generated successfully"
+        
+        # Then run migrations
+        if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
+            log "❌ Database migration failed or timed out"
             exit 1
         fi
     else
         # Use dev for development  
         log "Using development database initialization (migrate dev)"
-        if ! timeout 90 npm run db; then
+        if ! timeout 120 npm run db; then
             log "❌ Database initialization failed or timed out"
             exit 1
         fi

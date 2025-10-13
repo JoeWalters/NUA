@@ -2,7 +2,8 @@
 FROM node:18-alpine
 
 # Install system dependencies needed by our enhanced startup script
-RUN apk add --no-cache curl bash
+# Include openssl for Prisma compatibility
+RUN apk add --no-cache curl bash openssl openssl-dev
 
 # Create app user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -22,8 +23,11 @@ RUN npm ci
 WORKDIR /usr/src/app/server
 RUN npm ci
 
-# Generate Prisma client (needs to be done before prune)
-RUN npx prisma generate
+# Set OpenSSL environment variable for Prisma
+ENV OPENSSL_CONF=/etc/ssl/
+
+# Generate Prisma client with proper OpenSSL configuration
+RUN npx prisma generate --schema=./schema.prisma
 
 # Remove server dev dependencies
 RUN npm prune --production
