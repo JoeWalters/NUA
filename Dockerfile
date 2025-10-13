@@ -13,11 +13,11 @@ COPY package*.json ./
 COPY server/package*.json ./server/
 
 # Install root dependencies
-RUN npm install --only=production
+RUN npm ci --omit=dev
 
 # Change to server dir and install server dependencies  
 WORKDIR /usr/src/app/server
-RUN npm install --only=production
+RUN npm ci --omit=dev
 
 # Go back to root and copy the rest of the application
 WORKDIR /usr/src/app
