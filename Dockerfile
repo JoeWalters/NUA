@@ -1,5 +1,9 @@
 # Use the official Node.js image as the base image
-FROM node:18
+FROM node:18-alpine
+
+# Install system dependencies needed by our enhanced startup script
+# Include openssl for Prisma compatibility
+RUN apk add --no-cache curl bash openssl openssl-dev
 
 # Create app user for security
 RUN addgroup -g 1001 -S nodejs && \
@@ -19,18 +23,16 @@ RUN npm ci
 WORKDIR /usr/src/app/server
 RUN npm ci
 
+# Copy application code (needed for Prisma schema)
+WORKDIR /usr/src/app
+COPY . .
+
 # Set OpenSSL environment variable for Prisma
 ENV OPENSSL_CONF=/etc/ssl/
 
 # Generate Prisma client with proper OpenSSL configuration
+WORKDIR /usr/src/app/server
 RUN npx prisma generate --schema=./schema.prisma
-
-# Remove server dev dependencies
-RUN npm prune --production
-
-# Copy application code
-WORKDIR /usr/src/app
-COPY . .
 
 # Build the frontend application (do this before changing ownership)
 RUN npm run build
