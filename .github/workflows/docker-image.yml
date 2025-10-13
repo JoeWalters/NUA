@@ -2,9 +2,9 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "master", "dev" ]
+    branches: [ "*" ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ "Master" ]
 
 jobs:
   build:
@@ -47,7 +47,9 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ secrets.DOCKER_REPO }}:dev-${{ env.VERSION }}
+        tags: |
+          ${{ secrets.DOCKER_REPO }}:dev-latest
+          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}
 
     # - name: Output image version tag
     #   run: |
