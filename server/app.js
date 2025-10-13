@@ -391,6 +391,26 @@ function extractMacs(body) {
 
 
 
+// Health check endpoint for Docker
+app.get('/health', async (req, res) => {
+    try {
+        // Basic health check - verify database connection
+        await prisma.$queryRaw`SELECT 1`;
+        res.status(200).json({ 
+            status: 'healthy',
+            timestamp: new Date().toISOString(),
+            version: '2.2.0'
+        });
+    } catch (error) {
+        console.error('Health check failed:', error);
+        res.status(500).json({ 
+            status: 'unhealthy',
+            error: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 app.get('/getmacaddresses', async (req, res) => {
     try {
         const currentCredentials = await prisma.credentials.findUnique({
