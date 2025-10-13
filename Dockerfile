@@ -34,10 +34,13 @@ ENV OPENSSL_CONF=/etc/ssl/
 WORKDIR /usr/src/app/server
 RUN npx prisma generate --schema=./schema.prisma
 
-# Build the frontend application (do this before changing ownership)
+# Build the frontend application (switch to root directory for frontend build)
+WORKDIR /usr/src/app
 RUN npm run build
 
-# Remove dev dependencies after build to reduce image size
+# Remove dev dependencies after build to reduce image size (both frontend and backend)
+RUN npm prune --production
+WORKDIR /usr/src/app/server
 RUN npm prune --production
 
 # Make all script files executable and set up proper permissions
