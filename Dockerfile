@@ -15,12 +15,18 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 COPY server/package*.json ./server/
 
-# Install frontend dependencies
-RUN npm ci --only=production
+# Install ALL dependencies first (needed for building)
+RUN npm ci
 
-# Install server dependencies
+# Install server dependencies (all deps needed for Prisma generation)
 WORKDIR /usr/src/app/server
-RUN npm ci --only=production
+RUN npm ci
+
+# Generate Prisma client (needs to be done before prune)
+RUN npx prisma generate
+
+# Remove server dev dependencies
+RUN npm prune --production
 
 # Copy application code
 WORKDIR /usr/src/app
@@ -37,9 +43,8 @@ RUN mkdir -p /usr/src/app/server/config/server_logs && \
 # Build the frontend application
 RUN npm run build
 
-# Generate Prisma client (needed for runtime)
-WORKDIR /usr/src/app/server
-RUN npx prisma generate
+# Remove dev dependencies after build to reduce image size
+RUN npm prune --production
 
 # Add health check using our new endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
