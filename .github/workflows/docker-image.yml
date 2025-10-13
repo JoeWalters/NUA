@@ -31,14 +31,23 @@ jobs:
     # - name: Output environment variables
     #   run: printenv
 
-    - name: Build and push the Docker image
+    - name: Build and push the Docker image (master branch)
+      if: github.ref_name == 'master'
       uses: docker/build-push-action@v5
       with:
         context: .
         push: true
         tags: |
-          ${{ secrets.DOCKER_REPO }}:${{ github.ref_name == 'master' && 'latest' || 'dev' }}
-          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}-${{ github.ref_name == 'master' && 'latest' || 'dev' }}
+          ${{ secrets.DOCKER_REPO }}:latest
+          ${{ secrets.DOCKER_REPO }}:${{ env.VERSION }}
+
+    - name: Build and push the Docker image (other branches)
+      if: github.ref_name != 'master'
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: ${{ secrets.DOCKER_REPO }}:dev-${{ env.VERSION }}
 
     # - name: Output image version tag
     #   run: |
