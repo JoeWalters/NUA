@@ -207,17 +207,6 @@ export default function ModernDeviceGrid({
                 </div>
             </div>
 
-            {/* Add Device Button */}
-            <div className="text-center mb-6">
-                <button 
-                    className="btn btn-primary"
-                    onClick={() => document.getElementById('addDeviceModal').showModal()}
-                >
-                    <span className="text-lg">+</span>
-                    Add Device
-                </button>
-            </div>
-
             {/* Search and Filter Bar - Compact */}
             <div className="mb-6">
                 {!showFilters ? (
@@ -321,6 +310,17 @@ export default function ModernDeviceGrid({
                     ))}
                 </div>
             )}
+
+            {/* Add Device Button */}
+            <div className="text-center mt-6">
+                <button 
+                    className="btn btn-primary"
+                    onClick={() => document.getElementById('addDeviceModal').showModal()}
+                >
+                    <span className="text-lg">+</span>
+                    Add Device
+                </button>
+            </div>
 
             {/* Add Device Modal */}
             <dialog id="addDeviceModal" className="modal">
