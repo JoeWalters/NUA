@@ -3,6 +3,8 @@ import { HiMagnifyingGlass, HiAdjustmentsHorizontal } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import ModernDeviceCard from "./ModernDeviceCard";
 import ModernDeviceSkeleton from "../skeletons/ModernDeviceSkeleton";
+import useFetchAllDevices from "../all_devices/useFetchAllDevices";
+import AllDevicesCard from "../all_devices/AllDevicesCard";
 
 export default function ModernDeviceGrid({ 
     devices = [], 
@@ -22,7 +24,17 @@ export default function ModernDeviceGrid({
     const [showSearch, setShowSearch] = useState(false);
     const [filteredDevices, setFilteredDevices] = useState(devices);
     
+    // Add Device Modal state
+    const [allDevicesFilter, setAllDevicesFilter] = useState('all');
+    const [allDevicesSearch, setAllDevicesSearch] = useState('');
+    const [filteredAllDevices, setFilteredAllDevices] = useState([]);
+    
     const searchRef = useRef();
+    const allDevicesSearchRef = useRef();
+    const allDevicesSelectRef = useRef();
+    
+    // Fetch all devices for the modal
+    const { clientDevices, deviceList, loading: allDevicesLoading, reFetch } = useFetchAllDevices();
 
     // Filter devices based on search and status
     useEffect(() => {
@@ -76,6 +88,89 @@ export default function ModernDeviceGrid({
 
     const counts = getStatusCounts();
 
+    // AllDevices modal functions
+    const handleAddToDevices = async (deviceToAdd, submittedName) => {
+        if (submittedName !== "" && submittedName !== undefined) {
+            deviceToAdd.customName = submittedName;
+        }
+        try {
+            const response = await fetch('/addtodevicelist', {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(deviceToAdd)
+            });
+            if (response.ok) {
+                const returnData = await response.json();
+                console.log('Device added successfully', returnData);
+                reFetch();
+                handleRenderToggle(); // Refresh the main device list
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
+
+    const handleAllDevicesRefresh = () => {
+        if (allDevicesSelectRef.current) {
+            allDevicesSelectRef.current.selected = true;
+        }
+        if (allDevicesSearchRef.current) {
+            allDevicesSearchRef.current.value = '';
+        }
+        setAllDevicesFilter('all');
+        setAllDevicesSearch('');
+        reFetch();
+    };
+
+    const handleAllDevicesSearch = (e) => {
+        setAllDevicesSearch(e.target.value);
+    };
+
+    const handleAllDevicesFilterChange = (e) => {
+        setAllDevicesFilter(e.target.value);
+    };
+
+    // Filter all devices based on search and filter
+    useEffect(() => {
+        let filtered = [...clientDevices];
+        
+        // Search filter
+        if (allDevicesSearch) {
+            const term = allDevicesSearch.toLowerCase();
+            filtered = filtered.filter(device => 
+                device?.name?.toLowerCase().includes(term) ||
+                device?.oui?.toLowerCase().includes(term) ||
+                device?.mac?.toLowerCase().includes(term) ||
+                device?.hostname?.toLowerCase().includes(term)
+            );
+        }
+        
+        // Status filter
+        switch (allDevicesFilter) {
+            case 'all':
+                break;
+            case 'Blocked Devices':
+                filtered = filtered.filter(device => device.blocked === true);
+                break;
+            case 'Offline Devices':
+                filtered = filtered.filter(device => !device.is_online);
+                break;
+            case 'Online Devices':
+                filtered = filtered.filter(device => device.is_online);
+                break;
+            case 'Not on Device List':
+                filtered = filtered.filter(device => !device.onList);
+                break;
+            default:
+                break;
+        }
+        
+        setFilteredAllDevices(filtered);
+    }, [clientDevices, allDevicesSearch, allDevicesFilter]);
+
     if (loading) {
         return <ModernDeviceSkeleton count={6} />;
     }
@@ -110,6 +205,17 @@ export default function ModernDeviceGrid({
                     <div className="text-2xl font-bold text-blue-600">{counts.bonus}</div>
                     <div className="text-sm text-gray-500 dark:text-gray-400">Bonus Time</div>
                 </div>
+            </div>
+
+            {/* Add Device Button */}
+            <div className="text-center mb-6">
+                <button 
+                    className="btn btn-primary"
+                    onClick={() => document.getElementById('addDeviceModal').showModal()}
+                >
+                    <span className="text-lg">+</span>
+                    Add Device
+                </button>
             </div>
 
             {/* Search and Filter Bar */}
@@ -210,6 +316,84 @@ export default function ModernDeviceGrid({
                     ))}
                 </div>
             )}
+
+            {/* Add Device Modal */}
+            <dialog id="addDeviceModal" className="modal">
+                <div className="modal-box w-11/12 max-w-5xl">
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-lg">Add Device to Management</h3>
+                        <form method="dialog">
+                            <button className="btn btn-sm btn-circle btn-ghost">✕</button>
+                        </form>
+                    </div>
+                    
+                    {/* Search and Filter Bar for All Devices */}
+                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                        <div className="flex-1">
+                            <input
+                                ref={allDevicesSearchRef}
+                                type="text"
+                                placeholder="Search by name, MAC, hostname, or OUI..."
+                                className="input input-bordered w-full"
+                                onChange={handleAllDevicesSearch}
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <select 
+                                ref={allDevicesSelectRef}
+                                className="select select-bordered w-full sm:w-auto"
+                                onChange={handleAllDevicesFilterChange}
+                                value={allDevicesFilter}
+                            >
+                                <option value="all">All Devices</option>
+                                <option value="Not on Device List">Not on Device List</option>
+                                <option value="Online Devices">Online Devices</option>
+                                <option value="Offline Devices">Offline Devices</option>
+                                <option value="Blocked Devices">Blocked Devices</option>
+                            </select>
+                            <button 
+                                className="btn btn-outline"
+                                onClick={handleAllDevicesRefresh}
+                            >
+                                <IoMdRefresh className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* All Devices Grid */}
+                    <div className="max-h-96 overflow-y-auto">
+                        {allDevicesLoading ? (
+                            <div className="flex justify-center py-8">
+                                <span className="loading loading-spinner loading-md"></span>
+                            </div>
+                        ) : filteredAllDevices.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                                <p>No devices found matching your criteria.</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {filteredAllDevices.map((device, index) => (
+                                    <AllDevicesCard
+                                        key={device.mac || index}
+                                        props={device}
+                                        length={filteredAllDevices.length}
+                                        handleAddToDevices={handleAddToDevices}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="modal-action">
+                        <form method="dialog">
+                            <button className="btn">Close</button>
+                        </form>
+                    </div>
+                </div>
+                <form method="dialog" className="modal-backdrop">
+                    <button>close</button>
+                </form>
+            </dialog>
         </div>
     );
 }
