@@ -218,21 +218,25 @@ export default function ModernDeviceGrid({
                 </button>
             </div>
 
-            {/* Search and Filter Bar */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
-                <div className="flex flex-col sm:flex-row gap-4 items-center">
-                    {/* Search Input (collapses to icon) */}
-                    <div className="flex-1 relative">
-                        {!showSearch ? (
-                            <button
-                                className="btn btn-ghost btn-square"
-                                onClick={() => { setShowSearch(true); setTimeout(() => searchRef.current?.focus(), 50); }}
-                                title="Search"
-                            >
-                                <HiMagnifyingGlass className="w-5 h-5" />
-                            </button>
-                        ) : (
-                            <>
+            {/* Search and Filter Bar - Compact */}
+            <div className="mb-6">
+                {!showFilters ? (
+                    <div className="text-center">
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={() => setShowFilters(true)}
+                            title="Show search and filters"
+                        >
+                            <HiMagnifyingGlass className="w-4 h-4 mr-2" />
+                            <HiAdjustmentsHorizontal className="w-4 h-4 mr-2" />
+                            Search & Filter
+                        </button>
+                    </div>
+                ) : (
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                        <div className="flex flex-col sm:flex-row gap-4 items-center">
+                            {/* Search Input */}
+                            <div className="flex-1 relative">
                                 <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                                 <input
                                     ref={searchRef}
@@ -242,46 +246,47 @@ export default function ModernDeviceGrid({
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
+                            </div>
+                            
+                            {/* Filter Controls */}
+                            <div className="flex items-center gap-2">
+                                <select
+                                    className="select select-bordered min-w-[120px]"
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                >
+                                    <option value="all">All Devices</option>
+                                    <option value="allowed">Allowed</option>
+                                    <option value="blocked">Blocked</option>
+                                    <option value="bonus">Bonus Time</option>
+                                </select>
+                                
                                 <button
-                                    className="btn btn-ghost btn-square absolute right-1 top-1/2 transform -translate-y-1/2"
-                                    onClick={() => { setShowSearch(false); setSearchTerm(''); }}
-                                    title="Close search"
+                                    onClick={handleRefresh}
+                                    className="btn btn-ghost btn-square"
+                                    title="Refresh"
+                                >
+                                    <IoMdRefresh className="w-5 h-5" />
+                                </button>
+
+                                <button
+                                    onClick={() => { setShowFilters(false); setSearchTerm(''); setStatusFilter('all'); }}
+                                    className="btn btn-ghost btn-square"
+                                    title="Hide search and filters"
                                 >
                                     ✕
                                 </button>
-                            </>
-                        )}
-                    </div>
-                    
-                    {/* Filter Controls */}
-                    <div className="flex items-center gap-2">
-                        <select
-                            className="select select-bordered min-w-[120px]"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">All Devices</option>
-                            <option value="allowed">Allowed</option>
-                            <option value="blocked">Blocked</option>
-                            <option value="bonus">Bonus Time</option>
-                        </select>
-                        
-                        <button
-                            onClick={handleRefresh}
-                            className="btn btn-ghost btn-square"
-                            title="Refresh"
-                        >
-                            <IoMdRefresh className="w-5 h-5" />
-                        </button>
-                    </div>
-                </div>
+                            </div>
+                        </div>
 
-                {/* Device Count Display */}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                        Showing {filteredDevices.length} of {devices.length} devices
+                        {/* Device Count Display */}
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                                Showing {filteredDevices.length} of {devices.length} devices
+                            </div>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Device Grid */}
