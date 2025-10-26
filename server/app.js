@@ -2873,11 +2873,11 @@ app.post('/api/device-groups/:id/schedules', async (req, res) => {
             
             // Create cron job
             const jobName = `group_${groupId}_${Date.now()}`;
-            const job = schedule.scheduleJob(dateTime, async () => {
+            const job = schedule.scheduleJob(jobName, dateTime, async () => {
                 await executeGroupSchedule(groupId, blockAllow, unifi, prisma);
             });
             
-            scheduleData.jobName = job.name;
+            scheduleData.jobName = jobName;
         } else {
             // Recurring schedule
             const daysString = modifiedDaysOfTheWeek ? modifiedDaysOfTheWeek.join('') : '0123456';
@@ -2886,11 +2886,11 @@ app.post('/api/device-groups/:id/schedules', async (req, res) => {
             // Create cron job for recurring schedule
             const jobName = `group_${groupId}_${Date.now()}`;
             const cronPattern = createCronPattern(hour, minute, ampm, modifiedDaysOfTheWeek);
-            const job = schedule.scheduleJob(cronPattern, async () => {
+            const job = schedule.scheduleJob(jobName, cronPattern, async () => {
                 await executeGroupSchedule(groupId, blockAllow, unifi, prisma);
             });
             
-            scheduleData.jobName = job.name;
+            scheduleData.jobName = jobName;
         }
 
         // Save to database
@@ -2924,8 +2924,11 @@ app.delete('/api/device-groups/:groupId/schedules/:scheduleId', async (req, res)
         }
 
         // Cancel the cron job if it exists
-        if (schedule.jobName && jobFunction.exists(schedule.jobName)) {
-            jobFunction.cancel(schedule.jobName);
+        if (schedule.jobName) {
+            const existingJob = schedule.scheduledJobs[schedule.jobName];
+            if (existingJob) {
+                existingJob.cancel();
+            }
         }
 
         // Delete from database
@@ -2958,42 +2961,51 @@ app.put('/api/device-groups/:groupId/schedules/:scheduleId/toggle', async (req, 
             return res.status(404).json({ error: 'Schedule not found' });
         }
 
-        if (schedule.oneTime) {
-            await updateOneTimeSchedule(
-                { 
-                    id: scheduleId, 
-                    deviceGroupId: groupId, 
-                    jobName: schedule.jobName, 
-                    date: schedule.date, 
-                    oneTime: schedule.oneTime, 
-                    ampm: schedule.ampm, 
-                    hour: schedule.hour, 
-                    minute: schedule.minute, 
-                    toggleSched 
-                },
-                unifi,
-                prisma,
-                jobFunction,
-                schedule
-            );
-        } else {
-            await updateRecurringSchedule(
-                { 
-                    id: scheduleId, 
-                    deviceGroupId: groupId, 
-                    jobName: schedule.jobName, 
-                    oneTime: schedule.oneTime, 
-                    ampm: schedule.ampm, 
-                    hour: schedule.hour, 
-                    minute: schedule.minute, 
-                    days: schedule.days, 
-                    toggleSched 
-                },
-                unifi,
-                prisma,
-                jobFunction,
-                schedule
-            );
+        // Handle group schedule toggling
+        if (schedule.jobName) {
+            // Cancel existing job using node-schedule
+            const existingJob = schedule.scheduledJobs[schedule.jobName];
+            if (existingJob) {
+                existingJob.cancel();
+            }
+        }
+
+        // Update the database record
+        await prisma.easySchedule.update({
+            where: { id: scheduleId },
+            data: { toggleSched }
+        });
+
+        // If enabling the schedule, recreate the job
+        if (toggleSched) {
+            if (schedule.oneTime) {
+                const { year, month, day } = dateFromDateString(schedule.date);
+                const dateTime = new Date(year, month-1, day, schedule.hour, schedule.minute, 0);
+                
+                const jobName = `group_${groupId}_${Date.now()}`;
+                const job = schedule.scheduleJob(jobName, dateTime, async () => {
+                    await executeGroupSchedule(groupId, schedule.blockAllow, unifi, prisma);
+                });
+                
+                // Update job name in database
+                await prisma.easySchedule.update({
+                    where: { id: scheduleId },
+                    data: { jobName }
+                });
+            } else {
+                const cronPattern = createCronPattern(schedule.hour, schedule.minute, schedule.ampm, schedule.days ? schedule.days.split('').map(d => parseInt(d)) : []);
+                
+                const jobName = `group_${groupId}_${Date.now()}`;
+                const job = schedule.scheduleJob(jobName, cronPattern, async () => {
+                    await executeGroupSchedule(groupId, schedule.blockAllow, unifi, prisma);
+                });
+                
+                // Update job name in database
+                await prisma.easySchedule.update({
+                    where: { id: scheduleId },
+                    data: { jobName }
+                });
+            }
         }
 
         res.json({ success: true });
