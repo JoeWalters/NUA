@@ -2912,20 +2912,20 @@ app.delete('/api/device-groups/:groupId/schedules/:scheduleId', async (req, res)
         const groupId = parseInt(req.params.groupId);
 
         // Find and delete the schedule
-        const schedule = await prisma.easySchedule.findFirst({
+        const scheduleRecord = await prisma.easySchedule.findFirst({
             where: { 
                 id: scheduleId,
                 deviceGroupId: groupId 
             }
         });
 
-        if (!schedule) {
+        if (!scheduleRecord) {
             return res.status(404).json({ error: 'Schedule not found' });
         }
 
         // Cancel the cron job if it exists
-        if (schedule.jobName) {
-            const existingJob = schedule.scheduledJobs[schedule.jobName];
+        if (scheduleRecord.jobName) {
+            const existingJob = schedule.scheduledJobs[scheduleRecord.jobName];
             if (existingJob) {
                 existingJob.cancel();
             }
