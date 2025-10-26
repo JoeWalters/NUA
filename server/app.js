@@ -533,7 +533,11 @@ app.get('/getmacaddresses', async (req, res) => {
         console.log('🔍 /getmacaddresses - initialSetup:', initialSetup, 'unifi connected:', !!unifi);
 
         if (!initialSetup) {
-            let macData = await prisma.device.findMany();
+            let macData = await prisma.device.findMany({
+                include: {
+                    deviceGroup: true
+                }
+            });
             // let getRefreshTimer = await prisma.credentials.findUnique({
             //     where: {
             //         id: 1
@@ -1523,7 +1527,11 @@ app.get('/getalldevices', async (req, res) => {
         // const getAccessDevices = await unifi.getAccessDevices();
         const getClientDevices = await unifi.getAllUsers();
         // const getClientDevices = await unifi.getClientDevices();
-        const getDeviceList = await prisma.device.findMany();
+        const getDeviceList = await prisma.device.findMany({
+            include: {
+                deviceGroup: true
+            }
+        });
         // console.log(getClientDevices);
         res.json({ getClientDevices: getClientDevices, getDeviceList: getDeviceList })
         // res.sendStatus(200)
@@ -1534,10 +1542,186 @@ app.get('/getalldevices', async (req, res) => {
 
 app.get('/getcurrentdevices', async (req, res) => {
     try {
-        const getDeviceList = await prisma.device.findMany();
+        const getDeviceList = await prisma.device.findMany({
+            include: {
+                deviceGroup: true
+            }
+        });
         res.json({ getDeviceList: getDeviceList });
     } catch (error) {
         console.error(error);
+    }
+});
+
+//~~~~~~~device groups~~~~~~~~
+app.get('/devicegroups', async (req, res) => {
+    try {
+        const deviceGroups = await prisma.deviceGroup.findMany({
+            include: {
+                devices: true
+            }
+        });
+        res.json({ deviceGroups });
+    } catch (error) {
+        console.error('Error fetching device groups:', error);
+        res.status(500).json({ error: 'Failed to fetch device groups' });
+    }
+});
+
+app.post('/devicegroups', async (req, res) => {
+    try {
+        const { name, description, color, icon } = req.body;
+        
+        const deviceGroup = await prisma.deviceGroup.create({
+            data: {
+                name,
+                description,
+                color: color || '#3B82F6',
+                icon: icon || '👤'
+            },
+            include: {
+                devices: true
+            }
+        });
+        
+        res.status(201).json({ deviceGroup });
+    } catch (error) {
+        console.error('Error creating device group:', error);
+        res.status(500).json({ error: 'Failed to create device group' });
+    }
+});
+
+app.put('/devicegroups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, color, icon, active } = req.body;
+        
+        const deviceGroup = await prisma.deviceGroup.update({
+            where: { id: parseInt(id) },
+            data: {
+                name,
+                description,
+                color,
+                icon,
+                active
+            },
+            include: {
+                devices: true
+            }
+        });
+        
+        res.json({ deviceGroup });
+    } catch (error) {
+        console.error('Error updating device group:', error);
+        res.status(500).json({ error: 'Failed to update device group' });
+    }
+});
+
+app.delete('/devicegroups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // First, remove group association from devices
+        await prisma.device.updateMany({
+            where: { deviceGroupId: parseInt(id) },
+            data: { deviceGroupId: null }
+        });
+        
+        // Then delete the group
+        await prisma.deviceGroup.delete({
+            where: { id: parseInt(id) }
+        });
+        
+        res.json({ message: 'Device group deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting device group:', error);
+        res.status(500).json({ error: 'Failed to delete device group' });
+    }
+});
+
+app.put('/devices/:id/group', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { deviceGroupId } = req.body;
+        
+        const device = await prisma.device.update({
+            where: { id: parseInt(id) },
+            data: { 
+                deviceGroupId: deviceGroupId ? parseInt(deviceGroupId) : null 
+            },
+            include: {
+                deviceGroup: true
+            }
+        });
+        
+        res.json({ device });
+    } catch (error) {
+        console.error('Error updating device group assignment:', error);
+        res.status(500).json({ error: 'Failed to update device group assignment' });
+    }
+});
+
+app.post('/devicegroups/:id/toggle', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { active } = req.body; // true to allow all, false to block all
+        
+        // Check if UniFi is connected
+        if (!unifi) {
+            return res.status(503).json({ 
+                error: 'UniFi controller not connected', 
+                message: 'Please configure UniFi credentials at /sitesettings',
+                success: false
+            });
+        }
+        
+        // Get all devices in the group
+        const deviceGroup = await prisma.deviceGroup.findUnique({
+            where: { id: parseInt(id) },
+            include: { devices: true }
+        });
+        
+        if (!deviceGroup) {
+            return res.status(404).json({ error: 'Device group not found' });
+        }
+        
+        const results = [];
+        const errors = [];
+        
+        // Toggle each device in the group
+        for (const device of deviceGroup.devices) {
+            try {
+                if (active) {
+                    await unblockSingle(device.macAddress);
+                } else {
+                    await blockSingle(device.macAddress);
+                }
+                
+                // Update device status in database
+                await prisma.device.update({
+                    where: { id: device.id },
+                    data: { 
+                        active: active,
+                        bonusTimeActive: false // Reset bonus time when toggling group
+                    }
+                });
+                
+                results.push({ deviceId: device.id, success: true });
+            } catch (error) {
+                console.error(`Error toggling device ${device.id}:`, error);
+                errors.push({ deviceId: device.id, error: error.message });
+            }
+        }
+        
+        res.json({ 
+            success: errors.length === 0,
+            results,
+            errors,
+            message: `${active ? 'Allowed' : 'Blocked'} ${results.length} devices in group "${deviceGroup.name}"`
+        });
+    } catch (error) {
+        console.error('Error toggling device group:', error);
+        res.status(500).json({ error: 'Failed to toggle device group' });
     }
 });
 

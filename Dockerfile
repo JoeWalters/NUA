@@ -48,11 +48,15 @@ RUN npm install --save-dev prisma
 # Generate Prisma client to ensure it's available
 RUN npx prisma generate --schema=./schema.prisma
 
+# Set default environment variables for auto-migration
+ENV AUTO_MIGRATE=false
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+
 # Go back to root
 WORKDIR /usr/src/app
 
 # Note: We keep Prisma CLI available for runtime migrations
-# This is essential for automatic schema deployment in Docker
+# This enables both manual and automatic schema deployment in Docker
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /usr/src/app/server/config && \
