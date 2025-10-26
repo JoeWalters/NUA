@@ -15,12 +15,7 @@ COPY server/package*.json ./server/
 # Install root dependencies (including devDependencies for build)
 RUN npm ci
 
-# Install server dependencies (production only)
-WORKDIR /usr/src/app/server
-RUN npm ci --omit=dev
-
 # Go back to root and copy the rest of the application
-WORKDIR /usr/src/app
 COPY . .
 
 # Make startup script executable
@@ -29,7 +24,12 @@ RUN chmod +x /usr/src/app/server/scripts/docker-startup.sh
 # Build the frontend application (Vite should now be available)
 RUN npm run build
 
-# Clean up devDependencies after build to reduce image size
+# Install server dependencies (production only)
+WORKDIR /usr/src/app/server
+RUN npm ci --omit=dev
+
+# Go back to root to clean up devDependencies after build to reduce image size
+WORKDIR /usr/src/app
 RUN npm prune --omit=dev
 
 # Create necessary directories with proper permissions
