@@ -121,7 +121,7 @@ export default function ModernDeviceCard({
                             readOnly
                         />
                         <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {device?.active ? 'Allow' : 'Block'}
+                            {device?.active ? 'Block' : 'Allow'}
                         </span>
                     </div>
 

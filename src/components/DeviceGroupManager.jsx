@@ -479,7 +479,12 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                 }}
                                             />
                                             <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                {getGroupBlockStatus(group.id) ? 'Some Blocked' : 'All Active'}
+                                                {getDeviceCount(group.id) === 0 
+                                                    ? 'No Devices' 
+                                                    : getGroupBlockStatus(group.id) 
+                                                        ? 'Allow' 
+                                                        : 'Block'
+                                                }
                                             </span>
                                         </div>
 
