@@ -27,6 +27,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         daysOfWeek: [1, 2, 3, 4, 5] // Monday to Friday by default
     });
     const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState(new Set());
 
     const groupModalRef = useRef();
     const assignModalRef = useRef();
@@ -300,6 +301,18 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         return selectedDays.join(', ');
     };
 
+    const toggleGroupExpansion = (groupId) => {
+        setExpandedGroups(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(groupId)) {
+                newSet.delete(groupId);
+            } else {
+                newSet.add(groupId);
+            }
+            return newSet;
+        });
+    };
+
     const getDeviceCount = (groupId) => {
         return devices?.filter(device => device.deviceGroupId === groupId)?.length || 0;
     };
@@ -537,54 +550,14 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                             </div>
                                         </div>
                                         
-                                        <div className="dropdown dropdown-end">
-                                            <label tabIndex={0} className="btn btn-ghost btn-xs">
-                                                <span className="text-lg">⋯</span>
-                                            </label>
-                                            <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                                                <li key={`edit-${group.id}`}>
-                                                    <button onClick={() => handleEditGroup(group)}>
-                                                        <span>✏️</span> Edit Group
-                                                    </button>
-                                                </li>
-                                                <li key={`manage-${group.id}`}>
-                                                    <button onClick={() => handleAssignDevices(group)}>
-                                                        <span>+</span> Add Devices
-                                                    </button>
-                                                </li>
-                                                <li key={`schedule-${group.id}`}>
-                                                    <button onClick={() => handleManageSchedules(group)}>
-                                                        <span>⏰</span> Manage Schedules
-                                                    </button>
-                                                </li>
-                                                <div key={`divider1-${group.id}`} className="divider my-1"></div>
-                                                <li key={`block-${group.id}`}>
-                                                    <button 
-                                                        onClick={() => handleGroupAction(group.id, 'block')}
-                                                        className="text-error"
-                                                    >
-                                                        <span>🚫</span> Block All
-                                                    </button>
-                                                </li>
-                                                <li key={`unblock-${group.id}`}>
-                                                    <button 
-                                                        onClick={() => handleGroupAction(group.id, 'unblock')}
-                                                        className="text-success"
-                                                    >
-                                                        <span>✅</span> Unblock All
-                                                    </button>
-                                                </li>
-                                                <div key={`divider2-${group.id}`} className="divider my-1"></div>
-                                                <li key={`delete-${group.id}`}>
-                                                    <button 
-                                                        onClick={() => handleDeleteGroup(group.id)}
-                                                        className="text-error"
-                                                    >
-                                                        <span>🗑️</span> Delete Group
-                                                    </button>
-                                                </li>
-                                            </ul>
-                                        </div>
+                                        {/* More/Less Button (replaces dropdown) */}
+                                        <button
+                                            className="btn btn-ghost btn-xs"
+                                            onClick={() => toggleGroupExpansion(group.id)}
+                                            title={expandedGroups.has(group.id) ? "Show Less" : "Show More"}
+                                        >
+                                            {expandedGroups.has(group.id) ? 'Less' : 'More'}
+                                        </button>
                                     </div>
                                     
                                     {/* Quick Actions Row */}
@@ -628,6 +601,92 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Expanded Content */}
+                                {expandedGroups.has(group.id) && (
+                                    <div className="px-6 pb-6 pt-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                                        {/* Group Details */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
+                                            <div>
+                                                <span className="text-gray-500 dark:text-gray-400">Description:</span>
+                                                <p className="font-medium text-gray-900 dark:text-white mt-1 break-words">
+                                                    {group.description || 'No description set'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-500 dark:text-gray-400">Devices:</span>
+                                                <p className="font-medium text-gray-900 dark:text-white mt-1">
+                                                    {getDeviceCount(group.id)} device{getDeviceCount(group.id) !== 1 ? 's' : ''}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Buttons Grid */}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                            {/* Management Actions */}
+                                            <div className="space-y-2">
+                                                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Management</h4>
+                                                <button 
+                                                    className="btn btn-outline btn-sm w-full justify-start"
+                                                    onClick={() => handleEditGroup(group)}
+                                                >
+                                                    <span>✏️</span> Edit Group
+                                                </button>
+                                                <button 
+                                                    className="btn btn-outline btn-sm w-full justify-start"
+                                                    onClick={() => handleAssignDevices(group)}
+                                                >
+                                                    <span>+</span> Add Devices
+                                                </button>
+                                                <button 
+                                                    className="btn btn-outline btn-sm w-full justify-start"
+                                                    onClick={() => handleManageSchedules(group)}
+                                                >
+                                                    <span>⏰</span> Manage Schedules
+                                                </button>
+                                            </div>
+
+                                            {/* Control Actions */}
+                                            <div className="space-y-2">
+                                                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Control</h4>
+                                                <button 
+                                                    className="btn btn-success btn-sm w-full justify-start"
+                                                    onClick={() => handleGroupAction(group.id, 'unblock')}
+                                                    disabled={getDeviceCount(group.id) === 0}
+                                                >
+                                                    <span>✅</span> Unblock All
+                                                </button>
+                                                <button 
+                                                    className="btn btn-error btn-sm w-full justify-start"
+                                                    onClick={() => handleGroupAction(group.id, 'block')}
+                                                    disabled={getDeviceCount(group.id) === 0}
+                                                >
+                                                    <span>🚫</span> Block All
+                                                </button>
+                                                <button 
+                                                    className="btn btn-error btn-outline btn-sm w-full justify-start"
+                                                    onClick={() => handleDeleteGroup(group.id)}
+                                                >
+                                                    <span>🗑️</span> Delete Group
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Quick Stats */}
+                                        {getDeviceCount(group.id) > 0 && (
+                                            <div className="bg-base-100 rounded-lg p-3">
+                                                <div className="flex items-center justify-between text-sm">
+                                                    <span className="text-gray-500 dark:text-gray-400">Group Status:</span>
+                                                    <span className={`font-medium ${
+                                                        getGroupBlockStatus(group.id) ? 'text-red-600' : 'text-green-600'
+                                                    }`}>
+                                                        {getGroupBlockStatus(group.id) ? 'Some devices blocked' : 'All devices active'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         ))}
                         </div>
