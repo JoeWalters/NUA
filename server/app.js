@@ -2775,6 +2775,237 @@ app.post('/api/device-groups/:id/unblock', async (req, res) => {
     }
 });
 
+// Helper functions for group scheduling
+const { convertToMilitaryTime } = require("./server_util_funcs/convert_to_military_time");
+const { dateFromDateString } = require("./server_util_funcs/ez_sched_utils/dateFromDateString");
+
+async function executeGroupSchedule(groupId, blockAllow, unifi, prisma) {
+    try {
+        // Get all devices in the group
+        const group = await prisma.deviceGroup.findUnique({
+            where: { id: groupId },
+            include: { devices: true }
+        });
+
+        if (!group || !group.devices.length) {
+            console.log(`No devices found in group ${groupId}`);
+            return;
+        }
+
+        // Apply the schedule action to all devices in the group
+        for (const device of group.devices) {
+            try {
+                if (blockAllow === 'block') {
+                    await unifi.blockClient(device.macAddress);
+                    await prisma.device.update({
+                        where: { id: device.id },
+                        data: { active: false }
+                    });
+                } else {
+                    await unifi.unblockClient(device.macAddress);
+                    await prisma.device.update({
+                        where: { id: device.id },
+                        data: { active: true }
+                    });
+                }
+                console.log(`${blockAllow}ed device ${device.macAddress} in group ${group.name}`);
+            } catch (error) {
+                console.error(`Failed to ${blockAllow} device ${device.macAddress}:`, error);
+            }
+        }
+    } catch (error) {
+        console.error('Error executing group schedule:', error);
+    }
+}
+
+function createCronPattern(hour, minute, ampm, daysOfWeek) {
+    const militaryHour = convertToMilitaryTime(ampm, hour);
+    const daysPattern = daysOfWeek && daysOfWeek.length > 0 ? daysOfWeek.join(',') : '*';
+    return `${minute} ${militaryHour} * * ${daysPattern}`;
+}
+
+// Get schedules for a device group
+app.get('/api/device-groups/:id/schedules', async (req, res) => {
+    try {
+        const groupId = parseInt(req.params.id);
+        const schedules = await prisma.easySchedule.findMany({
+            where: { deviceGroupId: groupId },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(schedules);
+    } catch (error) {
+        console.error('Error fetching group schedules:', error);
+        res.status(500).json({ error: 'Failed to fetch group schedules' });
+    }
+});
+
+// Create a new schedule for a device group
+app.post('/api/device-groups/:id/schedules', async (req, res) => {
+    try {
+        const groupId = parseInt(req.params.id);
+        const { date, hour, minute, oneTime, blockAllow, modifiedDaysOfTheWeek, ampm } = req.body;
+
+        // Verify the group exists
+        const group = await prisma.deviceGroup.findUnique({
+            where: { id: groupId },
+            include: { devices: true }
+        });
+
+        if (!group) {
+            return res.status(404).json({ error: 'Device group not found' });
+        }
+
+        // Create schedule entry in database
+        const scheduleData = {
+            minute: parseInt(minute),
+            hour: oneTime ? convertToMilitaryTime(ampm, hour) : parseInt(hour),
+            ampm,
+            blockAllow,
+            oneTime,
+            deviceGroupId: groupId,
+            toggleSched: true
+        };
+
+        if (oneTime) {
+            const { year, month, day } = dateFromDateString(date);
+            scheduleData.month = month;
+            scheduleData.date = date;
+            
+            // Create the schedule date
+            const dateTime = new Date(year, month-1, day, scheduleData.hour, scheduleData.minute, 0);
+            
+            // Create cron job
+            const jobName = `group_${groupId}_${Date.now()}`;
+            const job = schedule.scheduleJob(dateTime, async () => {
+                await executeGroupSchedule(groupId, blockAllow, unifi, prisma);
+            });
+            
+            scheduleData.jobName = job.name;
+        } else {
+            // Recurring schedule
+            const daysString = modifiedDaysOfTheWeek ? modifiedDaysOfTheWeek.join('') : '0123456';
+            scheduleData.days = daysString;
+            
+            // Create cron job for recurring schedule
+            const jobName = `group_${groupId}_${Date.now()}`;
+            const cronPattern = createCronPattern(hour, minute, ampm, modifiedDaysOfTheWeek);
+            const job = schedule.scheduleJob(cronPattern, async () => {
+                await executeGroupSchedule(groupId, blockAllow, unifi, prisma);
+            });
+            
+            scheduleData.jobName = job.name;
+        }
+
+        // Save to database
+        const newSchedule = await prisma.easySchedule.create({
+            data: scheduleData
+        });
+
+        res.json({ success: true, schedule: newSchedule });
+    } catch (error) {
+        console.error('Error creating group schedule:', error);
+        res.status(500).json({ error: 'Failed to create group schedule' });
+    }
+});
+
+// Delete a schedule for a device group
+app.delete('/api/device-groups/:groupId/schedules/:scheduleId', async (req, res) => {
+    try {
+        const scheduleId = parseInt(req.params.scheduleId);
+        const groupId = parseInt(req.params.groupId);
+
+        // Find and delete the schedule
+        const schedule = await prisma.easySchedule.findFirst({
+            where: { 
+                id: scheduleId,
+                deviceGroupId: groupId 
+            }
+        });
+
+        if (!schedule) {
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+
+        // Cancel the cron job if it exists
+        if (schedule.jobName && jobFunction.exists(schedule.jobName)) {
+            jobFunction.cancel(schedule.jobName);
+        }
+
+        // Delete from database
+        await prisma.easySchedule.delete({
+            where: { id: scheduleId }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting group schedule:', error);
+        res.status(500).json({ error: 'Failed to delete group schedule' });
+    }
+});
+
+// Toggle a schedule for a device group
+app.put('/api/device-groups/:groupId/schedules/:scheduleId/toggle', async (req, res) => {
+    try {
+        const scheduleId = parseInt(req.params.scheduleId);
+        const groupId = parseInt(req.params.groupId);
+        const { toggleSched } = req.body;
+
+        const schedule = await prisma.easySchedule.findFirst({
+            where: { 
+                id: scheduleId,
+                deviceGroupId: groupId 
+            }
+        });
+
+        if (!schedule) {
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+
+        if (schedule.oneTime) {
+            await updateOneTimeSchedule(
+                { 
+                    id: scheduleId, 
+                    deviceGroupId: groupId, 
+                    jobName: schedule.jobName, 
+                    date: schedule.date, 
+                    oneTime: schedule.oneTime, 
+                    ampm: schedule.ampm, 
+                    hour: schedule.hour, 
+                    minute: schedule.minute, 
+                    toggleSched 
+                },
+                unifi,
+                prisma,
+                jobFunction,
+                schedule
+            );
+        } else {
+            await updateRecurringSchedule(
+                { 
+                    id: scheduleId, 
+                    deviceGroupId: groupId, 
+                    jobName: schedule.jobName, 
+                    oneTime: schedule.oneTime, 
+                    ampm: schedule.ampm, 
+                    hour: schedule.hour, 
+                    minute: schedule.minute, 
+                    days: schedule.days, 
+                    toggleSched 
+                },
+                unifi,
+                prisma,
+                jobFunction,
+                schedule
+            );
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error toggling group schedule:', error);
+        res.status(500).json({ error: 'Failed to toggle group schedule' });
+    }
+});
+
 //~~~~~~~temp delete test ids~~~~~~~~~
 app.delete('/deletetestids', async (req, res) => {
     const { touchableIds, asda } = req.body;

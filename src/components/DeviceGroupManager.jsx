@@ -16,9 +16,21 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         color: '#3B82F6',
         icon: '👤'
     });
+    const [schedules, setSchedules] = useState([]);
+    const [scheduleForm, setScheduleForm] = useState({
+        hour: 9,
+        minute: 0,
+        ampm: 'AM',
+        blockAllow: 'block',
+        oneTime: false,
+        date: '',
+        daysOfWeek: [1, 2, 3, 4, 5] // Monday to Friday by default
+    });
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
 
     const groupModalRef = useRef();
     const assignModalRef = useRef();
+    const scheduleModalRef = useRef();
 
     // Common emoji options for groups
     const iconOptions = ['👤', '👥', '👨‍👩‍👧‍👦', '👦', '👧', '🏠', '💻', '📱', '🎮', '📺', '🔒', '⭐'];
@@ -174,6 +186,118 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const handleCloseModal = () => {
         setShowGroupModal(false);
         groupModalRef.current?.close();
+    };
+
+    // Schedule management handlers
+    const handleManageSchedules = async (group) => {
+        setEditingGroup(group);
+        await fetchGroupSchedules(group.id);
+        setShowScheduleModal(true);
+        scheduleModalRef.current?.showModal();
+    };
+
+    const fetchGroupSchedules = async (groupId) => {
+        try {
+            const response = await fetch(`/api/device-groups/${groupId}/schedules`);
+            if (response.ok) {
+                const schedulesData = await response.json();
+                setSchedules(schedulesData);
+            }
+        } catch (error) {
+            console.error('Error fetching group schedules:', error);
+        }
+    };
+
+    const handleCreateSchedule = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`/api/device-groups/${editingGroup.id}/schedules`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    ...scheduleForm,
+                    modifiedDaysOfTheWeek: scheduleForm.daysOfWeek
+                }),
+            });
+
+            if (response.ok) {
+                await fetchGroupSchedules(editingGroup.id);
+                setScheduleForm({
+                    hour: 9,
+                    minute: 0,
+                    ampm: 'AM',
+                    blockAllow: 'block',
+                    oneTime: false,
+                    date: '',
+                    daysOfWeek: [1, 2, 3, 4, 5]
+                });
+            }
+        } catch (error) {
+            console.error('Error creating schedule:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteSchedule = async (scheduleId) => {
+        if (!confirm('Are you sure you want to delete this schedule?')) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const response = await fetch(`/api/device-groups/${editingGroup.id}/schedules/${scheduleId}`, {
+                method: 'DELETE',
+            });
+
+            if (response.ok) {
+                await fetchGroupSchedules(editingGroup.id);
+            }
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleToggleSchedule = async (scheduleId, currentToggle) => {
+        try {
+            setLoading(true);
+            const response = await fetch(`/api/device-groups/${editingGroup.id}/schedules/${scheduleId}/toggle`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ toggleSched: !currentToggle }),
+            });
+
+            if (response.ok) {
+                await fetchGroupSchedules(editingGroup.id);
+            }
+        } catch (error) {
+            console.error('Error toggling schedule:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCloseScheduleModal = () => {
+        setShowScheduleModal(false);
+        scheduleModalRef.current?.close();
+    };
+
+    const formatScheduleTime = (hour, minute, ampm) => {
+        const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+        return `${displayHour}:${minute.toString().padStart(2, '0')} ${ampm}`;
+    };
+
+    const formatScheduleDays = (days) => {
+        if (!days) return 'Daily';
+        const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const selectedDays = days.split('').map(d => dayNames[parseInt(d)]);
+        return selectedDays.join(', ');
     };
 
     const getDeviceCount = (groupId) => {
@@ -426,6 +550,11 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                 <li key={`manage-${group.id}`}>
                                                     <button onClick={() => handleAssignDevices(group)}>
                                                         <span>+</span> Add Devices
+                                                    </button>
+                                                </li>
+                                                <li key={`schedule-${group.id}`}>
+                                                    <button onClick={() => handleManageSchedules(group)}>
+                                                        <span>⏰</span> Manage Schedules
                                                     </button>
                                                 </li>
                                                 <div key={`divider1-${group.id}`} className="divider my-1"></div>
@@ -696,6 +825,209 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                     </div>
                     <form method="dialog" className="modal-backdrop">
                         <button onClick={() => assignModalRef.current?.close()}>close</button>
+                    </form>
+                </dialog>
+
+                {/* Schedule Management Modal */}
+                <dialog className="modal" ref={scheduleModalRef}>
+                    <div className="modal-box w-11/12 max-w-4xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="font-bold text-lg">
+                                Manage Schedules for "{editingGroup?.name}"
+                            </h3>
+                            <form method="dialog">
+                                <button 
+                                    className="btn btn-sm btn-circle btn-ghost"
+                                    onClick={handleCloseScheduleModal}
+                                >
+                                    ✕
+                                </button>
+                            </form>
+                        </div>
+
+                        {/* Create New Schedule Form */}
+                        <div className="bg-base-200 rounded-lg p-4 mb-6">
+                            <h4 className="font-semibold mb-4">Create New Schedule</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {/* Time inputs */}
+                                <div>
+                                    <label className="label">
+                                        <span className="label-text">Time</span>
+                                    </label>
+                                    <div className="flex gap-2">
+                                        <select 
+                                            className="select select-bordered flex-1"
+                                            value={scheduleForm.hour}
+                                            onChange={(e) => setScheduleForm({...scheduleForm, hour: parseInt(e.target.value)})}
+                                        >
+                                            {Array.from({length: 12}, (_, i) => i + 1).map(h => (
+                                                <option key={h} value={h}>{h}</option>
+                                            ))}
+                                        </select>
+                                        <select 
+                                            className="select select-bordered flex-1"
+                                            value={scheduleForm.minute}
+                                            onChange={(e) => setScheduleForm({...scheduleForm, minute: parseInt(e.target.value)})}
+                                        >
+                                            {[0, 15, 30, 45].map(m => (
+                                                <option key={m} value={m}>{m.toString().padStart(2, '0')}</option>
+                                            ))}
+                                        </select>
+                                        <select 
+                                            className="select select-bordered"
+                                            value={scheduleForm.ampm}
+                                            onChange={(e) => setScheduleForm({...scheduleForm, ampm: e.target.value})}
+                                        >
+                                            <option value="AM">AM</option>
+                                            <option value="PM">PM</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Action */}
+                                <div>
+                                    <label className="label">
+                                        <span className="label-text">Action</span>
+                                    </label>
+                                    <select 
+                                        className="select select-bordered w-full"
+                                        value={scheduleForm.blockAllow}
+                                        onChange={(e) => setScheduleForm({...scheduleForm, blockAllow: e.target.value})}
+                                    >
+                                        <option value="block">Block Devices</option>
+                                        <option value="allow">Allow Devices</option>
+                                    </select>
+                                </div>
+
+                                {/* Schedule Type */}
+                                <div>
+                                    <label className="label">
+                                        <span className="label-text">Type</span>
+                                    </label>
+                                    <select 
+                                        className="select select-bordered w-full"
+                                        value={scheduleForm.oneTime}
+                                        onChange={(e) => setScheduleForm({...scheduleForm, oneTime: e.target.value === 'true'})}
+                                    >
+                                        <option value="false">Recurring</option>
+                                        <option value="true">One Time</option>
+                                    </select>
+                                </div>
+
+                                {/* Date for one-time schedules */}
+                                {scheduleForm.oneTime && (
+                                    <div>
+                                        <label className="label">
+                                            <span className="label-text">Date</span>
+                                        </label>
+                                        <input 
+                                            type="date"
+                                            className="input input-bordered w-full"
+                                            value={scheduleForm.date}
+                                            onChange={(e) => setScheduleForm({...scheduleForm, date: e.target.value})}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Days of week for recurring schedules */}
+                                {!scheduleForm.oneTime && (
+                                    <div className="md:col-span-2">
+                                        <label className="label">
+                                            <span className="label-text">Days of Week</span>
+                                        </label>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                                                <label key={index} className="cursor-pointer flex items-center gap-1">
+                                                    <input 
+                                                        type="checkbox"
+                                                        className="checkbox checkbox-sm"
+                                                        checked={scheduleForm.daysOfWeek.includes(index)}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setScheduleForm({
+                                                                    ...scheduleForm, 
+                                                                    daysOfWeek: [...scheduleForm.daysOfWeek, index].sort()
+                                                                });
+                                                            } else {
+                                                                setScheduleForm({
+                                                                    ...scheduleForm, 
+                                                                    daysOfWeek: scheduleForm.daysOfWeek.filter(d => d !== index)
+                                                                });
+                                                            }
+                                                        }}
+                                                    />
+                                                    <span className="text-sm">{day}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex justify-end mt-4">
+                                <button 
+                                    className="btn btn-primary"
+                                    onClick={handleCreateSchedule}
+                                    disabled={loading || (scheduleForm.oneTime && !scheduleForm.date) || (!scheduleForm.oneTime && scheduleForm.daysOfWeek.length === 0)}
+                                >
+                                    {loading ? 'Creating...' : 'Create Schedule'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Existing Schedules */}
+                        <div>
+                            <h4 className="font-semibold mb-4">Existing Schedules ({schedules.length})</h4>
+                            {schedules.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    <p>No schedules created yet.</p>
+                                    <p className="text-sm">Create a schedule above to automatically control this group.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {schedules.map(schedule => (
+                                        <div key={schedule.id} className="bg-base-100 rounded-lg p-4 flex items-center justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`badge ${schedule.blockAllow === 'block' ? 'badge-error' : 'badge-success'}`}>
+                                                        {schedule.blockAllow === 'block' ? 'Block' : 'Allow'}
+                                                    </div>
+                                                    <span className="font-medium">
+                                                        {formatScheduleTime(schedule.hour, schedule.minute, schedule.ampm)}
+                                                    </span>
+                                                    <span className="text-sm text-gray-500">
+                                                        {schedule.oneTime ? `On ${schedule.date}` : formatScheduleDays(schedule.days)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="checkbox"
+                                                    className="toggle toggle-sm"
+                                                    checked={schedule.toggleSched}
+                                                    onChange={() => handleToggleSchedule(schedule.id, schedule.toggleSched)}
+                                                />
+                                                <button 
+                                                    className="btn btn-ghost btn-sm text-error"
+                                                    onClick={() => handleDeleteSchedule(schedule.id)}
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="modal-action">
+                            <form method="dialog">
+                                <button className="btn" onClick={handleCloseScheduleModal}>Close</button>
+                            </form>
+                        </div>
+                    </div>
+                    <form method="dialog" className="modal-backdrop">
+                        <button onClick={handleCloseScheduleModal}>close</button>
                     </form>
                 </dialog>
             </div>
