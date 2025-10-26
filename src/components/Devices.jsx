@@ -62,24 +62,37 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
                     body: JSON.stringify(dataToUpdate[0])
                 });
 
-                if (updateToggle.ok) {
-                    const updatedData = await updateToggle.json();
-                    console.log('Updated data: ', updatedData);
+                const result = await updateToggle.json();
+                
+                if (updateToggle.ok && result.success) {
+                    console.log('Toggle successful:', result);
                     setLoading(false);
                     // timerHandler(true); // test with this off 11 26 2024 - this was removing the timer on other devices when a separate device is toggled on or off
-                    handleRenderToggle(); // test without
+                    handleRenderToggle(); // refresh the UI with updated data
 
                     delay(2000).then(() => {
                         setToggleIsLoading(false);
                         toggleLoadingDialogRef.current.close();
                     });
-
-                    // console.log(dataToUpdate[0]);
+                } else {
+                    console.error('Toggle failed:', result.error || result.message);
+                    setLoading(false);
+                    
+                    // Show error message to user (you may want to add a toast notification system)
+                    alert(`Operation failed: ${result.error || result.message || 'Unknown error'}`);
+                    
+                    delay(2000).then(() => {
+                        setToggleIsLoading(false);
+                        toggleLoadingDialogRef.current.close();
+                    });
                 }
 
             } catch (error) {
-                console.log(error);
+                console.error('Toggle network error:', error);
                 setLoading(false);
+                
+                // Show network error to user
+                alert('Network error occurred. Please check your connection and try again.');
 
                 delay(2000).then(() => {
                     setToggleIsLoading(false);

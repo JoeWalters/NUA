@@ -1,42 +1,61 @@
 # Use the official Node.js image as the base image
 FROM node:18
 
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+
 # Create and change to the app directory
 WORKDIR /usr/src/app
 
-# Copy the application code
+# Copy package files first for better caching
+COPY package*.json ./
+COPY server/package*.json ./server/
+
+# Install root dependencies (including devDependencies for build)
+# Temporarily set NODE_ENV to development to install all dependencies
+ENV NODE_ENV=development
+RUN npm ci
+
+# Go back to root and copy the rest of the application
 COPY . .
 
-# # Copy package.json and package-lock.json files
-# COPY package*.json ./
-
-# Install app dependencies
-RUN npm i
-
-# Change to server dir
-WORKDIR /usr/src/app/server
-
 # Make startup script executable
-RUN chmod 555 /usr/src/app/server/scripts/docker-startup.sh
+RUN chmod +x /usr/src/app/server/scripts/docker-startup.sh
 
-# Install server dependencies
-RUN npm i
+# Debug: Check if vite is installed
+RUN ls -la node_modules/.bin/ | grep vite || echo "Vite not found in .bin"
+RUN npm list vite || echo "Vite not in dependencies"
 
-# # Initiate Prisma DB
-# RUN npm run db
+# Build the frontend application (Vite should now be available)
+# Use npx to ensure vite is found in node_modules
+RUN npx vite build
 
-# Change to app dir
+# Set NODE_ENV back to production for runtime
+ENV NODE_ENV=production
+
+# Install server dependencies (production only)
+WORKDIR /usr/src/app/server
+RUN npm ci --omit=dev
+
+# Go back to root to clean up devDependencies after build to reduce image size
 WORKDIR /usr/src/app
+RUN npm prune --omit=dev
 
-# Build app
-RUN npm run build
+# Create necessary directories with proper permissions
+RUN mkdir -p /usr/src/app/server/config && \
+    mkdir -p /usr/src/app/server/config/server_logs && \
+    chmod 755 /usr/src/app/server/config && \
+    chmod 755 /usr/src/app/server/config/server_logs
 
-# Change to server dir
+# Change to server directory for runtime
 WORKDIR /usr/src/app/server
 
 # Expose the port your app runs on
 EXPOSE 4323/tcp
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:4323/health || exit 1
+
 # Command to run the application
-# CMD ["npm", "run", "start"]
 CMD ["/usr/src/app/server/scripts/docker-startup.sh"]
