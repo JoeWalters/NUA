@@ -490,11 +490,11 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                         {/* Action Buttons */}
                                         <div className="flex items-center space-x-2">
                                             <button 
-                                                className="btn btn-ghost btn-xs text-gray-500 hover:text-blue-600"
+                                                className="btn btn-primary btn-sm"
                                                 onClick={() => handleAssignDevices(group)}
                                                 title="Add Devices"
                                             >
-                                                +
+                                                <span className="text-lg font-bold">+</span>
                                             </button>
                                         </div>
                                     </div>
