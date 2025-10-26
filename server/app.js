@@ -439,16 +439,83 @@ app.get('/health', async (req, res) => {
     try {
         // Basic health check - verify database connection
         await prisma.$queryRaw`SELECT 1`;
+        
+        // Check if credentials are configured
+        const credentials = await prisma.credentials.findUnique({ where: { id: 1 } });
+        const isConfigured = credentials && !credentials.initialSetup;
+        
+        // Check UniFi connection status
+        const unifiConnected = !!unifi;
+        
         res.status(200).json({ 
             status: 'healthy',
+            database: 'connected',
+            configured: isConfigured,
+            unifiConnected: unifiConnected,
             timestamp: new Date().toISOString(),
-            version: '2.2.0'
+            version: '2.2.0',
+            environment: process.env.NODE_ENV || 'development'
         });
     } catch (error) {
         console.error('Health check failed:', error);
         res.status(500).json({ 
             status: 'unhealthy',
+            database: 'disconnected',
             error: error.message,
+            timestamp: new Date().toISOString(),
+            version: '2.2.0'
+        });
+    }
+});
+
+// Database migration status endpoint for debugging
+app.get('/debug/migration-status', async (req, res) => {
+    try {
+        // This endpoint is for debugging migration status
+        // Note: This requires Prisma CLI to be available in production
+        const { spawn } = require('child_process');
+        
+        const migrationCheck = spawn('npx', ['prisma', 'migrate', 'status'], {
+            cwd: process.cwd(),
+            stdio: 'pipe'
+        });
+        
+        let output = '';
+        let errorOutput = '';
+        
+        migrationCheck.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+        
+        migrationCheck.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+        });
+        
+        migrationCheck.on('close', (code) => {
+            res.json({
+                migrationStatus: code === 0 ? 'up-to-date' : 'pending-or-error',
+                exitCode: code,
+                output: output,
+                error: errorOutput,
+                timestamp: new Date().toISOString()
+            });
+        });
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+            migrationCheck.kill();
+            if (!res.headersSent) {
+                res.status(408).json({ 
+                    error: 'Migration status check timed out',
+                    timeout: true 
+                });
+            }
+        }, 10000);
+        
+    } catch (error) {
+        res.status(500).json({
+            error: 'Failed to check migration status',
+            message: error.message,
             timestamp: new Date().toISOString()
         });
     }

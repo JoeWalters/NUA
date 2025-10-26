@@ -32,6 +32,8 @@ model Device {
   order                   Int?
   cronBonusToggles        CronBonusToggles[]
   easyBonusToggles        EasyBonusToggles[]
+  deviceGroup             DeviceGroup? @relation(fields: [deviceGroupId], references: [id])
+  deviceGroupId           Int?
 }
 
 model Cron {
@@ -140,6 +142,18 @@ model EasyBonusToggles {
   macAddress              String
   oneTime                 Boolean
   jobName                 String?
+}
+
+model DeviceGroup {
+  id                      Int          @id @default(autoincrement())
+  name                    String
+  description             String?
+  color                   String?      @default("#3B82F6")
+  icon                    String?      @default("👤")
+  active                  Boolean      @default(true)
+  createdAt               DateTime     @default(now())
+  updatedAt               DateTime     @updatedAt
+  devices                 Device[]
 }
 
 

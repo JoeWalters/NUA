@@ -52,6 +52,25 @@ log "Environment: ${NODE_ENV:-development}"
 log "Working directory: $(pwd)"
 log "Database path: ./config/nodeunifi.db"
 
+# Validate Prisma setup
+log "🔍 Validating Prisma setup..."
+if [ ! -f "$SCHEMA_PATH" ]; then
+    log "❌ Prisma schema file not found at $SCHEMA_PATH"
+    exit 1
+fi
+log "✅ Prisma schema found: $SCHEMA_PATH"
+
+# Check if migrations directory exists
+MIGRATIONS_DIR="${BASE_LOC}/migrations"
+if [ ! -d "$MIGRATIONS_DIR" ]; then
+    log "⚠️ Migrations directory not found at $MIGRATIONS_DIR"
+    log "📁 Creating migrations directory..."
+    mkdir -p "$MIGRATIONS_DIR"
+else
+    MIGRATION_COUNT=$(find "$MIGRATIONS_DIR" -maxdepth 1 -type d -name "[0-9]*" | wc -l)
+    log "✅ Migrations directory found with $MIGRATION_COUNT migration(s)"
+fi
+
 # Create config directory if it doesn't exist
 mkdir -p ./config
 
@@ -95,18 +114,38 @@ else
     fi
     log "✅ Prisma client ready"
     
-    # Check and apply any pending migrations
+    # Check and apply any pending migrations with enhanced error handling
     log "🔍 Checking for pending migrations..."
-    if ! timeout 60 npx prisma migrate status --schema="$SCHEMA_PATH"; then
-        log "⚠️ Unable to check migration status, attempting deploy anyway..."
+    MIGRATION_STATUS_OUTPUT=$(timeout 60 npx prisma migrate status --schema="$SCHEMA_PATH" 2>&1) || {
+        log "⚠️ Migration status check failed, output: $MIGRATION_STATUS_OUTPUT"
+        log "🔧 Attempting migration deployment anyway..."
+    }
+    
+    # Log migration status for debugging
+    if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "Database schema is up to date"; then
+        log "✅ Database schema is already up to date"
+    elif echo "$MIGRATION_STATUS_OUTPUT" | grep -q "pending migration"; then
+        log "🔄 Pending migrations detected, applying them..."
+    else
+        log "🔍 Migration status unclear, proceeding with deployment to ensure consistency"
     fi
     
     log "🔧 Applying any pending migrations..."
-    if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
+    MIGRATION_OUTPUT=$(timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH" 2>&1) || {
         log "❌ Migration deployment failed"
+        log "📄 Migration output: $MIGRATION_OUTPUT"
         exit 1
+    }
+    
+    # Log successful migration details
+    if echo "$MIGRATION_OUTPUT" | grep -q "migration(s) have been applied"; then
+        log "✅ New migrations applied successfully"
+        log "📄 Migration details: $MIGRATION_OUTPUT"
+    elif echo "$MIGRATION_OUTPUT" | grep -q "No pending migrations"; then
+        log "✅ No pending migrations found - database is current"
+    else
+        log "✅ Migration deployment completed"
     fi
-    log "✅ Database migrations up to date"
 fi
 
 log "🔧 Final system checks..."
