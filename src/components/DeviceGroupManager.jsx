@@ -242,27 +242,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                     </button>
                 </div>
 
-                {/* Groups Stats */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-blue-600">{groups.length}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Total Groups</div>
-                    </div>
-                    
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-green-600">
-                            {devices?.filter(d => d.deviceGroupId !== null)?.length || 0}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Assigned Devices</div>
-                    </div>
-                    
-                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-                        <div className="text-2xl font-bold text-gray-600">
-                            {devices?.filter(d => d.deviceGroupId === null)?.length || 0}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">Unassigned Devices</div>
-                    </div>
-                </div>
+                {/* Groups Stats removed per UX request */}
             </div>
 
             {/* Groups Display Section */}
@@ -381,8 +361,9 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                 type="checkbox"
                                                 className={`toggle toggle-sm ${
                                                     !getGroupBlockStatus(group.id) ? 'toggle-success' : 'toggle-error'
-                                                }`}
-                                                checked={!getGroupBlockStatus(group.id)}
+                                                } ${getDeviceCount(group.id) === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                checked={getDeviceCount(group.id) === 0 ? false : !getGroupBlockStatus(group.id)}
+                                                disabled={getDeviceCount(group.id) === 0}
                                                 onChange={(e) => {
                                                     if (e.target.checked) {
                                                         handleGroupAction(group.id, 'unblock');

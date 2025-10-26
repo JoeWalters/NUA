@@ -19,6 +19,7 @@ export default function ModernDeviceGrid({
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [showFilters, setShowFilters] = useState(false);
+    const [showSearch, setShowSearch] = useState(false);
     const [filteredDevices, setFilteredDevices] = useState(devices);
     
     const searchRef = useRef();
@@ -86,9 +87,6 @@ export default function ModernDeviceGrid({
                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
                     Device Management
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400">
-                    Manage network access for {counts.total} device{counts.total !== 1 ? 's' : ''}
-                </p>
             </div>
 
             {/* Stats Cards */}
@@ -117,17 +115,36 @@ export default function ModernDeviceGrid({
             {/* Search and Filter Bar */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
                 <div className="flex flex-col sm:flex-row gap-4 items-center">
-                    {/* Search Input */}
+                    {/* Search Input (collapses to icon) */}
                     <div className="flex-1 relative">
-                        <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                        <input
-                            ref={searchRef}
-                            type="text"
-                            placeholder="Search by name or MAC address..."
-                            className="input input-bordered w-full pl-10"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+                        {!showSearch ? (
+                            <button
+                                className="btn btn-ghost btn-square"
+                                onClick={() => { setShowSearch(true); setTimeout(() => searchRef.current?.focus(), 50); }}
+                                title="Search"
+                            >
+                                <HiMagnifyingGlass className="w-5 h-5" />
+                            </button>
+                        ) : (
+                            <>
+                                <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <input
+                                    ref={searchRef}
+                                    type="text"
+                                    placeholder="Search by name or MAC address..."
+                                    className="input input-bordered w-full pl-10 pr-10"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                                <button
+                                    className="btn btn-ghost btn-square absolute right-1 top-1/2 transform -translate-y-1/2"
+                                    onClick={() => { setShowSearch(false); setSearchTerm(''); }}
+                                    title="Close search"
+                                >
+                                    ✕
+                                </button>
+                            </>
+                        )}
                     </div>
                     
                     {/* Filter Controls */}
