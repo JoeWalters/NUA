@@ -229,18 +229,18 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                 <span className="text-lg">⋯</span>
                                             </label>
                                             <ul tabIndex={0} className="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
-                                                <li>
+                                                <li key={`edit-${group.id}`}>
                                                     <button onClick={() => handleEditGroup(group)}>
                                                         <span>✏️</span> Edit Group
                                                     </button>
                                                 </li>
-                                                <li>
+                                                <li key={`manage-${group.id}`}>
                                                     <button onClick={() => handleAssignDevices(group)}>
                                                         <span>📱</span> Manage Devices
                                                     </button>
                                                 </li>
-                                                <div className="divider my-1"></div>
-                                                <li>
+                                                <div key={`divider1-${group.id}`} className="divider my-1"></div>
+                                                <li key={`block-${group.id}`}>
                                                     <button 
                                                         onClick={() => handleGroupAction(group.id, 'block')}
                                                         className="text-error"
@@ -248,7 +248,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                         <span>🚫</span> Block All
                                                     </button>
                                                 </li>
-                                                <li>
+                                                <li key={`unblock-${group.id}`}>
                                                     <button 
                                                         onClick={() => handleGroupAction(group.id, 'unblock')}
                                                         className="text-success"
@@ -256,8 +256,8 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                         <span>✅</span> Unblock All
                                                     </button>
                                                 </li>
-                                                <div className="divider my-1"></div>
-                                                <li>
+                                                <div key={`divider2-${group.id}`} className="divider my-1"></div>
+                                                <li key={`delete-${group.id}`}>
                                                     <button 
                                                         onClick={() => handleDeleteGroup(group.id)}
                                                         className="text-error"

@@ -2560,6 +2560,221 @@ app.post('/submitapptest', async (req, res) => {
     }
 });
 
+// ======== DEVICE GROUPS API ENDPOINTS ========
+
+// Get all device groups
+app.get('/api/device-groups', async (req, res) => {
+    try {
+        const groups = await prisma.deviceGroup.findMany({
+            include: {
+                devices: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        res.json(groups);
+    } catch (error) {
+        console.error('Error fetching device groups:', error);
+        res.status(500).json({ error: 'Failed to fetch device groups' });
+    }
+});
+
+// Create new device group
+app.post('/api/device-groups', async (req, res) => {
+    try {
+        const { name, description, color, icon } = req.body;
+        
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ error: 'Group name is required' });
+        }
+
+        const group = await prisma.deviceGroup.create({
+            data: {
+                name: name.trim(),
+                description: description?.trim() || null,
+                color: color || '#3B82F6',
+                icon: icon || '👤'
+            }
+        });
+
+        res.status(201).json(group);
+    } catch (error) {
+        console.error('Error creating device group:', error);
+        res.status(500).json({ error: 'Failed to create device group' });
+    }
+});
+
+// Update device group
+app.put('/api/device-groups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, color, icon } = req.body;
+
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ error: 'Group name is required' });
+        }
+
+        const group = await prisma.deviceGroup.update({
+            where: { id: parseInt(id) },
+            data: {
+                name: name.trim(),
+                description: description?.trim() || null,
+                color: color || '#3B82F6',
+                icon: icon || '👤',
+                updatedAt: new Date()
+            }
+        });
+
+        res.json(group);
+    } catch (error) {
+        console.error('Error updating device group:', error);
+        if (error.code === 'P2025') {
+            res.status(404).json({ error: 'Device group not found' });
+        } else {
+            res.status(500).json({ error: 'Failed to update device group' });
+        }
+    }
+});
+
+// Delete device group
+app.delete('/api/device-groups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // First, unassign all devices from this group
+        await prisma.device.updateMany({
+            where: { deviceGroupId: parseInt(id) },
+            data: { deviceGroupId: null }
+        });
+
+        // Then delete the group
+        await prisma.deviceGroup.delete({
+            where: { id: parseInt(id) }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting device group:', error);
+        if (error.code === 'P2025') {
+            res.status(404).json({ error: 'Device group not found' });
+        } else {
+            res.status(500).json({ error: 'Failed to delete device group' });
+        }
+    }
+});
+
+// Assign devices to group
+app.put('/api/device-groups/:id/devices', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { deviceIds } = req.body;
+
+        if (!Array.isArray(deviceIds)) {
+            return res.status(400).json({ error: 'deviceIds must be an array' });
+        }
+
+        const groupId = parseInt(id);
+
+        // First, unassign all devices from this group
+        await prisma.device.updateMany({
+            where: { deviceGroupId: groupId },
+            data: { deviceGroupId: null }
+        });
+
+        // Then assign the selected devices to this group
+        if (deviceIds.length > 0) {
+            await prisma.device.updateMany({
+                where: { id: { in: deviceIds } },
+                data: { deviceGroupId: groupId }
+            });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating device assignments:', error);
+        res.status(500).json({ error: 'Failed to update device assignments' });
+    }
+});
+
+// Block all devices in group
+app.post('/api/device-groups/:id/block', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const groupId = parseInt(id);
+
+        // Get all devices in the group
+        const devices = await prisma.device.findMany({
+            where: { deviceGroupId: groupId }
+        });
+
+        if (devices.length === 0) {
+            return res.json({ success: true, message: 'No devices in group' });
+        }
+
+        // Block each device via UniFi
+        const macAddresses = devices.map(device => device.macAddress);
+        
+        for (const macAddress of macAddresses) {
+            try {
+                await unifi?.blockClient(macAddress);
+            } catch (error) {
+                console.warn(`Failed to block device ${macAddress}:`, error);
+            }
+        }
+
+        // Update database
+        await prisma.device.updateMany({
+            where: { deviceGroupId: groupId },
+            data: { active: false }
+        });
+
+        res.json({ success: true, blockedDevices: devices.length });
+    } catch (error) {
+        console.error('Error blocking group devices:', error);
+        res.status(500).json({ error: 'Failed to block group devices' });
+    }
+});
+
+// Unblock all devices in group
+app.post('/api/device-groups/:id/unblock', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const groupId = parseInt(id);
+
+        // Get all devices in the group
+        const devices = await prisma.device.findMany({
+            where: { deviceGroupId: groupId }
+        });
+
+        if (devices.length === 0) {
+            return res.json({ success: true, message: 'No devices in group' });
+        }
+
+        // Unblock each device via UniFi
+        const macAddresses = devices.map(device => device.macAddress);
+        
+        for (const macAddress of macAddresses) {
+            try {
+                await unifi?.unblockClient(macAddress);
+            } catch (error) {
+                console.warn(`Failed to unblock device ${macAddress}:`, error);
+            }
+        }
+
+        // Update database
+        await prisma.device.updateMany({
+            where: { deviceGroupId: groupId },
+            data: { active: true }
+        });
+
+        res.json({ success: true, unblockedDevices: devices.length });
+    } catch (error) {
+        console.error('Error unblocking group devices:', error);
+        res.status(500).json({ error: 'Failed to unblock group devices' });
+    }
+});
+
 //~~~~~~~temp delete test ids~~~~~~~~~
 app.delete('/deletetestids', async (req, res) => {
     const { touchableIds, asda } = req.body;
