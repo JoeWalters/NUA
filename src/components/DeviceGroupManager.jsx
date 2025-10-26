@@ -6,6 +6,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const [selectedDevices, setSelectedDevices] = useState([]);
     const [showGroupModal, setShowGroupModal] = useState(false);
     const [editingGroup, setEditingGroup] = useState(null);
+    const [draggedGroup, setDraggedGroup] = useState(null);
     const [groupForm, setGroupForm] = useState({
         name: '',
         description: '',
@@ -176,6 +177,47 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         return devices?.filter(device => device.deviceGroupId === groupId)?.length || 0;
     };
 
+    const getGroupBlockStatus = (groupId) => {
+        const groupDevices = devices?.filter(device => device.deviceGroupId === groupId) || [];
+        if (groupDevices.length === 0) return false;
+        // Return true if ANY device in group is blocked (active: false)
+        return groupDevices.some(device => !device.active);
+    };
+
+    const handleDragStart = (e, groupId) => {
+        setDraggedGroup(groupId);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e, targetGroupId) => {
+        e.preventDefault();
+        
+        if (!draggedGroup || draggedGroup === targetGroupId) {
+            setDraggedGroup(null);
+            return;
+        }
+
+        const draggedIndex = groups.findIndex(g => g.id === draggedGroup);
+        const targetIndex = groups.findIndex(g => g.id === targetGroupId);
+
+        if (draggedIndex === -1 || targetIndex === -1) {
+            setDraggedGroup(null);
+            return;
+        }
+
+        const newGroups = [...groups];
+        const [draggedItem] = newGroups.splice(draggedIndex, 1);
+        newGroups.splice(targetIndex, 0, draggedItem);
+        
+        setGroups(newGroups);
+        setDraggedGroup(null);
+    };
+
     return (
         <div className="card bg-base-100 shadow-xl">
             <div className="card-body">
@@ -205,10 +247,24 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         <p className="text-sm">Create groups to organize your devices</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {groups.map(group => (
-                            <div key={group.id} className="card bg-base-200 shadow-sm">
-                                <div className="card-body p-4">
+                    <div className="space-y-4">
+                        <div className="alert alert-info">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>💡 <strong>Tip:</strong> Drag and drop groups to reorder them</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {groups.map(group => (
+                                <div 
+                                    key={group.id} 
+                                    className={`card bg-base-200 shadow-sm transition-all cursor-move ${
+                                        draggedGroup === group.id ? 'opacity-50 scale-95' : 'hover:shadow-md'
+                                    }`}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, group.id)}
+                                    onDragOver={handleDragOver}
+                                    onDrop={(e) => handleDrop(e, group.id)}
+                                >
+                                    <div className="card-body p-4">
                                     <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                             <span 
@@ -275,29 +331,39 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                         </p>
                                     )}
 
-                                    <div className="flex gap-2 flex-wrap">
+                                    <div className="flex gap-2 flex-wrap items-center justify-between">
                                         <button 
                                             className="btn btn-xs btn-outline"
                                             onClick={() => handleAssignDevices(group)}
                                         >
-                                            Manage
+                                            📱 Manage Devices
                                         </button>
-                                        <button 
-                                            className="btn btn-xs btn-error btn-outline"
-                                            onClick={() => handleGroupAction(group.id, 'block')}
-                                        >
-                                            Block
-                                        </button>
-                                        <button 
-                                            className="btn btn-xs btn-success btn-outline"
-                                            onClick={() => handleGroupAction(group.id, 'unblock')}
-                                        >
-                                            Allow
-                                        </button>
+                                        
+                                        {/* Group Toggle - matching device card style */}
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-base-content/60">
+                                                {getGroupBlockStatus(group.id) ? 'Some Blocked' : 'All Active'}:
+                                            </span>
+                                            <input
+                                                type="checkbox"
+                                                className={`toggle toggle-sm ${
+                                                    getGroupBlockStatus(group.id) ? 'toggle-error' : 'toggle-success'
+                                                }`}
+                                                checked={getGroupBlockStatus(group.id)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        handleGroupAction(group.id, 'block');
+                                                    } else {
+                                                        handleGroupAction(group.id, 'unblock');
+                                                    }
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         ))}
+                        </div>
                     </div>
                 )}
 
@@ -398,6 +464,34 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                             Manage Devices in "{editingGroup?.name}"
                         </h3>
                         
+                        <div className="alert alert-info mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div>
+                                <h4 className="font-bold">How to assign devices:</h4>
+                                <p className="text-sm">✅ Check the boxes next to devices you want in this group, then click "Save Changes"</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm text-base-content/60">
+                                {selectedDevices.length} of {devices?.length || 0} devices selected
+                            </p>
+                            <div className="flex gap-2">
+                                <button 
+                                    className="btn btn-xs btn-outline"
+                                    onClick={() => setSelectedDevices(devices?.map(d => d.id) || [])}
+                                >
+                                    Select All
+                                </button>
+                                <button 
+                                    className="btn btn-xs btn-outline"
+                                    onClick={() => setSelectedDevices([])}
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                        </div>
+                        
                         <div className="max-h-96 overflow-y-auto">
                             {devices?.length === 0 ? (
                                 <p className="text-center py-8 text-base-content/60">
@@ -405,28 +499,42 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                 </p>
                             ) : (
                                 <div className="space-y-2">
-                                    {devices?.map(device => (
-                                        <div 
-                                            key={device.id} 
-                                            className="flex items-center justify-between p-3 bg-base-200 rounded-lg"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-primary"
-                                                    checked={selectedDevices.includes(device.id)}
-                                                    onChange={() => handleToggleDeviceSelection(device.id)}
-                                                />
-                                                <div>
-                                                    <p className="font-medium">{device.name}</p>
-                                                    <p className="text-sm text-base-content/60">{device.macAddress}</p>
+                                    {devices?.map(device => {
+                                        const isSelected = selectedDevices.includes(device.id);
+                                        const isCurrentlyInGroup = device.deviceGroupId === editingGroup?.id;
+                                        return (
+                                            <div 
+                                                key={device.id} 
+                                                className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                                                    isSelected 
+                                                        ? 'bg-primary/10 border-primary' 
+                                                        : 'bg-base-200 border-transparent hover:border-base-300'
+                                                }`}
+                                                onClick={() => handleToggleDeviceSelection(device.id)}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="checkbox checkbox-primary"
+                                                        checked={isSelected}
+                                                        onChange={() => handleToggleDeviceSelection(device.id)}
+                                                    />
+                                                    <div>
+                                                        <p className="font-medium">{device.name}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="text-sm text-base-content/60">{device.macAddress}</p>
+                                                            {isCurrentlyInGroup && (
+                                                                <span className="badge badge-xs badge-primary">Currently in group</span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className={`badge ${device.active ? 'badge-success' : 'badge-error'}`}>
+                                                    {device.active ? 'Active' : 'Blocked'}
                                                 </div>
                                             </div>
-                                            <div className={`badge ${device.active ? 'badge-success' : 'badge-error'}`}>
-                                                {device.active ? 'Active' : 'Blocked'}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
