@@ -35,13 +35,29 @@ export default function ModernDeviceCard({
 
     // Get card border classes based on device status
     const getCardBorderClasses = (active, bonusTimeActive) => {
-        if (active && bonusTimeActive) return 'border-blue-500 border-2';
-        if (active) return 'border-green-500 border-2';
-        return 'border-red-500 border-2';
+        let borderColor = '';
+        if (active && bonusTimeActive) borderColor = 'border-blue-500';
+        else if (active) borderColor = 'border-green-500';
+        else borderColor = 'border-red-500';
+        
+        return `border border-gray-200 dark:border-gray-700 relative ${borderColor}`;
+    };
+
+    // Get accent border color for the left partial border
+    const getAccentBorderColor = (active, bonusTimeActive) => {
+        if (active && bonusTimeActive) return '#3B82F6'; // blue-500
+        if (active) return '#10B981'; // green-500
+        return '#EF4444'; // red-500
     };
 
     return (
         <div className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(device?.active, device?.bonusTimeActive)}`}>
+            {/* Stylized left accent border */}
+            <div 
+                className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"
+                style={{ backgroundColor: getAccentBorderColor(device?.active, device?.bonusTimeActive) }}
+            ></div>
+            
             {/* Card Header */}
             <div className="p-6 pb-4">
                 <div className="flex items-start justify-between">

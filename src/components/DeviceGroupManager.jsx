@@ -187,6 +187,11 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         return groupDevices.some(device => !device.active);
     };
 
+    // Get accent border color for group cards (based on group's custom color)
+    const getGroupAccentColor = (groupColor) => {
+        return groupColor || '#3B82F6';
+    };
+
     const handleDragStart = (e, groupId) => {
         setDraggedGroup(groupId);
         e.dataTransfer.effectAllowed = 'move';
@@ -335,7 +340,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                 <div 
                                     key={group.id} 
                                     data-group-id={group.id}
-                                    className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 transition-all select-none ${
+                                    className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 transition-all duration-300 select-none overflow-hidden relative ${
                                         draggedGroup === group.id 
                                             ? 'opacity-50 scale-95 transform rotate-2' 
                                             : 'hover:shadow-md cursor-move'
@@ -359,26 +364,43 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                         } : {})
                                     }}
                                 >
-                                    <div className="p-4">
+                                    {/* Stylized left accent border using group's custom color */}
+                                    <div 
+                                        className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"
+                                        style={{ backgroundColor: getGroupAccentColor(group.color) }}
+                                    ></div>
+                                    
+                                    <div className="p-6 pb-4">
                                     {/* Drag handle for mobile - visible on small screens */}
                                     <div className="flex items-center justify-center mb-2 md:hidden">
                                         <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
                                     </div>
-                                    <div className="flex items-start justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <div 
-                                                className="text-2xl p-2 rounded-lg"
-                                                style={{ backgroundColor: group.color + '20' }}
-                                            >
-                                                {group.icon}
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                            {/* Group Icon */}
+                                            <div className="flex-shrink-0 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                                <span className="text-2xl">{group.icon}</span>
                                             </div>
-                                            <div>
-                                                <h3 className="font-semibold text-gray-900 dark:text-white">{group.name}</h3>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            
+                                            {/* Group Info */}
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{group.name}</h3>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                                                     {getDeviceCount(group.id)} devices
                                                 </p>
+                                                {/* Reserve space for description */}
+                                                <div className="mt-1 min-h-5">
+                                                    {group.description ? (
+                                                        <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                                                            {group.description}
+                                                        </p>
+                                                    ) : (
+                                                        <div className="invisible">placeholder</div>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
+                                        
                                         <div className="dropdown dropdown-end">
                                             <label tabIndex={0} className="btn btn-ghost btn-xs">
                                                 <span className="text-lg">⋯</span>
@@ -424,25 +446,10 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                         </div>
                                     </div>
                                     
-                                    {group.description && (
-                                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
-                                            {group.description}
-                                        </p>
-                                    )}
-
-                                    <div className="flex gap-2 flex-wrap items-center justify-between">
-                                        <button 
-                                            className="btn btn-sm btn-outline btn-primary"
-                                            onClick={() => handleAssignDevices(group)}
-                                        >
-                                            📱 Manage Devices
-                                        </button>
-                                        
-                                        {/* Group Toggle - matching device card style */}
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                {getGroupBlockStatus(group.id) ? 'Some Blocked' : 'All Active'}
-                                            </span>
+                                    {/* Quick Actions Row */}
+                                    <div className="flex items-center justify-between mt-4">
+                                        {/* Main Toggle */}
+                                        <div className="flex items-center space-x-2">
                                             <input
                                                 type="checkbox"
                                                 className={`toggle toggle-sm ${
@@ -458,6 +465,20 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                     }
                                                 }}
                                             />
+                                            <span className="text-sm text-gray-600 dark:text-gray-400">
+                                                {getGroupBlockStatus(group.id) ? 'Some Blocked' : 'All Active'}
+                                            </span>
+                                        </div>
+
+                                        {/* Action Buttons */}
+                                        <div className="flex items-center space-x-2">
+                                            <button 
+                                                className="btn btn-ghost btn-xs text-gray-500 hover:text-blue-600"
+                                                onClick={() => handleAssignDevices(group)}
+                                                title="Manage Devices"
+                                            >
+                                                📱
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
