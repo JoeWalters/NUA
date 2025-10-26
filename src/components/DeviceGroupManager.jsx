@@ -606,13 +606,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                 {expandedGroups.has(group.id) && (
                                     <div className="px-6 pb-6 pt-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
                                         {/* Group Details */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
-                                            <div>
-                                                <span className="text-gray-500 dark:text-gray-400">Description:</span>
-                                                <p className="font-medium text-gray-900 dark:text-white mt-1 break-words">
-                                                    {group.description || 'No description set'}
-                                                </p>
-                                            </div>
+                                        <div className="mb-4 text-sm">
                                             <div>
                                                 <span className="text-gray-500 dark:text-gray-400">Devices:</span>
                                                 <p className="font-medium text-gray-900 dark:text-white mt-1">
@@ -634,35 +628,15 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                 </button>
                                                 <button 
                                                     className="btn btn-outline btn-sm w-full justify-start"
-                                                    onClick={() => handleAssignDevices(group)}
-                                                >
-                                                    <span>+</span> Add Devices
-                                                </button>
-                                                <button 
-                                                    className="btn btn-outline btn-sm w-full justify-start"
                                                     onClick={() => handleManageSchedules(group)}
                                                 >
-                                                    <span>⏰</span> Manage Schedules
+                                                    <span>⏰</span> Schedule
                                                 </button>
                                             </div>
 
                                             {/* Control Actions */}
                                             <div className="space-y-2">
                                                 <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Control</h4>
-                                                <button 
-                                                    className="btn btn-success btn-sm w-full justify-start"
-                                                    onClick={() => handleGroupAction(group.id, 'unblock')}
-                                                    disabled={getDeviceCount(group.id) === 0}
-                                                >
-                                                    <span>✅</span> Unblock All
-                                                </button>
-                                                <button 
-                                                    className="btn btn-error btn-sm w-full justify-start"
-                                                    onClick={() => handleGroupAction(group.id, 'block')}
-                                                    disabled={getDeviceCount(group.id) === 0}
-                                                >
-                                                    <span>🚫</span> Block All
-                                                </button>
                                                 <button 
                                                     className="btn btn-error btn-outline btn-sm w-full justify-start"
                                                     onClick={() => handleDeleteGroup(group.id)}
