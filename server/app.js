@@ -2776,7 +2776,6 @@ app.post('/api/device-groups/:id/unblock', async (req, res) => {
 });
 
 // Helper functions for group scheduling
-const { convertToMilitaryTime } = require("./server_util_funcs/convert_to_military_time");
 const { dateFromDateString } = require("./server_util_funcs/ez_sched_utils/dateFromDateString");
 
 async function executeGroupSchedule(groupId, blockAllow, unifi, prisma) {

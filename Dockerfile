@@ -49,6 +49,7 @@ RUN npm install --save-dev prisma
 RUN npx prisma generate --schema=./schema.prisma
 
 # Set default environment variables for auto-migration
+ENV NODE_ENV=development
 ENV AUTO_MIGRATE=false
 ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
 
