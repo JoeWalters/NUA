@@ -2776,8 +2776,6 @@ app.post('/api/device-groups/:id/unblock', async (req, res) => {
 });
 
 // Helper functions for group scheduling
-const { dateFromDateString } = require("./server_util_funcs/ez_sched_utils/dateFromDateString");
-
 async function executeGroupSchedule(groupId, blockAllow, unifi, prisma) {
     try {
         // Get all devices in the group
