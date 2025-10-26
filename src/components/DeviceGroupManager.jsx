@@ -335,8 +335,8 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                             </button>
                         </div>
                         
-                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                 <span className="font-medium">💡 Tip: Drag and drop groups to reorder them (or hold and drag on mobile)</span>
                             </div>
@@ -346,7 +346,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                 <div 
                                     key={group.id} 
                                     data-group-id={group.id}
-                                    className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 transition-all duration-300 select-none overflow-hidden relative ${
+                                    className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 transition-all duration-300 select-none overflow-hidden relative ${
                                         draggedGroup === group.id 
                                             ? 'opacity-50 scale-95 transform rotate-2' 
                                             : 'hover:shadow-md cursor-move'
@@ -384,7 +384,13 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center space-x-3 flex-1 min-w-0">
                                             {/* Group Icon */}
-                                            <div className="flex-shrink-0 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                                            <div 
+                                                className="flex-shrink-0 p-2 rounded-lg"
+                                                style={{ 
+                                                    backgroundColor: group.color + '20', 
+                                                    color: group.color 
+                                                }}
+                                            >
                                                 <span className="text-2xl">{group.icon}</span>
                                             </div>
                                             
