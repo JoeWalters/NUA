@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import Devices from "./Devices";
+import ModernDevices from "./ModernDevices";
 import { useNavigate } from 'react-router-dom';
 import NuaSvg from "../images/nua.svg";
 
@@ -200,15 +200,13 @@ export default function AdminConsole()
 
     return (
         <>
-            <div className="grid mx-auto grid-flow-row gap-6 w-full">
-                <Devices
+            <div className="w-full">
+                <ModernDevices
                     macData={macData && macData}
                     blockedUsers={blockedUsers}
                     handleRenderToggle={handleRenderToggle}
                     loadingMacData={loadingMacData}
                 />
-                <div className="flex flex-row items-center justify-center p-6 w-[350px] mx-auto">
-                </div>
             </div>
 
             {/* navigate to credentials modal */}
