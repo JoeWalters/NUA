@@ -418,7 +418,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                 </li>
                                                 <li key={`manage-${group.id}`}>
                                                     <button onClick={() => handleAssignDevices(group)}>
-                                                        <span>📱</span> Manage Devices
+                                                        <span>+</span> Add Devices
                                                     </button>
                                                 </li>
                                                 <div key={`divider1-${group.id}`} className="divider my-1"></div>
@@ -485,9 +485,9 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                             <button 
                                                 className="btn btn-ghost btn-xs text-gray-500 hover:text-blue-600"
                                                 onClick={() => handleAssignDevices(group)}
-                                                title="Manage Devices"
+                                                title="Add Devices"
                                             >
-                                                📱
+                                                +
                                             </button>
                                         </div>
                                     </div>
