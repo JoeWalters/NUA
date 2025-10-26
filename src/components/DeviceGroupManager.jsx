@@ -403,7 +403,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
 
             {/* Group Creation/Edit Modal */}
             <dialog className="modal" ref={groupModalRef}>
-                    <div className="modal-box">
+                <div className="modal-box">
                         <h3 className="font-bold text-lg mb-4">
                             {editingGroup ? 'Edit Group' : 'Create New Group'}
                         </h3>
@@ -593,7 +593,6 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         <button onClick={() => assignModalRef.current?.close()}>close</button>
                     </form>
                 </dialog>
-            </div>
         </div>
     );
 }
