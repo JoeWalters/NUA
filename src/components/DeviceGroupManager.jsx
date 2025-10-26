@@ -303,29 +303,9 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
 
     return (
         <div className="space-y-6">
-            {/* Header Section - matching ModernDeviceGrid style */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                            <span className="text-2xl">👥</span>
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Device Groups</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Organize and control devices by groups</p>
-                        </div>
-                    </div>
-                    <button 
-                        className="btn btn-primary btn-sm"
-                        onClick={handleCreateGroup}
-                        disabled={loading}
-                    >
-                        <span className="text-lg">+</span>
-                        New Group
-                    </button>
-                </div>
-
-                {/* Groups Stats removed per UX request */}
+            {/* Header Section - centered title */}
+            <div className="text-center">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Device Groups</h2>
             </div>
 
             {/* Groups Display Section */}
@@ -342,6 +322,18 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                     </div>
                 ) : (
                     <div className="space-y-4">
+                        {/* New Group Button */}
+                        <div className="flex justify-end">
+                            <button 
+                                className="btn btn-primary btn-sm"
+                                onClick={handleCreateGroup}
+                                disabled={loading}
+                            >
+                                <span className="text-lg">+</span>
+                                New Group
+                            </button>
+                        </div>
+                        
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                             <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
