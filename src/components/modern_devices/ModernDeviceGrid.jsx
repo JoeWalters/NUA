@@ -153,27 +153,10 @@ export default function ModernDeviceGrid({
                     </div>
                 </div>
 
-                {/* Bulk Actions */}
+                {/* Device Count Display */}
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                         Showing {filteredDevices.length} of {devices.length} devices
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={onUnblockAll}
-                            className="btn btn-success btn-outline btn-sm"
-                            disabled={devices.length === 0}
-                        >
-                            Allow All
-                        </button>
-                        <button
-                            onClick={onBlockAll}
-                            className="btn btn-error btn-outline btn-sm"
-                            disabled={devices.length === 0}
-                        >
-                            Block All
-                        </button>
                     </div>
                 </div>
             </div>

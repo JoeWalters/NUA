@@ -219,13 +219,19 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     };
 
     return (
-        <div className="card bg-base-100 shadow-xl">
-            <div className="card-body">
+        <div className="space-y-6">
+            {/* Header Section - matching ModernDeviceGrid style */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="card-title text-2xl">
-                        <span className="text-2xl">👥</span>
-                        Device Groups
-                    </h2>
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                            <span className="text-2xl">👥</span>
+                        </div>
+                        <div>
+                            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Device Groups</h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Organize and control devices by groups</p>
+                        </div>
+                    </div>
                     <button 
                         className="btn btn-primary btn-sm"
                         onClick={handleCreateGroup}
@@ -236,27 +242,54 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                     </button>
                 </div>
 
+                {/* Groups Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-blue-600">{groups.length}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Total Groups</div>
+                    </div>
+                    
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-green-600">
+                            {devices?.filter(d => d.deviceGroupId !== null)?.length || 0}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Assigned Devices</div>
+                    </div>
+                    
+                    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                        <div className="text-2xl font-bold text-gray-600">
+                            {devices?.filter(d => d.deviceGroupId === null)?.length || 0}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">Unassigned Devices</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Groups Display Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                 {loading && groups.length === 0 ? (
                     <div className="flex justify-center py-8">
                         <span className="loading loading-spinner loading-md"></span>
                     </div>
                 ) : groups.length === 0 ? (
-                    <div className="text-center py-8 text-base-content/60">
+                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                         <div className="text-4xl mb-2">👥</div>
-                        <p>No device groups yet</p>
-                        <p className="text-sm">Create groups to organize your devices</p>
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No device groups yet</h3>
+                        <p className="text-sm">Create groups to organize your devices for easier management</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <div className="alert alert-info">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            <span>💡 <strong>Tip:</strong> Drag and drop groups to reorder them</span>
+                        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                            <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span className="font-medium">💡 Tip: Drag and drop groups to reorder them</span>
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {groups.map(group => (
                                 <div 
                                     key={group.id} 
-                                    className={`card bg-base-200 shadow-sm transition-all cursor-move ${
+                                    className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 transition-all cursor-move ${
                                         draggedGroup === group.id ? 'opacity-50 scale-95' : 'hover:shadow-md'
                                     }`}
                                     draggable
@@ -264,18 +297,18 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, group.id)}
                                 >
-                                    <div className="card-body p-4">
+                                    <div className="p-4">
                                     <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                            <span 
+                                            <div 
                                                 className="text-2xl p-2 rounded-lg"
                                                 style={{ backgroundColor: group.color + '20' }}
                                             >
                                                 {group.icon}
-                                            </span>
+                                            </div>
                                             <div>
-                                                <h3 className="font-semibold">{group.name}</h3>
-                                                <p className="text-xs text-base-content/60">
+                                                <h3 className="font-semibold text-gray-900 dark:text-white">{group.name}</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
                                                     {getDeviceCount(group.id)} devices
                                                 </p>
                                             </div>
@@ -326,14 +359,14 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                     </div>
                                     
                                     {group.description && (
-                                        <p className="text-sm text-base-content/70 mb-2">
+                                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
                                             {group.description}
                                         </p>
                                     )}
 
                                     <div className="flex gap-2 flex-wrap items-center justify-between">
                                         <button 
-                                            className="btn btn-xs btn-outline"
+                                            className="btn btn-sm btn-outline btn-primary"
                                             onClick={() => handleAssignDevices(group)}
                                         >
                                             📱 Manage Devices
@@ -341,20 +374,20 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                         
                                         {/* Group Toggle - matching device card style */}
                                         <div className="flex items-center gap-2">
-                                            <span className="text-xs text-base-content/60">
-                                                {getGroupBlockStatus(group.id) ? 'Some Blocked' : 'All Active'}:
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                {getGroupBlockStatus(group.id) ? 'Some Blocked' : 'All Active'}
                                             </span>
                                             <input
                                                 type="checkbox"
                                                 className={`toggle toggle-sm ${
-                                                    getGroupBlockStatus(group.id) ? 'toggle-error' : 'toggle-success'
+                                                    !getGroupBlockStatus(group.id) ? 'toggle-success' : 'toggle-error'
                                                 }`}
-                                                checked={getGroupBlockStatus(group.id)}
+                                                checked={!getGroupBlockStatus(group.id)}
                                                 onChange={(e) => {
                                                     if (e.target.checked) {
-                                                        handleGroupAction(group.id, 'block');
-                                                    } else {
                                                         handleGroupAction(group.id, 'unblock');
+                                                    } else {
+                                                        handleGroupAction(group.id, 'block');
                                                     }
                                                 }}
                                             />
@@ -366,9 +399,10 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         </div>
                     </div>
                 )}
+            </div>
 
-                {/* Group Creation/Edit Modal */}
-                <dialog className="modal" ref={groupModalRef}>
+            {/* Group Creation/Edit Modal */}
+            <dialog className="modal" ref={groupModalRef}>
                     <div className="modal-box">
                         <h3 className="font-bold text-lg mb-4">
                             {editingGroup ? 'Edit Group' : 'Create New Group'}
