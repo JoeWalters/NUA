@@ -2,6 +2,7 @@ import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import ModernDeviceGrid from "./modern_devices/ModernDeviceGrid";
 import LoadingDialog from "./utility_components/LoadingDialog";
+import DeviceGroupManager from "./DeviceGroupManager";
 
 export default function ModernDevices({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
     const navigate = useNavigate();
@@ -203,7 +204,14 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
     };
 
     return (
-        <>
+        <div className="space-y-6">
+            {/* Device Groups Management */}
+            <DeviceGroupManager 
+                devices={macData} 
+                onGroupsUpdate={handleRenderToggle}
+            />
+            
+            {/* Device Grid */}
             <ModernDeviceGrid
                 devices={macData}
                 loading={loadingMacData}
@@ -276,6 +284,6 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
             </dialog>
 
             <LoadingDialog toggleLoadingDialogRef={toggleLoadingDialogRef} />
-        </>
+        </div>
     );
 }

@@ -573,7 +573,11 @@ app.get('/getmacaddresses', async (req, res) => {
                             },
                             data: updateData
                         });
-                        const newMacData = await prisma.device.findMany();
+                        const newMacData = await prisma.device.findMany({
+                            include: {
+                                deviceGroup: true
+                            }
+                        });
                         res.json({ macData: newMacData, blockedUsers: blockedUsers });
                     } catch (error) {
                         console.error(error);
@@ -597,7 +601,11 @@ app.get('/getmacaddresses', async (req, res) => {
                             },
                             data: updateData
                         });
-                        const newMacData = await prisma.device.findMany();
+                        const newMacData = await prisma.device.findMany({
+                            include: {
+                                deviceGroup: true
+                            }
+                        });
                         res.json({ macData: newMacData, blockedUsers: blockedUsers });
                     } catch (error) {
                         console.error(error);
@@ -617,7 +625,11 @@ app.get('/getmacaddresses', async (req, res) => {
                 });
                 
                 // Now proceed with normal device loading
-                let macData = await prisma.device.findMany();
+                let macData = await prisma.device.findMany({
+                    include: {
+                        deviceGroup: true
+                    }
+                });
                 const blockedUsers = await getBlockedUsers();
                 
                 res.json({ macData: macData, blockedUsers: blockedUsers });

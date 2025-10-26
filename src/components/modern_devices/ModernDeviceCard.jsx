@@ -66,6 +66,20 @@ export default function ModernDeviceCard({
                             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                                 {device?.macAddress}
                             </p>
+                            {device?.deviceGroup && (
+                                <div className="flex items-center gap-1 mt-1">
+                                    <span 
+                                        className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
+                                        style={{ 
+                                            backgroundColor: device.deviceGroup.color + '20',
+                                            color: device.deviceGroup.color 
+                                        }}
+                                    >
+                                        <span>{device.deviceGroup.icon}</span>
+                                        {device.deviceGroup.name}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
