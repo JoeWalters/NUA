@@ -21,7 +21,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const assignModalRef = useRef();
 
     // Common emoji options for groups
-    const iconOptions = ['👤', '👥', '👨‍👩‍👧‍👦', '🏠', '💻', '📱', '🎮', '📺', '🔒', '⭐'];
+    const iconOptions = ['👤', '👥', '👨‍👩‍👧‍👦', '👦', '👧', '🏠', '💻', '📱', '🎮', '📺', '🔒', '⭐'];
     const colorOptions = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#06B6D4', '#EC4899', '#84CC16'];
 
     useEffect(() => {
@@ -187,9 +187,22 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         return groupDevices.some(device => !device.active);
     };
 
-    // Get accent border color for group cards (based on group's custom color)
-    const getGroupAccentColor = (groupColor) => {
-        return groupColor || '#3B82F6';
+    // Get accent border color for group cards based on status
+    const getGroupAccentColor = (groupId) => {
+        const deviceCount = getDeviceCount(groupId);
+        
+        // Grey for empty groups
+        if (deviceCount === 0) {
+            return '#6B7280'; // gray-500
+        }
+        
+        // Status-based colors for groups with devices
+        const isBlocked = getGroupBlockStatus(groupId);
+        if (isBlocked) {
+            return '#EF4444'; // red-500 - some devices blocked
+        } else {
+            return '#10B981'; // green-500 - all devices active
+        }
     };
 
     const handleDragStart = (e, groupId) => {
@@ -364,10 +377,10 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                         } : {})
                                     }}
                                 >
-                                    {/* Stylized left accent border using group's custom color */}
+                                    {/* Stylized left accent border using status-based color */}
                                     <div 
                                         className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"
-                                        style={{ backgroundColor: getGroupAccentColor(group.color) }}
+                                        style={{ backgroundColor: getGroupAccentColor(group.id) }}
                                     ></div>
                                     
                                     <div className="p-6 pb-4">
