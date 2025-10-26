@@ -2,7 +2,6 @@
 FROM node:18
 
 # Set environment variables
-ENV NODE_ENV=production
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Create and change to the app directory
@@ -13,6 +12,8 @@ COPY package*.json ./
 COPY server/package*.json ./server/
 
 # Install root dependencies (including devDependencies for build)
+# Temporarily set NODE_ENV to development to install all dependencies
+ENV NODE_ENV=development
 RUN npm ci
 
 # Go back to root and copy the rest of the application
@@ -21,8 +22,16 @@ COPY . .
 # Make startup script executable
 RUN chmod +x /usr/src/app/server/scripts/docker-startup.sh
 
+# Debug: Check if vite is installed
+RUN ls -la node_modules/.bin/ | grep vite || echo "Vite not found in .bin"
+RUN npm list vite || echo "Vite not in dependencies"
+
 # Build the frontend application (Vite should now be available)
-RUN npm run build
+# Use npx to ensure vite is found in node_modules
+RUN npx vite build
+
+# Set NODE_ENV back to production for runtime
+ENV NODE_ENV=production
 
 # Install server dependencies (production only)
 WORKDIR /usr/src/app/server
