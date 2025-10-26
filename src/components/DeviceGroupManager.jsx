@@ -7,6 +7,9 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const [showGroupModal, setShowGroupModal] = useState(false);
     const [editingGroup, setEditingGroup] = useState(null);
     const [draggedGroup, setDraggedGroup] = useState(null);
+    const [touchStartY, setTouchStartY] = useState(null);
+    const [touchCurrentY, setTouchCurrentY] = useState(null);
+    const [isTouchDragging, setIsTouchDragging] = useState(false);
     const [groupForm, setGroupForm] = useState({
         name: '',
         description: '',
@@ -218,6 +221,68 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         setDraggedGroup(null);
     };
 
+    // Touch handlers for mobile drag and drop
+    const handleTouchStart = (e, groupId) => {
+        const touch = e.touches[0];
+        setTouchStartY(touch.clientY);
+        setDraggedGroup(groupId);
+        setIsTouchDragging(false);
+        
+        // Prevent scrolling while potentially dragging
+        e.preventDefault();
+    };
+
+    const handleTouchMove = (e, groupId) => {
+        if (!draggedGroup || draggedGroup !== groupId) return;
+        
+        const touch = e.touches[0];
+        setTouchCurrentY(touch.clientY);
+        
+        // Start dragging if moved enough
+        if (!isTouchDragging && touchStartY && Math.abs(touch.clientY - touchStartY) > 10) {
+            setIsTouchDragging(true);
+        }
+        
+        e.preventDefault();
+    };
+
+    const handleTouchEnd = (e, groupId) => {
+        if (!isTouchDragging || !draggedGroup || draggedGroup !== groupId) {
+            setDraggedGroup(null);
+            setIsTouchDragging(false);
+            setTouchStartY(null);
+            setTouchCurrentY(null);
+            return;
+        }
+
+        // Find the group card element under the touch point
+        const touch = e.changedTouches[0];
+        const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+        const groupCard = elementBelow?.closest('[data-group-id]');
+        
+        if (groupCard) {
+            const targetGroupId = parseInt(groupCard.getAttribute('data-group-id'));
+            if (targetGroupId && targetGroupId !== draggedGroup) {
+                // Reorder groups
+                const draggedIndex = groups.findIndex(g => g.id === draggedGroup);
+                const targetIndex = groups.findIndex(g => g.id === targetGroupId);
+
+                if (draggedIndex !== -1 && targetIndex !== -1) {
+                    const newGroups = [...groups];
+                    const [draggedItem] = newGroups.splice(draggedIndex, 1);
+                    newGroups.splice(targetIndex, 0, draggedItem);
+                    setGroups(newGroups);
+                }
+            }
+        }
+
+        // Reset touch state
+        setDraggedGroup(null);
+        setIsTouchDragging(false);
+        setTouchStartY(null);
+        setTouchCurrentY(null);
+    };
+
     return (
         <div className="space-y-6">
             {/* Header Section - matching ModernDeviceGrid style */}
@@ -262,22 +327,43 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                             <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                <span className="font-medium">💡 Tip: Drag and drop groups to reorder them</span>
+                                <span className="font-medium">💡 Tip: Drag and drop groups to reorder them (or hold and drag on mobile)</span>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {groups.map(group => (
                                 <div 
                                     key={group.id} 
-                                    className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 transition-all cursor-move ${
-                                        draggedGroup === group.id ? 'opacity-50 scale-95' : 'hover:shadow-md'
+                                    data-group-id={group.id}
+                                    className={`bg-white dark:bg-gray-700 rounded-lg shadow-sm border border-gray-200 dark:border-gray-600 transition-all select-none ${
+                                        draggedGroup === group.id 
+                                            ? 'opacity-50 scale-95 transform rotate-2' 
+                                            : 'hover:shadow-md cursor-move'
+                                    } ${
+                                        isTouchDragging && draggedGroup === group.id 
+                                            ? 'z-50 shadow-xl' 
+                                            : ''
                                     }`}
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, group.id)}
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, group.id)}
+                                    onTouchStart={(e) => handleTouchStart(e, group.id)}
+                                    onTouchMove={(e) => handleTouchMove(e, group.id)}
+                                    onTouchEnd={(e) => handleTouchEnd(e, group.id)}
+                                    style={{
+                                        touchAction: 'none', // Prevent default touch behaviors
+                                        ...(isTouchDragging && draggedGroup === group.id && touchCurrentY && touchStartY ? {
+                                            transform: `translateY(${touchCurrentY - touchStartY}px) rotate(2deg)`,
+                                            zIndex: 1000
+                                        } : {})
+                                    }}
                                 >
                                     <div className="p-4">
+                                    {/* Drag handle for mobile - visible on small screens */}
+                                    <div className="flex items-center justify-center mb-2 md:hidden">
+                                        <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                                    </div>
                                     <div className="flex items-start justify-between mb-2">
                                         <div className="flex items-center gap-2">
                                             <div 
