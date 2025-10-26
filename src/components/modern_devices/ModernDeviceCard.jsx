@@ -33,22 +33,15 @@ export default function ModernDeviceCard({
         }
     };
 
-    // Get status color classes
-    const getStatusColor = (active, bonusTimeActive) => {
-        if (active && bonusTimeActive) return 'text-blue-500 bg-blue-50 border-blue-200';
-        if (active) return 'text-green-500 bg-green-50 border-green-200';
-        return 'text-red-500 bg-red-50 border-red-200';
-    };
-
-    // Get status text
-    const getStatusText = (active, bonusTimeActive) => {
-        if (active && bonusTimeActive) return 'Bonus Time';
-        if (active) return 'Allowed';
-        return 'Blocked';
+    // Get card border classes based on device status
+    const getCardBorderClasses = (active, bonusTimeActive) => {
+        if (active && bonusTimeActive) return 'border-blue-500 border-2';
+        if (active) return 'border-green-500 border-2';
+        return 'border-red-500 border-2';
     };
 
     return (
-        <div className="bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200 dark:border-gray-700 overflow-hidden group">
+        <div className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(device?.active, device?.bonusTimeActive)}`}>
             {/* Card Header */}
             <div className="p-6 pb-4">
                 <div className="flex items-start justify-between">
@@ -88,14 +81,7 @@ export default function ModernDeviceCard({
                         </div>
                     </div>
 
-                    {/* Status Badge */}
-                    <div className={`
-                        flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium border
-                        ${getStatusColor(device?.active, device?.bonusTimeActive)}
-                    `}>
-                        <div className="w-2 h-2 rounded-full bg-current"></div>
-                        <span>{getStatusText(device?.active, device?.bonusTimeActive)}</span>
-                    </div>
+                    {/* Status indicator removed - now using card border */}
                 </div>
 
                 {/* Quick Actions Row */}
