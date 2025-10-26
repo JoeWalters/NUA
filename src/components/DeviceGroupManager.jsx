@@ -302,11 +302,12 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     };
 
     return (
-        <div className="space-y-6">
-            {/* Header Section - centered title */}
-            <div className="text-center">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Device Groups</h2>
-            </div>
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="space-y-6">
+                {/* Header Section - centered title */}
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Device Groups</h2>
+                </div>
 
             {/* Groups Display Section */}
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
@@ -691,6 +692,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         <button onClick={() => assignModalRef.current?.close()}>close</button>
                     </form>
                 </dialog>
+            </div>
         </div>
     );
 }
