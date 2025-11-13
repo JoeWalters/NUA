@@ -2565,6 +2565,7 @@ app.post('/submitapptest', async (req, res) => {
 // Get all device groups
 app.get('/api/device-groups', async (req, res) => {
     try {
+        console.log('📥 GET /api/device-groups - Fetching all device groups');
         const groups = await prisma.deviceGroup.findMany({
             include: {
                 devices: true
@@ -2573,9 +2574,11 @@ app.get('/api/device-groups', async (req, res) => {
                 createdAt: 'desc'
             }
         });
+        console.log(`✅ Found ${groups.length} device groups`);
         res.json(groups);
     } catch (error) {
-        console.error('Error fetching device groups:', error);
+        console.error('❌ Error fetching device groups:', error.message);
+        console.error('📋 Full error:', error);
         res.status(500).json({ error: 'Failed to fetch device groups', details: error.message });
     }
 });

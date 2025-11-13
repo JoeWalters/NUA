@@ -44,15 +44,21 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const fetchGroups = async () => {
         try {
             setLoading(true);
+            console.log('🔍 Fetching device groups...');
             const response = await fetch('/api/device-groups');
+            console.log('📡 Response status:', response.status, response.statusText);
+            
             if (response.ok) {
                 const groupsData = await response.json();
+                console.log('✅ Groups fetched successfully:', groupsData);
                 setGroups(groupsData);
             } else {
-                console.error('Error fetching groups: HTTP', response.status, response.statusText);
+                const errorText = await response.text();
+                console.error('❌ Error fetching groups: HTTP', response.status, response.statusText);
+                console.error('📄 Response body:', errorText);
             }
         } catch (error) {
-            console.error('Error fetching groups:', error);
+            console.error('❌ Error fetching groups:', error);
         } finally {
             setLoading(false);
         }
