@@ -464,7 +464,15 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                     <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                         <div className="text-4xl mb-2">👥</div>
                         <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No device groups yet</h3>
-                        <p className="text-sm">Create groups to organize your devices for easier management</p>
+                        <p className="text-sm mb-6">Create groups to organize your devices for easier management</p>
+                        <button 
+                            className="btn btn-primary"
+                            onClick={handleCreateGroup}
+                            disabled={loading}
+                        >
+                            <span className="text-lg">+</span>
+                            Create First Group
+                        </button>
                     </div>
                 ) : (
                     <div className="space-y-4">
