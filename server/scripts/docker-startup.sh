@@ -121,7 +121,7 @@ else
     }
     
     # Check if there are pending migrations to apply
-    if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "You have.*pending migration"; then
+    if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "pending migration"; then
         log "� Pending migrations detected! Applying migrations..."
         if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
             log "❌ Migration deployment failed"
@@ -129,25 +129,26 @@ else
         fi
         log "✅ Pending migrations applied successfully"
     elif echo "$MIGRATION_STATUS_OUTPUT" | grep -q "Database schema is up to date"; then
-        log "✅ Database schema is already up to date"
-    else
-        log "ℹ️ Migration status: $MIGRATION_STATUS_OUTPUT"
-    fi
-    
-    # Auto-migration strategy for development schema changes
-    if [ "${AUTO_MIGRATE}" == "true" ] || [ "${NODE_ENV}" == "development" ]; then
-        log "� Auto-migration enabled - checking for schema changes..."
+        log "✅ Database schema is already up to date according to migration history"
         
-        # Check if schema differs from database (excluding pending migrations)
-        DIFF_OUTPUT=$(timeout 60 npx prisma db diff --from-schema ./schema.prisma --to-schema ./schema.prisma 2>&1) || {
-            log "⚠️ Schema diff check not available, skipping auto-migration..."
+        # Even if migrations say we're up to date, run db push as a safety net
+        # to handle cases where old databases have schema mismatches
+        log "🔧 Running schema verification with db push..."
+        SCHEMA_SYNC_OUTPUT=$(timeout 120 npx prisma db push --schema="$SCHEMA_PATH" --skip-generate 2>&1) || {
+            SYNC_STATUS=$?
+            log "⚠️ Schema verification encountered an issue (exit code: $SYNC_STATUS)"
         }
         
-        if ! echo "$DIFF_OUTPUT" | grep -q "No difference"; then
-            log "⚠️ Schema mismatch detected after pending migrations applied"
-            log "📄 Diff output: $DIFF_OUTPUT"
-            log "🔄 This may indicate a new schema change that hasn't been migrated yet"
+        if echo "$SCHEMA_SYNC_OUTPUT" | grep -q "Everything is in sync"; then
+            log "✅ Database schema is in full sync with Prisma schema"
+        elif echo "$SCHEMA_SYNC_OUTPUT" | grep -q "Push to"; then
+            log "🔄 Schema changes detected and applied"
+            log "📄 Changes: $SCHEMA_SYNC_OUTPUT"
+        else
+            log "📄 Schema sync result: $SCHEMA_SYNC_OUTPUT"
         fi
+    else
+        log "ℹ️ Migration status: $MIGRATION_STATUS_OUTPUT"
     fi
 fi
 
