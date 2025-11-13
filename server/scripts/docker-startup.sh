@@ -121,31 +121,46 @@ else
     }
     
     # Check if there are pending migrations to apply
-    if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "pending migration"; then
+    if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "pending"; then
         log "� Pending migrations detected! Applying migrations..."
         if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
             log "❌ Migration deployment failed"
             exit 1
         fi
         log "✅ Pending migrations applied successfully"
-    elif echo "$MIGRATION_STATUS_OUTPUT" | grep -q "Database schema is up to date"; then
-        log "✅ Database schema is already up to date according to migration history"
+    elif echo "$MIGRATION_STATUS_OUTPUT" | grep -q "up to date"; then
+        log "✅ Database schema is reported as up to date by Prisma"
         
-        # Even if migrations say we're up to date, run db push as a safety net
-        # to handle cases where old databases have schema mismatches
-        log "🔧 Running schema verification with db push..."
-        SCHEMA_SYNC_OUTPUT=$(timeout 120 npx prisma db push --schema="$SCHEMA_PATH" --skip-generate 2>&1) || {
-            SYNC_STATUS=$?
-            log "⚠️ Schema verification encountered an issue (exit code: $SYNC_STATUS)"
-        }
+        # However, old databases may not have the DeviceGroup table even though migrations claim to be up to date
+        # This happens when the DeviceGroup migration is newer than the database was created
+        log "🔧 Verifying DeviceGroup table exists..."
+        DEVICE_GROUP_EXISTS=$(sqlite3 ./config/nodeunifi.db "SELECT name FROM sqlite_master WHERE type='table' AND name='DeviceGroup';" 2>&1 || echo "")
         
-        if echo "$SCHEMA_SYNC_OUTPUT" | grep -q "Everything is in sync"; then
-            log "✅ Database schema is in full sync with Prisma schema"
-        elif echo "$SCHEMA_SYNC_OUTPUT" | grep -q "Push to"; then
-            log "🔄 Schema changes detected and applied"
-            log "📄 Changes: $SCHEMA_SYNC_OUTPUT"
+        if [ -z "$DEVICE_GROUP_EXISTS" ]; then
+            log "⚠️ DeviceGroup table NOT FOUND - database is older than DeviceGroup feature"
+            log "🔧 Running prisma migrate reset to rebuild database with all current migrations..."
+            
+            # Use migrate reset to rebuild the database
+            if timeout 180 npx prisma migrate reset --force --schema="$SCHEMA_PATH" 2>&1 > /tmp/migrate_reset.log; then
+                log "✅ Database successfully reset and rebuilt"
+            else
+                log "⚠️ Migrate reset encountered issues, output:"
+                cat /tmp/migrate_reset.log | head -20 | while read line; do log "  $line"; done
+                log "🔧 Attempting standard deploy..."
+                timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH" || true
+            fi
+            
+            # Verify again
+            DEVICE_GROUP_EXISTS=$(sqlite3 ./config/nodeunifi.db "SELECT name FROM sqlite_master WHERE type='table' AND name='DeviceGroup';" 2>&1 || echo "")
+            if [ -z "$DEVICE_GROUP_EXISTS" ]; then
+                log "❌ CRITICAL: DeviceGroup table is still missing!"
+                log "❌ Database migration failed - exiting"
+                exit 1
+            else
+                log "✅ DeviceGroup table now confirmed in database"
+            fi
         else
-            log "📄 Schema sync result: $SCHEMA_SYNC_OUTPUT"
+            log "✅ DeviceGroup table confirmed to exist"
         fi
     else
         log "ℹ️ Migration status: $MIGRATION_STATUS_OUTPUT"
