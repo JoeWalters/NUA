@@ -2566,6 +2566,18 @@ app.post('/submitapptest', async (req, res) => {
 app.get('/api/device-groups', async (req, res) => {
     try {
         console.log('📥 GET /api/device-groups - Fetching all device groups');
+        
+        // First, try a simple query without includes
+        console.log('🔧 Attempting simple query first...');
+        const simpleGroups = await prisma.deviceGroup.findMany({
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        console.log(`✅ Simple query found ${simpleGroups.length} device groups`);
+        
+        // Now try with includes
+        console.log('🔧 Attempting query with device relationships...');
         const groups = await prisma.deviceGroup.findMany({
             include: {
                 devices: true
@@ -2574,7 +2586,7 @@ app.get('/api/device-groups', async (req, res) => {
                 createdAt: 'desc'
             }
         });
-        console.log(`✅ Found ${groups.length} device groups`);
+        console.log(`✅ Full query found ${groups.length} device groups with relationships`);
         res.json(groups);
     } catch (error) {
         console.error('❌ Error fetching device groups:', error.message);

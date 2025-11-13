@@ -167,6 +167,14 @@ else
     fi
 fi
 
+# Force regenerate Prisma client after all migration operations
+log "🔧 Regenerating Prisma client to ensure all models are loaded..."
+if ! timeout 60 npx prisma generate --schema="$SCHEMA_PATH"; then
+    log "⚠️ Prisma regeneration encountered an issue but continuing..."
+else
+    log "✅ Prisma client regenerated successfully"
+fi
+
 log "🔧 Final system checks..."
 # Verify database connectivity
 log "🗄️ Testing database connection..."
