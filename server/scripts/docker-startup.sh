@@ -114,75 +114,39 @@ else
     fi
     log "✅ Prisma client ready"
     
-    # Auto-migration strategy based on environment
-    if [ "${AUTO_MIGRATE}" == "true" ] || [ "${NODE_ENV}" == "development" ]; then
-        log "🔧 Auto-migration enabled - checking for schema changes..."
-        
-        # Check if schema differs from database
-        DIFF_OUTPUT=$(timeout 60 npx prisma db diff --from-migrations ./migrations --to-schema-datamodel ./schema.prisma 2>&1) || {
-            log "⚠️ Schema diff check failed, proceeding with standard migration..."
-        }
-        
-        if echo "$DIFF_OUTPUT" | grep -q "No difference"; then
-            log "✅ Schema matches database - no migration needed"
-        else
-            log "🔄 Schema changes detected, auto-generating migration..."
-            
-            # Generate timestamp for migration name
-            MIGRATION_NAME="auto_migration_$(date +%Y%m%d_%H%M%S)"
-            
-            # Auto-generate migration
-            AUTO_MIGRATION_OUTPUT=$(timeout 120 npx prisma migrate dev --name "$MIGRATION_NAME" --schema="$SCHEMA_PATH" 2>&1) || {
-                log "⚠️ Auto-migration failed, falling back to manual deployment..."
-                log "📄 Auto-migration output: $AUTO_MIGRATION_OUTPUT"
-                
-                # Fallback to migrate deploy
-                if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
-                    log "❌ Fallback migration deployment also failed"
-                    exit 1
-                fi
-            }
-            
-            if echo "$AUTO_MIGRATION_OUTPUT" | grep -q "migration"; then
-                log "✅ Auto-migration completed: $MIGRATION_NAME"
-                log "📄 Migration details: $AUTO_MIGRATION_OUTPUT"
-            fi
-        fi
-    else
-        # Standard production migration approach
-        log "🔧 Using standard migration deployment (production mode)..."
-        
-        # Check and apply any pending migrations with enhanced error handling
-        log "🔍 Checking for pending migrations..."
-        MIGRATION_STATUS_OUTPUT=$(timeout 60 npx prisma migrate status --schema="$SCHEMA_PATH" 2>&1) || {
-            log "⚠️ Migration status check failed, output: $MIGRATION_STATUS_OUTPUT"
-            log "🔧 Attempting migration deployment anyway..."
-        }
-        
-        # Log migration status for debugging
-        if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "Database schema is up to date"; then
-            log "✅ Database schema is already up to date"
-        elif echo "$MIGRATION_STATUS_OUTPUT" | grep -q "pending migration"; then
-            log "🔄 Pending migrations detected, applying them..."
-        else
-            log "🔍 Migration status unclear, proceeding with deployment to ensure consistency"
-        fi
-        
-        log "🔧 Applying any pending migrations..."
-        MIGRATION_OUTPUT=$(timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH" 2>&1) || {
+    # Always check for and apply pending migrations first
+    log "🔍 Checking for pending migrations..."
+    MIGRATION_STATUS_OUTPUT=$(timeout 60 npx prisma migrate status --schema="$SCHEMA_PATH" 2>&1) || {
+        log "⚠️ Migration status check failed, proceeding anyway..."
+    }
+    
+    # Check if there are pending migrations to apply
+    if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "You have.*pending migration"; then
+        log "� Pending migrations detected! Applying migrations..."
+        if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
             log "❌ Migration deployment failed"
-            log "📄 Migration output: $MIGRATION_OUTPUT"
             exit 1
+        fi
+        log "✅ Pending migrations applied successfully"
+    elif echo "$MIGRATION_STATUS_OUTPUT" | grep -q "Database schema is up to date"; then
+        log "✅ Database schema is already up to date"
+    else
+        log "ℹ️ Migration status: $MIGRATION_STATUS_OUTPUT"
+    fi
+    
+    # Auto-migration strategy for development schema changes
+    if [ "${AUTO_MIGRATE}" == "true" ] || [ "${NODE_ENV}" == "development" ]; then
+        log "� Auto-migration enabled - checking for schema changes..."
+        
+        # Check if schema differs from database (excluding pending migrations)
+        DIFF_OUTPUT=$(timeout 60 npx prisma db diff --from-schema ./schema.prisma --to-schema ./schema.prisma 2>&1) || {
+            log "⚠️ Schema diff check not available, skipping auto-migration..."
         }
         
-        # Log successful migration details
-        if echo "$MIGRATION_OUTPUT" | grep -q "migration(s) have been applied"; then
-            log "✅ New migrations applied successfully"
-            log "📄 Migration details: $MIGRATION_OUTPUT"
-        elif echo "$MIGRATION_OUTPUT" | grep -q "No pending migrations"; then
-            log "✅ No pending migrations found - database is current"
-        else
-            log "✅ Migration deployment completed"
+        if ! echo "$DIFF_OUTPUT" | grep -q "No difference"; then
+            log "⚠️ Schema mismatch detected after pending migrations applied"
+            log "📄 Diff output: $DIFF_OUTPUT"
+            log "🔄 This may indicate a new schema change that hasn't been migrated yet"
         fi
     fi
 fi

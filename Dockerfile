@@ -50,7 +50,7 @@ RUN npx prisma generate --schema=./schema.prisma
 
 # Set default environment variables for auto-migration
 ENV NODE_ENV=development
-ENV AUTO_MIGRATE=false
+ENV AUTO_MIGRATE=true
 ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
 
 # Go back to root

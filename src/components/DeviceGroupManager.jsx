@@ -48,6 +48,8 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
             if (response.ok) {
                 const groupsData = await response.json();
                 setGroups(groupsData);
+            } else {
+                console.error('Error fetching groups: HTTP', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Error fetching groups:', error);

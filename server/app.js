@@ -2576,7 +2576,7 @@ app.get('/api/device-groups', async (req, res) => {
         res.json(groups);
     } catch (error) {
         console.error('Error fetching device groups:', error);
-        res.status(500).json({ error: 'Failed to fetch device groups' });
+        res.status(500).json({ error: 'Failed to fetch device groups', details: error.message });
     }
 });
 
