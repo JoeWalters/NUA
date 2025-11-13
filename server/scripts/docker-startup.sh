@@ -52,6 +52,25 @@ log "Environment: ${NODE_ENV:-development}"
 log "Working directory: $(pwd)"
 log "Database path: ./config/nodeunifi.db"
 
+# Validate Prisma setup
+log "🔍 Validating Prisma setup..."
+if [ ! -f "$SCHEMA_PATH" ]; then
+    log "❌ Prisma schema file not found at $SCHEMA_PATH"
+    exit 1
+fi
+log "✅ Prisma schema found: $SCHEMA_PATH"
+
+# Check if migrations directory exists
+MIGRATIONS_DIR="${BASE_LOC}/migrations"
+if [ ! -d "$MIGRATIONS_DIR" ]; then
+    log "⚠️ Migrations directory not found at $MIGRATIONS_DIR"
+    log "📁 Creating migrations directory..."
+    mkdir -p "$MIGRATIONS_DIR"
+else
+    MIGRATION_COUNT=$(find "$MIGRATIONS_DIR" -maxdepth 1 -type d -name "[0-9]*" | wc -l)
+    log "✅ Migrations directory found with $MIGRATION_COUNT migration(s)"
+fi
+
 # Create config directory if it doesn't exist
 mkdir -p ./config
 
@@ -76,8 +95,8 @@ if [ ! -f ./config/nodeunifi.db ]; then
         fi
         log "✅ Database migration completed successfully"
     else
-        log "Using development database initialization"
-        log "🔧 Running: npm run db"
+        log "Using development database initialization with auto-migration"
+        log "🔧 Running: npm run db (generates migrations automatically)"
         if ! timeout 120 npm run db; then
             log "❌ Database initialization failed or timed out"
             exit 1
@@ -95,18 +114,65 @@ else
     fi
     log "✅ Prisma client ready"
     
-    # Check and apply any pending migrations
+    # Always check for and apply pending migrations first
     log "🔍 Checking for pending migrations..."
-    if ! timeout 60 npx prisma migrate status --schema="$SCHEMA_PATH"; then
-        log "⚠️ Unable to check migration status, attempting deploy anyway..."
-    fi
+    MIGRATION_STATUS_OUTPUT=$(timeout 60 npx prisma migrate status --schema="$SCHEMA_PATH" 2>&1) || {
+        log "⚠️ Migration status check failed, proceeding anyway..."
+    }
     
-    log "🔧 Applying any pending migrations..."
-    if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
-        log "❌ Migration deployment failed"
-        exit 1
+    # Check if there are pending migrations to apply
+    if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "pending"; then
+        log "� Pending migrations detected! Applying migrations..."
+        if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
+            log "❌ Migration deployment failed"
+            exit 1
+        fi
+        log "✅ Pending migrations applied successfully"
+    elif echo "$MIGRATION_STATUS_OUTPUT" | grep -q "up to date"; then
+        log "✅ Database schema is reported as up to date by Prisma"
+        
+        # However, old databases may not have the DeviceGroup table even though migrations claim to be up to date
+        # This happens when the DeviceGroup migration is newer than the database was created
+        log "🔧 Verifying DeviceGroup table exists..."
+        DEVICE_GROUP_EXISTS=$(sqlite3 ./config/nodeunifi.db "SELECT name FROM sqlite_master WHERE type='table' AND name='DeviceGroup';" 2>&1 || echo "")
+        
+        if [ -z "$DEVICE_GROUP_EXISTS" ]; then
+            log "⚠️ DeviceGroup table NOT FOUND - database is older than DeviceGroup feature"
+            log "🔧 Running prisma migrate reset to rebuild database with all current migrations..."
+            
+            # Use migrate reset to rebuild the database
+            if timeout 180 npx prisma migrate reset --force --schema="$SCHEMA_PATH" 2>&1 > /tmp/migrate_reset.log; then
+                log "✅ Database successfully reset and rebuilt"
+            else
+                log "⚠️ Migrate reset encountered issues, output:"
+                cat /tmp/migrate_reset.log | head -20 | while read line; do log "  $line"; done
+                log "🔧 Attempting standard deploy..."
+                timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH" || true
+            fi
+            
+            # Verify again
+            DEVICE_GROUP_EXISTS=$(sqlite3 ./config/nodeunifi.db "SELECT name FROM sqlite_master WHERE type='table' AND name='DeviceGroup';" 2>&1 || echo "")
+            if [ -z "$DEVICE_GROUP_EXISTS" ]; then
+                log "❌ CRITICAL: DeviceGroup table is still missing!"
+                log "❌ Database migration failed - exiting"
+                exit 1
+            else
+                log "✅ DeviceGroup table now confirmed in database"
+            fi
+        else
+            log "✅ DeviceGroup table confirmed to exist"
+        fi
+    else
+        log "ℹ️ Migration status: $MIGRATION_STATUS_OUTPUT"
     fi
-    log "✅ Database migrations up to date"
+fi
+
+# Force regenerate Prisma client after all migration operations
+log "🔧 Regenerating Prisma client to ensure all models are loaded..."
+if ! timeout 60 npx prisma generate --schema="$SCHEMA_PATH"; then
+    log "⚠️ Prisma regeneration encountered an issue but continuing..."
+else
+    log "✅ Prisma client regenerated successfully"
 fi
 
 log "🔧 Final system checks..."

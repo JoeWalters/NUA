@@ -439,16 +439,83 @@ app.get('/health', async (req, res) => {
     try {
         // Basic health check - verify database connection
         await prisma.$queryRaw`SELECT 1`;
+        
+        // Check if credentials are configured
+        const credentials = await prisma.credentials.findUnique({ where: { id: 1 } });
+        const isConfigured = credentials && !credentials.initialSetup;
+        
+        // Check UniFi connection status
+        const unifiConnected = !!unifi;
+        
         res.status(200).json({ 
             status: 'healthy',
+            database: 'connected',
+            configured: isConfigured,
+            unifiConnected: unifiConnected,
             timestamp: new Date().toISOString(),
-            version: '2.2.0'
+            version: '2.2.0',
+            environment: process.env.NODE_ENV || 'development'
         });
     } catch (error) {
         console.error('Health check failed:', error);
         res.status(500).json({ 
             status: 'unhealthy',
+            database: 'disconnected',
             error: error.message,
+            timestamp: new Date().toISOString(),
+            version: '2.2.0'
+        });
+    }
+});
+
+// Database migration status endpoint for debugging
+app.get('/debug/migration-status', async (req, res) => {
+    try {
+        // This endpoint is for debugging migration status
+        // Note: This requires Prisma CLI to be available in production
+        const { spawn } = require('child_process');
+        
+        const migrationCheck = spawn('npx', ['prisma', 'migrate', 'status'], {
+            cwd: process.cwd(),
+            stdio: 'pipe'
+        });
+        
+        let output = '';
+        let errorOutput = '';
+        
+        migrationCheck.stdout.on('data', (data) => {
+            output += data.toString();
+        });
+        
+        migrationCheck.stderr.on('data', (data) => {
+            errorOutput += data.toString();
+        });
+        
+        migrationCheck.on('close', (code) => {
+            res.json({
+                migrationStatus: code === 0 ? 'up-to-date' : 'pending-or-error',
+                exitCode: code,
+                output: output,
+                error: errorOutput,
+                timestamp: new Date().toISOString()
+            });
+        });
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+            migrationCheck.kill();
+            if (!res.headersSent) {
+                res.status(408).json({ 
+                    error: 'Migration status check timed out',
+                    timeout: true 
+                });
+            }
+        }, 10000);
+        
+    } catch (error) {
+        res.status(500).json({
+            error: 'Failed to check migration status',
+            message: error.message,
             timestamp: new Date().toISOString()
         });
     }
@@ -466,7 +533,11 @@ app.get('/getmacaddresses', async (req, res) => {
         console.log('🔍 /getmacaddresses - initialSetup:', initialSetup, 'unifi connected:', !!unifi);
 
         if (!initialSetup) {
-            let macData = await prisma.device.findMany();
+            let macData = await prisma.device.findMany({
+                include: {
+                    deviceGroup: true
+                }
+            });
             // let getRefreshTimer = await prisma.credentials.findUnique({
             //     where: {
             //         id: 1
@@ -502,7 +573,11 @@ app.get('/getmacaddresses', async (req, res) => {
                             },
                             data: updateData
                         });
-                        const newMacData = await prisma.device.findMany();
+                        const newMacData = await prisma.device.findMany({
+                            include: {
+                                deviceGroup: true
+                            }
+                        });
                         res.json({ macData: newMacData, blockedUsers: blockedUsers });
                     } catch (error) {
                         console.error(error);
@@ -526,7 +601,11 @@ app.get('/getmacaddresses', async (req, res) => {
                             },
                             data: updateData
                         });
-                        const newMacData = await prisma.device.findMany();
+                        const newMacData = await prisma.device.findMany({
+                            include: {
+                                deviceGroup: true
+                            }
+                        });
                         res.json({ macData: newMacData, blockedUsers: blockedUsers });
                     } catch (error) {
                         console.error(error);
@@ -546,7 +625,11 @@ app.get('/getmacaddresses', async (req, res) => {
                 });
                 
                 // Now proceed with normal device loading
-                let macData = await prisma.device.findMany();
+                let macData = await prisma.device.findMany({
+                    include: {
+                        deviceGroup: true
+                    }
+                });
                 const blockedUsers = await getBlockedUsers();
                 
                 res.json({ macData: macData, blockedUsers: blockedUsers });
@@ -1456,7 +1539,11 @@ app.get('/getalldevices', async (req, res) => {
         // const getAccessDevices = await unifi.getAccessDevices();
         const getClientDevices = await unifi.getAllUsers();
         // const getClientDevices = await unifi.getClientDevices();
-        const getDeviceList = await prisma.device.findMany();
+        const getDeviceList = await prisma.device.findMany({
+            include: {
+                deviceGroup: true
+            }
+        });
         // console.log(getClientDevices);
         res.json({ getClientDevices: getClientDevices, getDeviceList: getDeviceList })
         // res.sendStatus(200)
@@ -1467,10 +1554,186 @@ app.get('/getalldevices', async (req, res) => {
 
 app.get('/getcurrentdevices', async (req, res) => {
     try {
-        const getDeviceList = await prisma.device.findMany();
+        const getDeviceList = await prisma.device.findMany({
+            include: {
+                deviceGroup: true
+            }
+        });
         res.json({ getDeviceList: getDeviceList });
     } catch (error) {
         console.error(error);
+    }
+});
+
+//~~~~~~~device groups~~~~~~~~
+app.get('/devicegroups', async (req, res) => {
+    try {
+        const deviceGroups = await prisma.deviceGroup.findMany({
+            include: {
+                devices: true
+            }
+        });
+        res.json({ deviceGroups });
+    } catch (error) {
+        console.error('Error fetching device groups:', error);
+        res.status(500).json({ error: 'Failed to fetch device groups' });
+    }
+});
+
+app.post('/devicegroups', async (req, res) => {
+    try {
+        const { name, description, color, icon } = req.body;
+        
+        const deviceGroup = await prisma.deviceGroup.create({
+            data: {
+                name,
+                description,
+                color: color || '#3B82F6',
+                icon: icon || '👤'
+            },
+            include: {
+                devices: true
+            }
+        });
+        
+        res.status(201).json({ deviceGroup });
+    } catch (error) {
+        console.error('Error creating device group:', error);
+        res.status(500).json({ error: 'Failed to create device group' });
+    }
+});
+
+app.put('/devicegroups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, color, icon, active } = req.body;
+        
+        const deviceGroup = await prisma.deviceGroup.update({
+            where: { id: parseInt(id) },
+            data: {
+                name,
+                description,
+                color,
+                icon,
+                active
+            },
+            include: {
+                devices: true
+            }
+        });
+        
+        res.json({ deviceGroup });
+    } catch (error) {
+        console.error('Error updating device group:', error);
+        res.status(500).json({ error: 'Failed to update device group' });
+    }
+});
+
+app.delete('/devicegroups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // First, remove group association from devices
+        await prisma.device.updateMany({
+            where: { deviceGroupId: parseInt(id) },
+            data: { deviceGroupId: null }
+        });
+        
+        // Then delete the group
+        await prisma.deviceGroup.delete({
+            where: { id: parseInt(id) }
+        });
+        
+        res.json({ message: 'Device group deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting device group:', error);
+        res.status(500).json({ error: 'Failed to delete device group' });
+    }
+});
+
+app.put('/devices/:id/group', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { deviceGroupId } = req.body;
+        
+        const device = await prisma.device.update({
+            where: { id: parseInt(id) },
+            data: { 
+                deviceGroupId: deviceGroupId ? parseInt(deviceGroupId) : null 
+            },
+            include: {
+                deviceGroup: true
+            }
+        });
+        
+        res.json({ device });
+    } catch (error) {
+        console.error('Error updating device group assignment:', error);
+        res.status(500).json({ error: 'Failed to update device group assignment' });
+    }
+});
+
+app.post('/devicegroups/:id/toggle', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { active } = req.body; // true to allow all, false to block all
+        
+        // Check if UniFi is connected
+        if (!unifi) {
+            return res.status(503).json({ 
+                error: 'UniFi controller not connected', 
+                message: 'Please configure UniFi credentials at /sitesettings',
+                success: false
+            });
+        }
+        
+        // Get all devices in the group
+        const deviceGroup = await prisma.deviceGroup.findUnique({
+            where: { id: parseInt(id) },
+            include: { devices: true }
+        });
+        
+        if (!deviceGroup) {
+            return res.status(404).json({ error: 'Device group not found' });
+        }
+        
+        const results = [];
+        const errors = [];
+        
+        // Toggle each device in the group
+        for (const device of deviceGroup.devices) {
+            try {
+                if (active) {
+                    await unblockSingle(device.macAddress);
+                } else {
+                    await blockSingle(device.macAddress);
+                }
+                
+                // Update device status in database
+                await prisma.device.update({
+                    where: { id: device.id },
+                    data: { 
+                        active: active,
+                        bonusTimeActive: false // Reset bonus time when toggling group
+                    }
+                });
+                
+                results.push({ deviceId: device.id, success: true });
+            } catch (error) {
+                console.error(`Error toggling device ${device.id}:`, error);
+                errors.push({ deviceId: device.id, error: error.message });
+            }
+        }
+        
+        res.json({ 
+            success: errors.length === 0,
+            results,
+            errors,
+            message: `${active ? 'Allowed' : 'Blocked'} ${results.length} devices in group "${deviceGroup.name}"`
+        });
+    } catch (error) {
+        console.error('Error toggling device group:', error);
+        res.status(500).json({ error: 'Failed to toggle device group' });
     }
 });
 
@@ -2294,6 +2557,476 @@ app.post('/submitapptest', async (req, res) => {
     } catch (error) {
         console.error('error.response.data \t', error.response.data);
         res.status(500).json({ success: false, error: error?.response?.data });
+    }
+});
+
+// ======== DEVICE GROUPS API ENDPOINTS ========
+
+// Get all device groups
+app.get('/api/device-groups', async (req, res) => {
+    try {
+        console.log('📥 GET /api/device-groups - Fetching all device groups');
+        
+        // First, try a simple query without includes
+        console.log('🔧 Attempting simple query first...');
+        const simpleGroups = await prisma.deviceGroup.findMany({
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        console.log(`✅ Simple query found ${simpleGroups.length} device groups`);
+        
+        // Now try with includes
+        console.log('🔧 Attempting query with device relationships...');
+        const groups = await prisma.deviceGroup.findMany({
+            include: {
+                devices: true
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        console.log(`✅ Full query found ${groups.length} device groups with relationships`);
+        res.json(groups);
+    } catch (error) {
+        console.error('❌ Error fetching device groups:', error.message);
+        console.error('📋 Full error:', error);
+        res.status(500).json({ error: 'Failed to fetch device groups', details: error.message });
+    }
+});
+
+// Create new device group
+app.post('/api/device-groups', async (req, res) => {
+    try {
+        const { name, description, color, icon } = req.body;
+        
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ error: 'Group name is required' });
+        }
+
+        const group = await prisma.deviceGroup.create({
+            data: {
+                name: name.trim(),
+                description: description?.trim() || null,
+                color: color || '#3B82F6',
+                icon: icon || '👤'
+            }
+        });
+
+        res.status(201).json(group);
+    } catch (error) {
+        console.error('Error creating device group:', error);
+        res.status(500).json({ error: 'Failed to create device group' });
+    }
+});
+
+// Update device group
+app.put('/api/device-groups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, color, icon } = req.body;
+
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ error: 'Group name is required' });
+        }
+
+        const group = await prisma.deviceGroup.update({
+            where: { id: parseInt(id) },
+            data: {
+                name: name.trim(),
+                description: description?.trim() || null,
+                color: color || '#3B82F6',
+                icon: icon || '👤',
+                updatedAt: new Date()
+            }
+        });
+
+        res.json(group);
+    } catch (error) {
+        console.error('Error updating device group:', error);
+        if (error.code === 'P2025') {
+            res.status(404).json({ error: 'Device group not found' });
+        } else {
+            res.status(500).json({ error: 'Failed to update device group' });
+        }
+    }
+});
+
+// Delete device group
+app.delete('/api/device-groups/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // First, unassign all devices from this group
+        await prisma.device.updateMany({
+            where: { deviceGroupId: parseInt(id) },
+            data: { deviceGroupId: null }
+        });
+
+        // Then delete the group
+        await prisma.deviceGroup.delete({
+            where: { id: parseInt(id) }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting device group:', error);
+        if (error.code === 'P2025') {
+            res.status(404).json({ error: 'Device group not found' });
+        } else {
+            res.status(500).json({ error: 'Failed to delete device group' });
+        }
+    }
+});
+
+// Assign devices to group
+app.put('/api/device-groups/:id/devices', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { deviceIds } = req.body;
+
+        if (!Array.isArray(deviceIds)) {
+            return res.status(400).json({ error: 'deviceIds must be an array' });
+        }
+
+        const groupId = parseInt(id);
+
+        // First, unassign all devices from this group
+        await prisma.device.updateMany({
+            where: { deviceGroupId: groupId },
+            data: { deviceGroupId: null }
+        });
+
+        // Then assign the selected devices to this group
+        if (deviceIds.length > 0) {
+            await prisma.device.updateMany({
+                where: { id: { in: deviceIds } },
+                data: { deviceGroupId: groupId }
+            });
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error updating device assignments:', error);
+        res.status(500).json({ error: 'Failed to update device assignments' });
+    }
+});
+
+// Block all devices in group
+app.post('/api/device-groups/:id/block', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const groupId = parseInt(id);
+
+        // Get all devices in the group
+        const devices = await prisma.device.findMany({
+            where: { deviceGroupId: groupId }
+        });
+
+        if (devices.length === 0) {
+            return res.json({ success: true, message: 'No devices in group' });
+        }
+
+        // Block each device via UniFi
+        const macAddresses = devices.map(device => device.macAddress);
+        
+        for (const macAddress of macAddresses) {
+            try {
+                await unifi?.blockClient(macAddress);
+            } catch (error) {
+                console.warn(`Failed to block device ${macAddress}:`, error);
+            }
+        }
+
+        // Update database
+        await prisma.device.updateMany({
+            where: { deviceGroupId: groupId },
+            data: { active: false }
+        });
+
+        res.json({ success: true, blockedDevices: devices.length });
+    } catch (error) {
+        console.error('Error blocking group devices:', error);
+        res.status(500).json({ error: 'Failed to block group devices' });
+    }
+});
+
+// Unblock all devices in group
+app.post('/api/device-groups/:id/unblock', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const groupId = parseInt(id);
+
+        // Get all devices in the group
+        const devices = await prisma.device.findMany({
+            where: { deviceGroupId: groupId }
+        });
+
+        if (devices.length === 0) {
+            return res.json({ success: true, message: 'No devices in group' });
+        }
+
+        // Unblock each device via UniFi
+        const macAddresses = devices.map(device => device.macAddress);
+        
+        for (const macAddress of macAddresses) {
+            try {
+                await unifi?.unblockClient(macAddress);
+            } catch (error) {
+                console.warn(`Failed to unblock device ${macAddress}:`, error);
+            }
+        }
+
+        // Update database
+        await prisma.device.updateMany({
+            where: { deviceGroupId: groupId },
+            data: { active: true }
+        });
+
+        res.json({ success: true, unblockedDevices: devices.length });
+    } catch (error) {
+        console.error('Error unblocking group devices:', error);
+        res.status(500).json({ error: 'Failed to unblock group devices' });
+    }
+});
+
+// Helper functions for group scheduling
+async function executeGroupSchedule(groupId, blockAllow, unifi, prisma) {
+    try {
+        // Get all devices in the group
+        const group = await prisma.deviceGroup.findUnique({
+            where: { id: groupId },
+            include: { devices: true }
+        });
+
+        if (!group || !group.devices.length) {
+            console.log(`No devices found in group ${groupId}`);
+            return;
+        }
+
+        // Apply the schedule action to all devices in the group
+        for (const device of group.devices) {
+            try {
+                if (blockAllow === 'block') {
+                    await unifi.blockClient(device.macAddress);
+                    await prisma.device.update({
+                        where: { id: device.id },
+                        data: { active: false }
+                    });
+                } else {
+                    await unifi.unblockClient(device.macAddress);
+                    await prisma.device.update({
+                        where: { id: device.id },
+                        data: { active: true }
+                    });
+                }
+                console.log(`${blockAllow}ed device ${device.macAddress} in group ${group.name}`);
+            } catch (error) {
+                console.error(`Failed to ${blockAllow} device ${device.macAddress}:`, error);
+            }
+        }
+    } catch (error) {
+        console.error('Error executing group schedule:', error);
+    }
+}
+
+function createCronPattern(hour, minute, ampm, daysOfWeek) {
+    const militaryHour = convertToMilitaryTime(ampm, hour);
+    const daysPattern = daysOfWeek && daysOfWeek.length > 0 ? daysOfWeek.join(',') : '*';
+    return `${minute} ${militaryHour} * * ${daysPattern}`;
+}
+
+// Get schedules for a device group
+app.get('/api/device-groups/:id/schedules', async (req, res) => {
+    try {
+        const groupId = parseInt(req.params.id);
+        const schedules = await prisma.easySchedule.findMany({
+            where: { deviceGroupId: groupId },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(schedules);
+    } catch (error) {
+        console.error('Error fetching group schedules:', error);
+        res.status(500).json({ error: 'Failed to fetch group schedules' });
+    }
+});
+
+// Create a new schedule for a device group
+app.post('/api/device-groups/:id/schedules', async (req, res) => {
+    try {
+        const groupId = parseInt(req.params.id);
+        const { date, hour, minute, oneTime, blockAllow, modifiedDaysOfTheWeek, ampm } = req.body;
+
+        // Verify the group exists
+        const group = await prisma.deviceGroup.findUnique({
+            where: { id: groupId },
+            include: { devices: true }
+        });
+
+        if (!group) {
+            return res.status(404).json({ error: 'Device group not found' });
+        }
+
+        // Create schedule entry in database
+        const scheduleData = {
+            minute: parseInt(minute),
+            hour: oneTime ? convertToMilitaryTime(ampm, hour) : parseInt(hour),
+            ampm,
+            blockAllow,
+            oneTime,
+            deviceGroupId: groupId,
+            toggleSched: true
+        };
+
+        if (oneTime) {
+            const { year, month, day } = dateFromDateString(date);
+            scheduleData.month = month;
+            scheduleData.date = date;
+            
+            // Create the schedule date
+            const dateTime = new Date(year, month-1, day, scheduleData.hour, scheduleData.minute, 0);
+            
+            // Create cron job
+            const jobName = `group_${groupId}_${Date.now()}`;
+            const job = schedule.scheduleJob(jobName, dateTime, async () => {
+                await executeGroupSchedule(groupId, blockAllow, unifi, prisma);
+            });
+            
+            scheduleData.jobName = jobName;
+        } else {
+            // Recurring schedule
+            const daysString = modifiedDaysOfTheWeek ? modifiedDaysOfTheWeek.join('') : '0123456';
+            scheduleData.days = daysString;
+            
+            // Create cron job for recurring schedule
+            const jobName = `group_${groupId}_${Date.now()}`;
+            const cronPattern = createCronPattern(hour, minute, ampm, modifiedDaysOfTheWeek);
+            const job = schedule.scheduleJob(jobName, cronPattern, async () => {
+                await executeGroupSchedule(groupId, blockAllow, unifi, prisma);
+            });
+            
+            scheduleData.jobName = jobName;
+        }
+
+        // Save to database
+        const newSchedule = await prisma.easySchedule.create({
+            data: scheduleData
+        });
+
+        res.json({ success: true, schedule: newSchedule });
+    } catch (error) {
+        console.error('Error creating group schedule:', error);
+        res.status(500).json({ error: 'Failed to create group schedule' });
+    }
+});
+
+// Delete a schedule for a device group
+app.delete('/api/device-groups/:groupId/schedules/:scheduleId', async (req, res) => {
+    try {
+        const scheduleId = parseInt(req.params.scheduleId);
+        const groupId = parseInt(req.params.groupId);
+
+        // Find and delete the schedule
+        const scheduleRecord = await prisma.easySchedule.findFirst({
+            where: { 
+                id: scheduleId,
+                deviceGroupId: groupId 
+            }
+        });
+
+        if (!scheduleRecord) {
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+
+        // Cancel the cron job if it exists
+        if (scheduleRecord.jobName) {
+            const existingJob = schedule.scheduledJobs[scheduleRecord.jobName];
+            if (existingJob) {
+                existingJob.cancel();
+            }
+        }
+
+        // Delete from database
+        await prisma.easySchedule.delete({
+            where: { id: scheduleId }
+        });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting group schedule:', error);
+        res.status(500).json({ error: 'Failed to delete group schedule' });
+    }
+});
+
+// Toggle a schedule for a device group
+app.put('/api/device-groups/:groupId/schedules/:scheduleId/toggle', async (req, res) => {
+    try {
+        const scheduleId = parseInt(req.params.scheduleId);
+        const groupId = parseInt(req.params.groupId);
+        const { toggleSched } = req.body;
+
+        const schedule = await prisma.easySchedule.findFirst({
+            where: { 
+                id: scheduleId,
+                deviceGroupId: groupId 
+            }
+        });
+
+        if (!schedule) {
+            return res.status(404).json({ error: 'Schedule not found' });
+        }
+
+        // Handle group schedule toggling
+        if (schedule.jobName) {
+            // Cancel existing job using node-schedule
+            const existingJob = schedule.scheduledJobs[schedule.jobName];
+            if (existingJob) {
+                existingJob.cancel();
+            }
+        }
+
+        // Update the database record
+        await prisma.easySchedule.update({
+            where: { id: scheduleId },
+            data: { toggleSched }
+        });
+
+        // If enabling the schedule, recreate the job
+        if (toggleSched) {
+            if (schedule.oneTime) {
+                const { year, month, day } = dateFromDateString(schedule.date);
+                const dateTime = new Date(year, month-1, day, schedule.hour, schedule.minute, 0);
+                
+                const jobName = `group_${groupId}_${Date.now()}`;
+                const job = schedule.scheduleJob(jobName, dateTime, async () => {
+                    await executeGroupSchedule(groupId, schedule.blockAllow, unifi, prisma);
+                });
+                
+                // Update job name in database
+                await prisma.easySchedule.update({
+                    where: { id: scheduleId },
+                    data: { jobName }
+                });
+            } else {
+                const cronPattern = createCronPattern(schedule.hour, schedule.minute, schedule.ampm, schedule.days ? schedule.days.split('').map(d => parseInt(d)) : []);
+                
+                const jobName = `group_${groupId}_${Date.now()}`;
+                const job = schedule.scheduleJob(jobName, cronPattern, async () => {
+                    await executeGroupSchedule(groupId, schedule.blockAllow, unifi, prisma);
+                });
+                
+                // Update job name in database
+                await prisma.easySchedule.update({
+                    where: { id: scheduleId },
+                    data: { jobName }
+                });
+            }
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error toggling group schedule:', error);
+        res.status(500).json({ error: 'Failed to toggle group schedule' });
     }
 });
 

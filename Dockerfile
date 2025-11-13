@@ -11,6 +11,10 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 COPY server/package*.json ./server/
 
+# Copy Prisma schema and migrations early for better layer caching
+COPY server/schema.prisma ./server/
+COPY server/migrations/ ./server/migrations/
+
 # Install root dependencies (including devDependencies for build)
 # Temporarily set NODE_ENV to development to install all dependencies
 ENV NODE_ENV=development
@@ -33,13 +37,27 @@ RUN npx vite build
 # Set NODE_ENV back to production for runtime
 ENV NODE_ENV=production
 
-# Install server dependencies (production only)
+# Install server dependencies (but keep Prisma CLI for migrations)
 WORKDIR /usr/src/app/server
-RUN npm ci --omit=dev
+RUN npm ci
 
-# Go back to root to clean up devDependencies after build to reduce image size
+# Ensure Prisma CLI is available for runtime migrations
+# We need to keep Prisma in production for migrate deploy command
+RUN npm install --save-dev prisma
+
+# Generate Prisma client to ensure it's available
+RUN npx prisma generate --schema=./schema.prisma
+
+# Set default environment variables for auto-migration
+ENV NODE_ENV=development
+ENV AUTO_MIGRATE=true
+ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+
+# Go back to root
 WORKDIR /usr/src/app
-RUN npm prune --omit=dev
+
+# Note: We keep Prisma CLI available for runtime migrations
+# This enables both manual and automatic schema deployment in Docker
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /usr/src/app/server/config && \
