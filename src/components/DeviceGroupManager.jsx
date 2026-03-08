@@ -390,9 +390,8 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         setTouchStartY(touch.clientY);
         setDraggedGroup(groupId);
         setIsTouchDragging(false);
-        
-        // Prevent scrolling while potentially dragging
-        e.preventDefault();
+        // Do NOT call e.preventDefault() here — it would block page scrolling
+        // for any touch that doesn't end up being a drag.
     };
 
     const handleTouchMove = (e, groupId) => {
@@ -401,12 +400,15 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
         const touch = e.touches[0];
         setTouchCurrentY(touch.clientY);
         
-        // Start dragging if moved enough
+        // Start dragging once the finger moves past the threshold
         if (!isTouchDragging && touchStartY && Math.abs(touch.clientY - touchStartY) > 10) {
             setIsTouchDragging(true);
         }
         
-        e.preventDefault();
+        // Only block scrolling once we're actually in a drag gesture
+        if (isTouchDragging) {
+            e.preventDefault();
+        }
     };
 
     const handleTouchEnd = (e, groupId) => {
@@ -491,7 +493,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                <span className="font-medium">💡 Tip: Drag and drop groups to reorder them (or hold and drag on mobile)</span>
+                                <span className="font-medium">💡 Tip: Drag cards to reorder them. On mobile, use the ⠿ grip handle at the top of each card.</span>
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -502,7 +504,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                     className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 transition-all duration-300 select-none overflow-hidden relative ${
                                         draggedGroup === group.id 
                                             ? 'opacity-50 scale-95 transform rotate-2' 
-                                            : 'hover:shadow-md cursor-move'
+                                            : 'hover:shadow-md'
                                     } ${
                                         isTouchDragging && draggedGroup === group.id 
                                             ? 'z-50 shadow-xl' 
@@ -512,11 +514,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                     onDragStart={(e) => handleDragStart(e, group.id)}
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, group.id)}
-                                    onTouchStart={(e) => handleTouchStart(e, group.id)}
-                                    onTouchMove={(e) => handleTouchMove(e, group.id)}
-                                    onTouchEnd={(e) => handleTouchEnd(e, group.id)}
                                     style={{
-                                        touchAction: 'none', // Prevent default touch behaviors
                                         ...(isTouchDragging && draggedGroup === group.id && touchCurrentY && touchStartY ? {
                                             transform: `translateY(${touchCurrentY - touchStartY}px) rotate(2deg)`,
                                             zIndex: 1000
@@ -530,9 +528,20 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                     ></div>
                                     
                                     <div className="p-6 pb-4">
-                                    {/* Drag handle for mobile - visible on small screens */}
-                                    <div className="flex items-center justify-center mb-2 md:hidden">
-                                        <div className="w-8 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                                    {/* Drag handle — touch target on mobile, subtle on desktop */}
+                                    <div
+                                        className="flex items-center justify-center mb-2 cursor-grab active:cursor-grabbing"
+                                        style={{ touchAction: 'none' }}
+                                        onTouchStart={(e) => handleTouchStart(e, group.id)}
+                                        onTouchMove={(e) => handleTouchMove(e, group.id)}
+                                        onTouchEnd={(e) => handleTouchEnd(e, group.id)}
+                                        title="Drag to reorder"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                                            <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+                                            <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+                                            <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+                                        </svg>
                                     </div>
                                     <div className="flex items-start justify-between mb-4">
                                         <div className="flex items-center space-x-3 flex-1 min-w-0">
