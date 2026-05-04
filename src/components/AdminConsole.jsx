@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import ModernDevices from "./ModernDevices";
+import TrafficRules from "./traffic_rules/TrafficRules";
 import { useNavigate } from 'react-router-dom';
 import NuaSvg from "../images/nua.svg";
 
@@ -9,13 +10,13 @@ export default function AdminConsole()
     const [inputData, setInputData] = useState({
         active: false,
     });
-    // const [macData, setMacData] = useState({}); // prev
     const [macData, setMacData] = useState([]);
     const [blockedUsers, setBlockedUsers] = useState([]);
     const [validationError, setValidationError] = useState(false);
     const [toggleReRender, setToggleReRender] = useState(false);
     const [cronJobCheck, setCronJobChecked] = useState({});
     const [loadingMacData, setLoadingMacData] = useState(false);
+    const [activeTab, setActiveTab] = useState('devices');
     const initialized = useRef(false);
     const navigate = useNavigate();
     const [countdown, setCountdown] = useState(2);
@@ -201,12 +202,36 @@ export default function AdminConsole()
     return (
         <>
             <div className="w-full">
-                <ModernDevices
-                    macData={macData && macData}
-                    blockedUsers={blockedUsers}
-                    handleRenderToggle={handleRenderToggle}
-                    loadingMacData={loadingMacData}
-                />
+                {/* Tab bar */}
+                <div className="flex justify-center pt-2 pb-4">
+                    <div role="tablist" className="tabs tabs-box tabs-lg">
+                        <button
+                            role="tab"
+                            className={`tab font-semibold ${activeTab === 'devices' ? 'tab-active' : ''}`}
+                            onClick={() => setActiveTab('devices')}
+                        >
+                            Devices
+                        </button>
+                        <button
+                            role="tab"
+                            className={`tab font-semibold ${activeTab === 'traffic' ? 'tab-active' : ''}`}
+                            onClick={() => setActiveTab('traffic')}
+                        >
+                            Traffic Rules
+                        </button>
+                    </div>
+                </div>
+
+                {activeTab === 'devices' ? (
+                    <ModernDevices
+                        macData={macData && macData}
+                        blockedUsers={blockedUsers}
+                        handleRenderToggle={handleRenderToggle}
+                        loadingMacData={loadingMacData}
+                    />
+                ) : (
+                    <TrafficRules />
+                )}
             </div>
 
             {/* navigate to credentials modal */}
@@ -223,8 +248,6 @@ export default function AdminConsole()
                             className="w-10 h-10"
                         />
                     </div>
-                    {/* <h3 className="font-bold text-lg">Redirecting In:</h3> */}
-                    {/* <p className="py-4 text-4xl italic font-bold">{countdown}</p> */}
                 </div>
             </dialog>
         </>
