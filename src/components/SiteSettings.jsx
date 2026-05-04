@@ -475,7 +475,7 @@ export default function SiteSettings()
                             </p>
                         )}
                     </div>
-                </div>}
+                </div>
 
                     {/* <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 mt-4">
                         <div className="flex w-full mt-2 justify-around">

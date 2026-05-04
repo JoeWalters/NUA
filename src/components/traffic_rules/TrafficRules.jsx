@@ -4,6 +4,7 @@ import { categoryDeviceObject, appDeviceObject } from "../see_all_apps/app_objec
 import { allAppsList } from "../../traffic_rule_apps/unifi_match_list";
 import { importToDbConverter } from "../utility_functions/app_cat_utils";
 import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
+import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
 
 
 
@@ -22,6 +23,7 @@ export default function TrafficRules()
     const [importOption, setImportOption] = useState(false);
     const [loadingImportSubmission, setLoadingImportSubmission] = useState(false);
     const [loadingUnmanageApp, setLoadingUnmanageApp] = useState(false);
+    const [pageLoading, setPageLoading] = useState(true);
     const importDialogRef = useRef();
 
     function checkForImportRules(dbData, unifiData) {
@@ -257,6 +259,8 @@ export default function TrafficRules()
                 }
             } catch (error) {
                 console.error(error);
+            } finally {
+                setPageLoading(false);
             }
         }
         fetchCustomAPIRules();
@@ -283,7 +287,8 @@ export default function TrafficRules()
 
     return (
         <>
-            <div className="flex items-center justify-center flex-col w-full h-full sm:w-3/4 lg:w-1/2 mx-auto pb-12">
+            {pageLoading && <GenericPageSkeleton rows={4} />}
+            {!pageLoading && <div className="flex items-center justify-center flex-col w-full h-full sm:w-3/4 lg:w-1/2 mx-auto pb-12">
                 {/* <div className="btn" onClick={handleDeleteTestIds}>Delete Test Ids</div> */}
                 <div className="flex w-full mx-2 px">
                     <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 m-8">
@@ -338,25 +343,23 @@ export default function TrafficRules()
                                                                 })}
                                                             </div>
                                                         <div>
-                                                            {/* <Link to={`/`} className="w-fit hover:cursor-pointer"> */}
-                                                                <div className="btn btn-block btn-disabled bg-base-300 hover:bg-base-content hover:text-base-100 my-2 disabled">Schedule</div>
-                                                            {/* </Link> */}
+                                                            <button className="btn btn-block btn-disabled bg-base-300 my-2" disabled>Schedule</button>
                                                         </div>
                                                         <div className="flex flex-row gap-2">
-                                                            <div
-                                                                className="btn btn-error w-1/2" aria-disabled
+                                                            <button
+                                                                className="btn btn-error w-1/2"
                                                                 onClick={handleDeleteTrafficRule}
                                                                 data-trafficid={data?.trafficRule.unifiId}
                                                                 data-trafficruleid={data?.trafficRule.id}
                                                             >Delete
-                                                            </div>
-                                                            <div
-                                                                className={`${loadingUnmanageApp ? 'btn btn-disabled' : 'btn btn-info'} w-1/2`} aria-disabled
+                                                            </button>
+                                                            <button
+                                                                className={`${loadingUnmanageApp ? 'btn btn-disabled' : 'btn btn-info'} w-1/2`}
                                                                 onClick={handleUnmanageApp}
-                                                                // data-trafficid={data?.trafficRule.unifiId}
                                                                 data-trafficruleid={data?.trafficRule.id}
-                                                            >{loadingUnmanageApp ? <span className="spinner loading-spinner"></span> : 'Unmanage App'}
-                                                            </div>
+                                                                disabled={loadingUnmanageApp}
+                                                            >{loadingUnmanageApp ? <span className="loading loading-spinner loading-sm"></span> : 'Unmanage App'}
+                                                            </button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -369,10 +372,13 @@ export default function TrafficRules()
                     </div>
                 </div>
                 <div className="flex flex-row gap-6 flex-wrap mx-auto">
-                    <Link to="/seeallapps"><div className="btn">Create New Rule</div></Link>
-                    {importOption ? <div className={`btn text-accent italic`} onClick={handleImportModalOpen}>Import UniFi Rules</div> : <div className={`btn text-accent italic btn-disabled`}>Import Existing Unifi Rules</div>}
+                    <Link to="/seeallapps"><button className="btn btn-primary">Create New Rule</button></Link>
+                    {importOption
+                        ? <button className="btn text-accent italic" onClick={handleImportModalOpen}>Import UniFi Rules</button>
+                        : <button className="btn text-accent italic btn-disabled" disabled>Import Existing Unifi Rules</button>
+                    }
                 </div>
-            </div>
+            </div>}
             <dialog ref={importDialogRef} className="modal">
                 <div className="modal-box">
                     <h3 className="font-bold text-lg">Select UniFi Rules To Import</h3>
@@ -411,14 +417,14 @@ export default function TrafficRules()
                             })}
                     </div>
                     <div className="flex justify-between">
-                        <div className="btn" onClick={handleImportModalClose}>Cancel</div>
-                        <div
-                            className={`btn
-                            ${importRuleSelection.length ? '' : 'btn-disabled'}
-                            ${loadingImportSubmission ? 'btn-disabled' : ''}`}
-                            onClick={handleImportOption}>
-                            {loadingImportSubmission ? <span className={'loading loading-spinner'}></span> : 'Import'}
-                        </div>
+                        <button className="btn" onClick={handleImportModalClose}>Cancel</button>
+                        <button
+                            className={`btn ${importRuleSelection.length && !loadingImportSubmission ? '' : 'btn-disabled'}`}
+                            onClick={handleImportOption}
+                            disabled={!importRuleSelection.length || loadingImportSubmission}
+                        >
+                            {loadingImportSubmission ? <span className="loading loading-spinner"></span> : 'Import'}
+                        </button>
                     </div>
                 </div>
             </dialog>

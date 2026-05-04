@@ -288,7 +288,7 @@ export default function ModernDeviceGrid({
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
                     {filteredDevices.map((device) => (
                         <ModernDeviceCard
                             key={device?.id}

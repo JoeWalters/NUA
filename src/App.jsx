@@ -1,5 +1,5 @@
 
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import Navbar from './components/Navbar.jsx'
 import { useEffect, useState } from "react";
 import BreadCrumbs from "./components/breadcrumbs/BreadCrumbs.jsx";
@@ -9,6 +9,7 @@ export default function App() {
 
     const [themeValue, setThemeValue] = useState('');
     const [changed, setChanged] = useState(false);
+    const location = useLocation();
 
     const callBackChanged = () => {
       setChanged(prev => !prev)
@@ -36,7 +37,7 @@ export default function App() {
     <>
       <Navbar themeValue={themeValue} callBackChanged={callBackChanged} />
       <BreadCrumbs />
-      <div className="flex items-center justify-center h-full w-full">
+      <div key={location.pathname} className="page-enter flex items-center justify-center h-full w-full">
         <Outlet />
       </div>
     </>
