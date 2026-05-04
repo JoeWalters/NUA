@@ -3,6 +3,7 @@ import { GoGear } from "react-icons/go";
 import { useEffect, useRef, useState } from "react";
 import { GiHamburgerMenu } from "react-icons/gi";
 import NuaSvg from "../images/nua.svg";
+import pkgJson from '../../package.json';
 // import '../globals.css'
 
 
@@ -83,7 +84,7 @@ export default function Navbar({ themeValue, callBackChanged })
                   <Link to="/seeallapps"><li className="font-bold text-lg"><a>See All Apps</a></li></Link>
                 </ul>
                 <div className={`${open ? "absolute left-5 bottom-5" : "hidden"}`}>
-                  <div className="badge badge-outline">Version&nbsp;<span className="text-primary">2.2.0</span></div>
+                  <div className="badge badge-outline">Version&nbsp;<span className="text-primary">{pkgJson.version}</span></div>
                 </div>
               </div>
             </div>

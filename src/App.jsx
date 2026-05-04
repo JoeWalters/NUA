@@ -22,6 +22,7 @@ export default function App() {
       if (getTheme.ok) {
         const currentTheme = await getTheme.json();
         document.querySelector('html').dataset.theme = currentTheme;
+        document.documentElement.classList.toggle('dark', currentTheme === 'dark');
         setThemeValue(currentTheme);
       }
       } catch (error) {
