@@ -20,7 +20,7 @@ export default function ModernDeviceGrid({
 }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [showFilters, setShowFilters] = useState(false);
+    const [showFilters, setShowFilters] = useState(true);
     const [showSearch, setShowSearch] = useState(false);
     const [filteredDevices, setFilteredDevices] = useState(devices);
     
@@ -177,33 +177,26 @@ export default function ModernDeviceGrid({
 
     return (
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
-            <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Device Management
-                </h1>
-            </div>
-
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{counts.total}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Devices</div>
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-base-content">{counts.total}</div>
+                    <div className="text-sm text-base-content/60">Total Devices</div>
                 </div>
                 
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-green-600">{counts.allowed}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Allowed</div>
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-success">{counts.allowed}</div>
+                    <div className="text-sm text-base-content/60">Allowed</div>
                 </div>
                 
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-red-600">{counts.blocked}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Blocked</div>
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-error">{counts.blocked}</div>
+                    <div className="text-sm text-base-content/60">Blocked</div>
                 </div>
                 
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-blue-600">{counts.bonus}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Bonus Time</div>
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-info">{counts.bonus}</div>
+                    <div className="text-sm text-base-content/60">Bonus Time</div>
                 </div>
             </div>
 
@@ -222,11 +215,11 @@ export default function ModernDeviceGrid({
                         </button>
                     </div>
                 ) : (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
                         <div className="flex flex-col sm:flex-row gap-4 items-center">
                             {/* Search Input */}
                             <div className="flex-1 relative">
-                                <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/40 w-5 h-5" />
                                 <input
                                     ref={searchRef}
                                     type="text"
@@ -269,8 +262,8 @@ export default function ModernDeviceGrid({
                         </div>
 
                         {/* Device Count Display */}
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-base-300">
+                            <div className="text-sm text-base-content/60">
                                 Showing {filteredDevices.length} of {devices.length} devices
                             </div>
                         </div>
@@ -281,13 +274,13 @@ export default function ModernDeviceGrid({
             {/* Device Grid */}
             {filteredDevices.length === 0 ? (
                 <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
+                    <div className="text-base-content/40 mb-4">
                         <HiMagnifyingGlass className="w-16 h-16 mx-auto" />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    <h3 className="text-lg font-medium text-base-content mb-2">
                         {searchTerm || statusFilter !== 'all' ? 'No devices found' : 'No devices available'}
                     </h3>
-                    <p className="text-gray-500 dark:text-gray-400">
+                    <p className="text-base-content/60">
                         {searchTerm || statusFilter !== 'all' 
                             ? 'Try adjusting your search or filter criteria.'
                             : 'Devices will appear here when they connect to the network.'
