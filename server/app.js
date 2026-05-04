@@ -1,9 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
+const rateLimit = require('express-rate-limit');
 const Unifi = require('node-unifi');
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
 const { PrismaClient, Prisma } = require('@prisma/client');
 const schedule = require('node-schedule');
 const customPORT = require('./globalSettings');
@@ -24,25 +22,29 @@ const { convertToMilitaryTime } = require('./server_util_funcs/convert_to_milita
 const { dateFromDateString } = require('./server_util_funcs/ez_sched_utils/dateFromDateString');
 const { startTimeout, endTimeout, timeoutMap } = require('./server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
 const { stopBonusTime } = require('./server_util_funcs/stop_bonus_time/stopBonusTimeViaToggleOff');
+const { encrypt, decrypt, isEncryptionEnabled, generateAndSaveKey } = require('./server_util_funcs/credentialCrypto');
+const { version: appVersion } = require('./package.json');
 
-
-
-
-// Init sqlite db
-(async () => {
-    const db = await open({
-        filename: './config/nodeunifi.db', // changed 07/25/2024
-        driver: sqlite3.Database
-    })
-})();
 const prisma = new PrismaClient();
 
 // create server & add middleware
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 app.use(express.static(process.cwd().slice(0, -7) + '/dist'));
 consoleReader(schedule);
+
+// Rate limiters (Fix 11)
+const settingsLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many requests, please try again later.' } });
+const actionLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, message: { error: 'Too many requests, please try again later.' } });
+app.use('/savesitesettings', settingsLimiter);
+app.use('/updatesitesettings', settingsLimiter);
+app.use('/testconnection', settingsLimiter);
+app.use('/updatemacaddressstatus', actionLimiter);
+app.use('/blockallmacs', actionLimiter);
+app.use('/unblockallmacs', actionLimiter);
+app.use('/unblockmac', actionLimiter);
+app.use('/addmacaddresses', actionLimiter);
 
 function handleLoginError(error) {
     if (error !== undefined) {
@@ -124,12 +126,20 @@ checkForCredentials();
 
 // new
 async function logIntoUnifi(hostname, port, sslverify, username, password) {
-    unifi = new Unifi.Controller({hostname: hostname, port: port, sslverify: sslverify});
-    const loginData = await unifi.login(username, password);
-    if (loginData) {
-        return { unifi, validCredentials: true };
-    } else {
-        return { validCredentials: false };
+    if (isConnecting) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    isConnecting = true;
+    try {
+        unifi = new Unifi.Controller({hostname: hostname, port: port, sslverify: sslverify});
+        const loginData = await unifi.login(username, password);
+        if (loginData) {
+            return { unifi, validCredentials: true };
+        } else {
+            return { validCredentials: false };
+        }
+    } finally {
+        isConnecting = false;
     }
 }
 
@@ -158,7 +168,7 @@ const fetchLoginInfo = async () => {
     try {
         const loginData = await prisma.credentials.findUnique({ where: { id: 1 }});
         if (loginData) {
-            return loginData;
+            return { ...loginData, password: decrypt(loginData.password) };
         } else {
             throw Error("Could NOT FETCH LOGIN DATA.");
         }
@@ -168,6 +178,7 @@ const fetchLoginInfo = async () => {
     }
 }
 
+let isConnecting = false;
 let unifi;
 const init = async () => {
     try {
@@ -279,9 +290,31 @@ async function unblockSingle(reqBodyMac) {
         console.error(error);
     }
 }
+// Fix 14: blockSingle was missing — used in /devicegroups/:id/toggle
+async function blockSingle(reqBodyMac) {
+    if (!unifi) {
+        throw new Error('UniFi controller not connected. Please configure credentials at /sitesettings');
+    }
+    try {
+        const result = await unifi.blockClient(reqBodyMac);
+        if (typeof result === 'undefined' || result.length <= 0) {
+            throw new Error(`Error blocking mac address: ${reqBodyMac}. ${JSON.stringify(result)}`);
+        } else {
+            console.log(`Successfully blocked ${reqBodyMac}`);
+        }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
+}
 function extractMacs(body) {
     // console.log(body);
     return body.macData.map(mac => mac.macAddress);
+}
+// Fix 8: MAC address validation helper
+const MAC_REGEX = /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/;
+function isValidMac(mac) {
+    return typeof mac === 'string' && MAC_REGEX.test(mac);
 }
 
 
@@ -453,7 +486,7 @@ app.get('/health', async (req, res) => {
             configured: isConfigured,
             unifiConnected: unifiConnected,
             timestamp: new Date().toISOString(),
-            version: '2.2.0',
+            version: appVersion,
             environment: process.env.NODE_ENV || 'development'
         });
     } catch (error) {
@@ -463,7 +496,7 @@ app.get('/health', async (req, res) => {
             database: 'disconnected',
             error: error.message,
             timestamp: new Date().toISOString(),
-            version: '2.2.0'
+            version: appVersion
         });
     }
 });
@@ -681,9 +714,10 @@ app.get('/pingmacaddresses', async (req, res) => {
 });
 
 app.post('/addmacaddresses', async (req, res) => {
-
-    const blockedUsers = await unifi.getBlockedUsers();
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { name, macAddress } = req.body;
+    if (!isValidMac(macAddress)) return res.status(400).json({ error: 'Invalid MAC address format.' });
+    const blockedUsers = await unifi.getBlockedUsers();
 
     const filterBlockedUsers = blockedUsers.filter((device) => {
         return device.mac === macAddress;
@@ -733,6 +767,7 @@ app.post('/addmacaddresses', async (req, res) => {
 
 app.post('/addtodevicelist', async (req, res) => {
     const { customName, hostname, oui, mac, blocked } = req.body; // blocked: true
+    if (!isValidMac(mac)) return res.status(400).json({ error: 'Invalid MAC address format.' });
     try {
         let name;
         if (customName) {
@@ -758,7 +793,7 @@ app.post('/addtodevicelist', async (req, res) => {
 });
 
 app.post('/getdeviceinfo', async (req, res) => { // specific device information
-
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { id } = req.body;
 
     try {
@@ -811,6 +846,7 @@ app.put('/updatemacaddressstatus', async (req, res) => { // toggler
 
         //bypass front end active for now
         const { id, macAddress, active, bonusTimeActive } = req.body;
+        if (!isValidMac(macAddress)) return res.status(400).json({ error: 'Invalid MAC address format.' });
         if (timeoutMap.get(id)) {
             await stopBonusTime(id, true, schedule, prisma, unifi);
             res.json({ msg: "Stop Bonus Time fired in updatemacaddressstatus"});
@@ -961,6 +997,7 @@ app.put('/unblockallmacs', async (req, res) => {
 
 app.post('/unblockmac', async (req, res) => {
     const { mac, prismaDeviceId } = req.body;
+    if (!isValidMac(mac)) return res.status(400).json({ error: 'Invalid MAC address format.' });
     console.log(mac);
     console.log(req.body);
     try {
@@ -984,6 +1021,7 @@ app.post('/unblockmac', async (req, res) => {
 
 app.put('/updatedevicedata', async (req, res) => { // Devices.jsx device edit
     const { name, macAddress, id } = req.body;
+    if (!isValidMac(macAddress)) return res.status(400).json({ error: 'Invalid MAC address format.' });
     try {
         const updatedDeviceData = await prisma.device.update({
             where: {
@@ -1292,11 +1330,22 @@ app.post('/savesitesettings', async (req, res) => {
         sslBool = true;
     }
     try {
-        const siteCredentials = await prisma.credentials.create({
-            data: {
-                username: username,
-                password: password,
-                hostname: hostname,
+        const encryptedPassword = encrypt(password);
+        const siteCredentials = await prisma.credentials.upsert({
+            where: { id: 1 },
+            update: {
+                username,
+                password: encryptedPassword,
+                hostname,
+                port: parseInt(port),
+                sslverify: sslBool,
+                refreshRate: parseInt(refreshRate),
+                initialSetup: false
+            },
+            create: {
+                username,
+                password: encryptedPassword,
+                hostname,
                 port: parseInt(port),
                 sslverify: sslBool,
                 refreshRate: parseInt(refreshRate)
@@ -1317,13 +1366,14 @@ app.put('/updatesitesettings', async (req, res) => {
         sslBool = true;
     }
     try {
+        const encryptedPassword = encrypt(password);
         const siteCredentials = await prisma.credentials.update({
             where: {
                 id: id,
             },
             data: {
                 username: username,
-                password: password,
+                password: encryptedPassword,
                 hostname: hostname,
                 port: parseInt(port),
                 sslverify: sslBool,
@@ -1364,6 +1414,36 @@ app.get('/checkforsettings', async (req, res) => {
     }
 });
 
+app.get('/encryption-status', (req, res) => {
+    res.json({ enabled: isEncryptionEnabled() });
+});
+
+app.post('/enable-encryption', async (req, res) => {
+    try {
+        if (isEncryptionEnabled()) {
+            return res.status(409).json({ error: 'Encryption is already enabled.' });
+        }
+
+        // Generate and persist the key
+        generateAndSaveKey();
+
+        // Re-encrypt the stored password if one exists
+        const creds = await prisma.credentials.findUnique({ where: { id: 1 } });
+        if (creds && creds.password && !creds.password.startsWith('ENC:')) {
+            const encryptedPassword = encrypt(creds.password);
+            await prisma.credentials.update({
+                where: { id: 1 },
+                data: { password: encryptedPassword }
+            });
+        }
+
+        res.json({ success: true, message: 'Encryption enabled. Credentials are now encrypted at rest.' });
+    } catch (error) {
+        console.error('Failed to enable encryption:', error);
+        res.status(500).json({ error: 'Failed to enable encryption.', details: error.message });
+    }
+});
+
 app.get('/testconnection', async (req, res) => {
     // const getAdminLoginInfo = async () => {
         // const unifiTest = new Unifi.Controller({ hostname: loginData.hostname, port: loginData.port,  sslverify: loginData.sslverify });
@@ -1373,10 +1453,11 @@ app.get('/testconnection', async (req, res) => {
             // const login = adminLogin.pop();
             // console.log('adminLogin ', adminLogin);
             console.log('adminLogin: \t ', adminLogin);
+            const plainPassword = decrypt(adminLogin.password);
             const unifiTest = new Unifi.Controller({ hostname: adminLogin.hostname, port: adminLogin.port,  sslverify: adminLogin.sslverify });
 
             // console.log('unifiTest \t', unifiTest);
-            const testCredentials = await unifiTest.login(adminLogin.username, adminLogin.password);
+            const testCredentials = await unifiTest.login(adminLogin.username, plainPassword);
             console.log("Test Credentials: ", testCredentials); // returns true, not login info
         if (testCredentials === true) {
             console.log('🔧 Test connection successful, establishing global UniFi connection...');
@@ -1384,7 +1465,7 @@ app.get('/testconnection', async (req, res) => {
             // The test already created a connection, so we can reuse the tested controller
             // But let's be explicit and create a fresh connection for the global unifi variable
             try {
-                const result = await logIntoUnifi(adminLogin.hostname, adminLogin.port, adminLogin.sslverify, adminLogin.username, adminLogin.password);
+                const result = await logIntoUnifi(adminLogin.hostname, adminLogin.port, adminLogin.sslverify, adminLogin.username, plainPassword);
                 
                 if (result && result.validCredentials) {
                     console.log('✅ Successfully established global UniFi connection');
@@ -1535,6 +1616,7 @@ app.get('/getallblockeddevices', async (req, res) => {
 });
 
 app.get('/getalldevices', async (req, res) => {
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     try {
         // const getAccessDevices = await unifi.getAccessDevices();
         const getClientDevices = await unifi.getAllUsers();
@@ -1759,21 +1841,11 @@ app.put('/updatetheme', async (req, res) => {
             where: {
                 id: 1,
             },
-            data: req.body
+            data: { theme: req.body.theme }
         });
         res.json(updateTheme)
     } catch (error) {
         if (error) throw error;
-    }
-});
-
-//~~~~~~potential login~~~~~~
-app.post('/login', (req, res) => {
-    console.log(req.body);
-    if (req.body.username === 'a' && req.body.password === 'a') {
-        res.sendStatus(200)
-    } else {
-        res.sendStatus(500)
     }
 });
 
@@ -1804,6 +1876,7 @@ app.put('/updatedeviceorder', async (req, res) => {
 //~~~~~~~category/app firewall rules~~~~~~
 
 app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && unifi rules
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     try {
         const path = '/v2/api/site/default/trafficrules';
         const result = await unifi.customApiRequest(path, 'GET');
@@ -1836,6 +1909,7 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
 });
 
 app.post('/addcategorytrafficrule', async (req, res) => {
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { categoryObject, dbCatObject } = req.body;
 
     // console.log('categoryObject \t', categoryObject); // verified
@@ -1919,6 +1993,7 @@ app.post('/addcategorytrafficrule', async (req, res) => {
 });
 
 app.post('/addappstrafficrule', async (req, res) => {
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { appObject, appDbObject } = req.body;
     const { app_category_ids, app_ids, description, enabled, matching_target, target_devices, devices, action, appSelection } = appDbObject;
     console.log('appDbObject \t', appDbObject);
@@ -2030,6 +2105,7 @@ app.post('/addappstrafficrule', async (req, res) => {
 });
 
 app.put('/updatecategorytrafficrule', async (req, res) => {
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { categoryObject } = req.body;
     console.log('catId \t', categoryObject); // verified
     try {
@@ -2049,6 +2125,7 @@ app.put('/updatecategorytrafficrule', async (req, res) => {
 });
 
 app.put('/updatetrafficruletoggle', async (req, res) => {
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { _id, trafficRuleId, unifiObjCopy } = req.body;
     console.log('unifiObjCopy \t', unifiObjCopy);
     try {
@@ -2074,6 +2151,7 @@ app.put('/updatetrafficruletoggle', async (req, res) => {
 });
 
 app.delete('/deletecustomapi', async (req, res) => { // deletes unifi rule, not db (yet)
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { _id, trafficRuleId } = req.body;
     console.log('id of rule to delete \t', _id);
     console.log('trafficRuleId \t', trafficRuleId);
@@ -2239,6 +2317,7 @@ app.delete('/unmanageapp', async (req, res) => {
 // ~~~~~~~~~~TEMPORARY TESTING~~~~~~~~~~~~~~
 //~~~~~~temp get all available devices~~~~~~
 app.post('/getallworking', async (req, res) => {
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { arrayOfObjects } = req.body;
     const path = '/v2/api/site/default/trafficrules';
 
@@ -2541,6 +2620,7 @@ app.post("/deletebonustoggles", async (req, res) => { // stop timer and shutoff 
 
 // ~~~~force error test~~~~
 app.post('/submitapptest', async (req, res) => {
+    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { appDeviceObjectCopy } = req.body;
     const path = '/v2/api/site/default/trafficrules';
     try {
