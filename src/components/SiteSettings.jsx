@@ -4,7 +4,7 @@ import { GoLock, GoUnlock } from "react-icons/go";
 import Confirmation from "./confirmations/Confirmation";
 
 
-export default function SiteSettings()
+export default function SiteSettings({ isOpen, onClose })
 {
     const [data, setData] = useState({});
     const [message, setMessage] = useState("");
@@ -284,9 +284,14 @@ export default function SiteSettings()
     }
     return (
         <>
-            <div className="flex flex-col items-center justify-center w-full h-full sm:w-3/4 lg:w-1/2 mx-auto pb-24">
-                <div className="flex w-full mx-2">
-                    <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 m-8">
+            <dialog className={`modal ${isOpen ? 'modal-open' : ''}`}>
+                <div className="modal-box max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold">Settings</h2>
+                        <button className="btn btn-sm btn-circle btn-ghost" onClick={onClose}>✕</button>
+                    </div>
+                <div className="flex w-full">
+                    <div className="flex flex-col items-center justify-center w-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 mb-4">
                         <div className="flex w-full mt-2 justify-around">
                             <div className="text-2xl font-bold">Connection Settings</div>
                         </div>
@@ -436,8 +441,8 @@ export default function SiteSettings()
                 {reveal && <Confirmation message={testMessage} alertType={alertType} duration={5000} reveal={reveal} />}
 
                 {/* Encryption Settings */}
-                <div className="flex w-full mx-2 mt-2">
-                    <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 m-8 p-6 gap-4">
+                <div className="flex w-full mt-2">
+                    <div className="flex flex-col items-center justify-center w-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 p-4 gap-4">
                         <div className="text-2xl font-bold">Credential Encryption</div>
                         <div className="divider mt-0"></div>
                         <div className="flex items-center gap-3">
@@ -496,7 +501,11 @@ export default function SiteSettings()
                             </div>
                         </div>
                     </div> */}
-            </div>
+                </div>
+                <form method="dialog" className="modal-backdrop">
+                    <button onClick={onClose}>close</button>
+                </form>
+            </dialog>
             
             {/* Debug Status Modal */}
             {showDebugStatus && (

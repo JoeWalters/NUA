@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import ModernDevices from "./ModernDevices";
 import TrafficRules from "./traffic_rules/TrafficRules";
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import NuaSvg from "../images/nua.svg";
+import { HiOutlineDeviceTablet, HiOutlineShieldCheck } from 'react-icons/hi2';
 
 
 export default function AdminConsole()
@@ -19,6 +20,7 @@ export default function AdminConsole()
     const [activeTab, setActiveTab] = useState('devices');
     const initialized = useRef(false);
     const navigate = useNavigate();
+    const { openSettings } = useOutletContext() ?? {};
     const [countdown, setCountdown] = useState(2);
     const dialogRef = useRef();
 
@@ -36,7 +38,7 @@ export default function AdminConsole()
         }
     }
     const handleProceed = () => {
-        navigate('/sitesettings');
+        openSettings?.();
     }
 
     // function validateMacAddress(mac) {
@@ -203,20 +205,30 @@ export default function AdminConsole()
         <>
             <div className="w-full">
                 {/* Tab bar */}
-                <div className="flex justify-center pt-2 pb-4">
-                    <div role="tablist" className="tabs tabs-box tabs-lg">
+                <div className="flex justify-center pt-4 pb-6">
+                    <div className="relative flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
                         <button
                             role="tab"
-                            className={`tab font-semibold ${activeTab === 'devices' ? 'tab-active' : ''}`}
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                                activeTab === 'devices'
+                                    ? 'bg-primary text-primary-content shadow-md'
+                                    : 'text-base-content/60 hover:text-base-content hover:bg-base-300'
+                            }`}
                             onClick={() => setActiveTab('devices')}
                         >
+                            <HiOutlineDeviceTablet className="w-4 h-4" />
                             Devices
                         </button>
                         <button
                             role="tab"
-                            className={`tab font-semibold ${activeTab === 'traffic' ? 'tab-active' : ''}`}
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                                activeTab === 'traffic'
+                                    ? 'bg-primary text-primary-content shadow-md'
+                                    : 'text-base-content/60 hover:text-base-content hover:bg-base-300'
+                            }`}
                             onClick={() => setActiveTab('traffic')}
                         >
+                            <HiOutlineShieldCheck className="w-4 h-4" />
                             Traffic Rules
                         </button>
                     </div>

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { HiCog6Tooth } from "react-icons/hi2";
 import NuaSvg from "../images/nua.svg";
 
-export default function Navbar({ themeValue, callBackChanged }) {
+export default function Navbar({ themeValue, callBackChanged, onSettingsClick }) {
   const [connected, setConnected] = useState(null);
 
   useEffect(() => {
@@ -86,13 +86,13 @@ export default function Navbar({ themeValue, callBackChanged }) {
           </svg>
         </label>
 
-        <Link
-          to="/sitesettings"
+        <button
           className="btn btn-ghost btn-sm btn-circle"
           title="Site Settings"
+          onClick={onSettingsClick}
         >
           <HiCog6Tooth className="w-5 h-5" />
-        </Link>
+        </button>
       </div>
     </div>
   );

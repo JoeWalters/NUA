@@ -3,12 +3,14 @@ import { Outlet, useLocation } from "react-router-dom";
 import Navbar from './components/Navbar.jsx'
 import { useEffect, useState } from "react";
 import BreadCrumbs from "./components/breadcrumbs/BreadCrumbs.jsx";
+import SiteSettings from "./components/SiteSettings.jsx";
 
 
 export default function App() {
 
     const [themeValue, setThemeValue] = useState('');
     const [changed, setChanged] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const location = useLocation();
 
     const callBackChanged = () => {
@@ -35,11 +37,12 @@ export default function App() {
 
   return (
     <>
-      <Navbar themeValue={themeValue} callBackChanged={callBackChanged} />
+      <Navbar themeValue={themeValue} callBackChanged={callBackChanged} onSettingsClick={() => setSettingsOpen(true)} />
       <BreadCrumbs />
       <div key={location.pathname} className="page-enter flex items-center justify-center h-full w-full">
-        <Outlet />
+        <Outlet context={{ openSettings: () => setSettingsOpen(true) }} />
       </div>
+      <SiteSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>
   )
 }

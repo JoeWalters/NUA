@@ -13,7 +13,6 @@ import NotFound from './components/NotFound.jsx';
 import Scheduler from './components/Scheduler/Scheduler.jsx';
 import CronManager from './components/CronManager.jsx';
 import EasySched from './components/EasySched.jsx';
-import SiteSettings from './components/SiteSettings.jsx';
 import { createRoot } from 'react-dom/client';
 import {
   BrowserRouter, Routes, Route
@@ -34,7 +33,6 @@ root.render(
             <Route path="/" element={<AdminConsole />} />
             <Route path="/blockeddevices" element={<BlockedDevices />} />
             <Route path="/alldevices" element={<AllDevices />} />
-            <Route path="/sitesettings" element={<SiteSettings />} />
             <Route path="/trafficrules/" element={<TrafficRules />} />
             <Route path="/manageapp/:cat/:id" element={<ManageApp />} />
             <Route path="/seeallapps" element={<SeeAllApps />} />
