@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import { categoryDeviceObject, appDeviceObject } from "../see_all_apps/app_objects";
 import { allAppsList } from "../../traffic_rule_apps/unifi_match_list";
 import { importToDbConverter } from "../utility_functions/app_cat_utils";
 import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
 import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
+import CreateRuleModal from "./CreateRuleModal";
+import {
+    HiShieldCheck,
+    HiPlus,
+    HiArrowDownTray,
+    HiTrash,
+    HiChevronDown,
+    HiChevronUp,
+    HiCpuChip,
+    HiDevicePhoneMobile,
+} from "react-icons/hi2";
 
 
 
@@ -25,6 +35,7 @@ export default function TrafficRules()
     const [loadingUnmanageApp, setLoadingUnmanageApp] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const importDialogRef = useRef();
+    const createRuleDialogRef = useRef();
 
     function checkForImportRules(dbData, unifiData) {
         const filterOutInternetMatchingTarget = unifiData.filter((rule) => rule.matching_target !== "INTERNET");
@@ -288,146 +299,213 @@ export default function TrafficRules()
     return (
         <>
             {pageLoading && <GenericPageSkeleton rows={4} />}
-            {!pageLoading && <div className="flex items-center justify-center flex-col w-full h-full sm:w-3/4 lg:w-1/2 mx-auto pb-12">
-                {/* <div className="btn" onClick={handleDeleteTestIds}>Delete Test Ids</div> */}
-                <div className="flex w-full mx-2 px">
-                    <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 m-8">
-                        <div className="flex w-full mt-2 justify-between">
-                            <div className="px-4 text-xl font-bold">Toggle</div>
-                            <div className="px-12 text-xl font-bold">Description</div>
+            {!pageLoading && (
+                <div className="flex flex-col w-full sm:w-3/4 lg:w-1/2 mx-auto px-4 pb-12 pt-4 gap-6">
+
+                    {/* Page header */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <HiShieldCheck className="w-6 h-6 text-primary" />
+                            <h1 className="text-2xl font-bold text-base-content">Traffic Rules</h1>
+                            {customAPIRules.length > 0 && (
+                                <span className="badge badge-primary badge-sm ml-1">{customAPIRules.length}</span>
+                            )}
                         </div>
-                        <div className="divider mt-2 mb-2"></div>
-                        <ul className="flex flex-col w-full justify-around gap-2 mb-2">
-                            {
-                                customAPIRules.length ?
-                                customAPIRules?.map((data) => {
-                                    return (
-                                        <>
-                                            <li key={data?.trafficRule.unifiId} className="m-1" >
-                                            <div className="collapse bg-base-200">
-                                                <input type="checkbox" />
-                                                    <div className="collapse-title text-xl font-medium">
-                                                        <div className="w-full flex flex-row items-center justify-between hover:cursor-pointer z-40">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={data?.trafficRule.enabled}
-                                                                className="toggle toggle-success z-30"
-                                                                onClick={handleToggle}
-                                                                data-unifiruleid={data.trafficRule.unifiId}
-                                                                data-dbtrafficruleid={data.trafficRule.id}
-                                                            />
-                                                            {data?.trafficRule.description}
-                                                        </div>
-                                                    </div>
-                                                    <div className="collapse-content">
-                                                            <div className="flex gap-4 flex-wrap items-center my-2">
-                                                            <h1 className="font-bold italic">Managing Apps:</h1>
-                                                                {data?.matchingAppIds.map((appId) => {
-                                                                    return (
-                                                                        <>
-                                                                            <span className="badge badge-primary">{appId?.app_name}</span>
-                                                                        </>
-                                                                    )
-                                                                })}
-                                                                {/* <p><span className="font-thin italic">Apps:</span> {data?.name}</p> */}
-                                                                {/* <p><span className="font-thin italic">Devices:</span> {data?.macAddress}</p> */}
-                                                            </div>
-                                                            <div className="flex gap-4 flex-wrap items-center my-2">
-                                                                <h1 className="font-bold italic">Devices: </h1>
-                                                                {data.matchingTargetDevices.map((device) => {
-                                                                    return (
-                                                                        <>
-                                                                            <span className="badge badge-accent">{device.client_mac}</span>
-                                                                        </>
-                                                                    )
-                                                                })}
-                                                            </div>
-                                                        <div>
-                                                            <button className="btn btn-block btn-disabled bg-base-300 my-2" disabled>Schedule</button>
-                                                        </div>
-                                                        <div className="flex flex-row gap-2">
-                                                            <button
-                                                                className="btn btn-error w-1/2"
-                                                                onClick={handleDeleteTrafficRule}
-                                                                data-trafficid={data?.trafficRule.unifiId}
-                                                                data-trafficruleid={data?.trafficRule.id}
-                                                            >Delete
-                                                            </button>
-                                                            <button
-                                                                className={`${loadingUnmanageApp ? 'btn btn-disabled' : 'btn btn-info'} w-1/2`}
-                                                                onClick={handleUnmanageApp}
-                                                                data-trafficruleid={data?.trafficRule.id}
-                                                                disabled={loadingUnmanageApp}
-                                                            >{loadingUnmanageApp ? <span className="loading loading-spinner loading-sm"></span> : 'Unmanage App'}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </li>
-                                        </>
-                                    )
-                                }) : <span className="ml-2 mb-2">No data available. Please create or import rules to proceed.</span>
-                            }
+                        <div className="flex items-center gap-2">
+                            {importOption ? (
+                                <button
+                                    className="btn btn-sm btn-ghost gap-1"
+                                    onClick={handleImportModalOpen}
+                                >
+                                    <HiArrowDownTray className="w-4 h-4" />
+                                    Import
+                                </button>
+                            ) : (
+                                <button className="btn btn-sm btn-ghost gap-1 btn-disabled" disabled>
+                                    <HiArrowDownTray className="w-4 h-4" />
+                                    Import
+                                </button>
+                            )}
+                                            <button
+                                className="btn btn-sm btn-primary gap-1"
+                                onClick={() => createRuleDialogRef.current.showModal()}
+                            >
+                                <HiPlus className="w-4 h-4" />
+                                New Rule
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Rule cards */}
+                    {customAPIRules.length ? (
+                        <ul className="flex flex-col gap-3">
+                            {customAPIRules.map((data) => (
+                                <RuleCard
+                                    key={data?.trafficRule.unifiId}
+                                    data={data}
+                                    onToggle={handleToggle}
+                                    onDelete={handleDeleteTrafficRule}
+                                    onUnmanage={handleUnmanageApp}
+                                    loadingUnmanageApp={loadingUnmanageApp}
+                                />
+                            ))}
                         </ul>
-                    </div>
+                    ) : (
+                        <div className="bg-white dark:bg-base-200 border border-base-300 rounded-xl shadow-sm p-10 flex flex-col items-center gap-3 text-base-content/50">
+                            <HiShieldCheck className="w-10 h-10" />
+                            <p className="text-sm">No rules yet. Create or import a rule to get started.</p>
+                        </div>
+                    )}
                 </div>
-                <div className="flex flex-row gap-6 flex-wrap mx-auto">
-                    <Link to="/seeallapps"><button className="btn btn-primary">Create New Rule</button></Link>
-                    {importOption
-                        ? <button className="btn text-accent italic" onClick={handleImportModalOpen}>Import UniFi Rules</button>
-                        : <button className="btn text-accent italic btn-disabled" disabled>Import Existing Unifi Rules</button>
-                    }
-                </div>
-            </div>}
+            )}
+
+            <CreateRuleModal dialogRef={createRuleDialogRef} onSuccess={reRender} />
+
+            {/* Import modal */}
             <dialog ref={importDialogRef} className="modal">
-                <div className="modal-box">
-                    <h3 className="font-bold text-lg">Select UniFi Rules To Import</h3>
-                    <div className="flex flex-col gap-4 my-4">
-                            {importRuleChoices.map((data) => {
-                                return (
-                                    <>
-                                        <div className="card w-full bg-base-200 shadow-xl">
-                                        <div className="card-body p-6">
-                                            <h2 className="card-title">Description: {data.description}</h2>
-                                            <p>Matching Target: {data.matching_target}</p>
-                                            <div className="card-actions justify-end items-center flex">
-                                                <div className="label">Select</div>
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-accent"
-                                                    onClick={e => handleSelectedImport(e, data._id)}
-                                                    data-id={data._id}
-                                                    checked={checked[data?._id] || false}
-                                                />
-                                            </div>
-                                            {/* <div className="card-actions justify-end items-center flex">
-                                                <div className="label">Add to Device List</div>
-                                                <input
-                                                    type="checkbox"
-                                                    className="checkbox checkbox-accent"
-                                                    onClick={e => handleSelectedDeviceImport(e, data._id)}
-                                                    data-unifiid={data._id}
-                                                    checked={checked2[data?._id] || false}
-                                                />
-                                            </div> */}
-                                        </div>
-                                        </div>
-                                    </>
-                                )
-                            })}
+                <div className="modal-box max-w-lg">
+                    <div className="flex items-center gap-2 mb-5">
+                        <HiArrowDownTray className="w-5 h-5 text-accent" />
+                        <h3 className="font-bold text-lg">Import UniFi Rules</h3>
                     </div>
-                    <div className="flex justify-between">
-                        <button className="btn" onClick={handleImportModalClose}>Cancel</button>
+                    <div className="flex flex-col gap-3">
+                        {importRuleChoices.map((data) => (
+                            <label
+                                key={data._id}
+                                className="flex items-start gap-4 p-4 rounded-xl border border-base-300 bg-base-200 hover:border-accent cursor-pointer transition-colors"
+                            >
+                                <input
+                                    type="checkbox"
+                                    className="checkbox checkbox-accent mt-0.5 flex-shrink-0"
+                                    onClick={e => handleSelectedImport(e, data._id)}
+                                    data-id={data._id}
+                                    checked={checked[data?._id] || false}
+                                    onChange={() => {}}
+                                />
+                                <div className="flex flex-col gap-1 min-w-0">
+                                    <span className="font-semibold text-base-content truncate">{data.description}</span>
+                                    <span className="text-xs text-base-content/50">Target: {data.matching_target}</span>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                    <div className="flex justify-between mt-6">
+                        <button className="btn btn-ghost" onClick={handleImportModalClose}>Cancel</button>
                         <button
-                            className={`btn ${importRuleSelection.length && !loadingImportSubmission ? '' : 'btn-disabled'}`}
+                            className="btn btn-primary"
                             onClick={handleImportOption}
                             disabled={!importRuleSelection.length || loadingImportSubmission}
                         >
-                            {loadingImportSubmission ? <span className="loading loading-spinner"></span> : 'Import'}
+                            {loadingImportSubmission
+                                ? <span className="loading loading-spinner loading-sm"></span>
+                                : <><HiArrowDownTray className="w-4 h-4" /> Import {importRuleSelection.length > 0 && `(${importRuleSelection.length})`}</>
+                            }
                         </button>
                     </div>
                 </div>
+                <form method="dialog" className="modal-backdrop">
+                    <button onClick={handleImportModalClose}>close</button>
+                </form>
             </dialog>
         </>
-    )
+    );
+}
+
+function RuleCard({ data, onToggle, onDelete, onUnmanage, loadingUnmanageApp }) {
+    const [expanded, setExpanded] = useState(false);
+    const enabled = data?.trafficRule.enabled;
+
+    return (
+        <li className="list-none">
+            <div className={`relative bg-white dark:bg-base-200 rounded-xl shadow-sm border transition-all duration-200 overflow-hidden ${enabled ? 'border-success/40' : 'border-base-300'}`}>
+                {/* Left accent stripe */}
+                <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${enabled ? 'bg-success' : 'bg-base-300'}`} />
+
+                {/* Main row */}
+                <div className="flex items-center gap-4 px-5 py-4 pl-6">
+                    <input
+                        type="checkbox"
+                        checked={enabled}
+                        className="toggle toggle-success toggle-sm flex-shrink-0"
+                        onClick={onToggle}
+                        data-unifiruleid={data.trafficRule.unifiId}
+                        data-dbtrafficruleid={data.trafficRule.id}
+                        onChange={() => {}}
+                    />
+                    <span className="flex-1 font-semibold text-base-content text-sm truncate">
+                        {data?.trafficRule.description}
+                    </span>
+                    <div className="flex items-center gap-2 flex-shrink-0 text-base-content/40 text-xs">
+                        {data?.matchingAppIds?.length > 0 && (
+                            <span className="flex items-center gap-1">
+                                <HiCpuChip className="w-3.5 h-3.5" />
+                                {data.matchingAppIds.length}
+                            </span>
+                        )}
+                        {data?.matchingTargetDevices?.length > 0 && (
+                            <span className="flex items-center gap-1">
+                                <HiDevicePhoneMobile className="w-3.5 h-3.5" />
+                                {data.matchingTargetDevices.length}
+                            </span>
+                        )}
+                    </div>
+                    <button
+                        className="btn btn-ghost btn-xs text-base-content/40 hover:text-base-content"
+                        onClick={() => setExpanded(prev => !prev)}
+                        aria-label="Expand rule details"
+                    >
+                        {expanded ? <HiChevronUp className="w-4 h-4" /> : <HiChevronDown className="w-4 h-4" />}
+                    </button>
+                </div>
+
+                {/* Expanded detail section */}
+                {expanded && (
+                    <div className="px-6 pb-5 pt-1 border-t border-base-300 flex flex-col gap-4">
+                        {data?.matchingAppIds?.length > 0 && (
+                            <div>
+                                <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">Apps</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {data.matchingAppIds.map((appId) => (
+                                        <span key={appId?.app_name} className="badge badge-primary badge-sm">{appId?.app_name}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {data?.matchingTargetDevices?.length > 0 && (
+                            <div>
+                                <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">Devices</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {data.matchingTargetDevices.map((device) => (
+                                        <span key={device.client_mac} className="badge badge-accent badge-sm">{device.client_mac}</span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                            <button
+                                className="btn btn-error btn-sm gap-1 flex-1"
+                                onClick={onDelete}
+                                data-trafficid={data?.trafficRule.unifiId}
+                                data-trafficruleid={data?.trafficRule.id}
+                            >
+                                <HiTrash className="w-4 h-4" />
+                                Delete
+                            </button>
+                            <button
+                                className={`btn btn-sm flex-1 gap-1 ${loadingUnmanageApp ? 'btn-disabled' : 'btn-outline'}`}
+                                onClick={onUnmanage}
+                                data-trafficruleid={data?.trafficRule.id}
+                                disabled={loadingUnmanageApp}
+                            >
+                                {loadingUnmanageApp
+                                    ? <span className="loading loading-spinner loading-xs"></span>
+                                    : 'Unmanage'
+                                }
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </li>
+    );
 }
