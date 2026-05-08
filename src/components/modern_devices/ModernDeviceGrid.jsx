@@ -242,7 +242,7 @@ export default function ModernDeviceGrid({
                                 <input
                                     ref={searchRef}
                                     type="text"
-                                    placeholder="Search by name, MAC address, or group..."
+                                    placeholder="Search by name, MAC address, or tag..."
                                     className="input input-bordered w-full pl-10 pr-10"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -267,8 +267,8 @@ export default function ModernDeviceGrid({
                                     value={groupFilter}
                                     onChange={(e) => setGroupFilter(e.target.value)}
                                 >
-                                    <option value="all">All Groups</option>
-                                    <option value="none">No Group</option>
+                                    <option value="all">All Tags</option>
+                                    <option value="none">No Tag</option>
                                     {availableGroups.map(group => (
                                         <option key={group.id} value={group.id}>
                                             {group.icon} {group.name}
@@ -301,8 +301,8 @@ export default function ModernDeviceGrid({
                             </div>
                             {groupFilter !== 'all' && (
                                 <div className="text-sm text-base-content/60">
-                                    Filtered by group: <span className="font-medium text-base-content">
-                                        {groupFilter === 'none' ? 'No Group' : availableGroups.find(g => g.id === parseInt(groupFilter))?.name}
+                                    Filtered by tag: <span className="font-medium text-base-content">
+                                        {groupFilter === 'none' ? 'No Tag' : availableGroups.find(g => g.id === parseInt(groupFilter))?.name}
                                     </span>
                                 </div>
                             )}
