@@ -111,7 +111,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     };
 
     const handleDeleteGroup = async (groupId) => {
-        if (!confirm('Are you sure you want to delete this group? Devices will be unassigned but not deleted.')) {
+        if (!confirm('Are you sure you want to delete this tag? Devices will be unassigned but not deleted.')) {
             return;
         }
 
@@ -347,225 +347,141 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     };
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <div className="space-y-6">
-                {/* Header Section - centered title */}
-                <div className="text-center">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Device Groups</h2>
-                </div>
-
-            {/* Groups Display Section */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-                {loading && groups.length === 0 ? (
-                    <div className="flex justify-center py-8">
-                        <span className="loading loading-spinner loading-md"></span>
-                    </div>
-                ) : groups.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                        <div className="text-4xl mb-2">👥</div>
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No device groups yet</h3>
-                        <p className="text-sm mb-6">Create groups to organize your devices for easier management</p>
-                        <button 
-                            className="btn btn-primary"
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            {/* Tags Section */}
+            <div className="bg-base-100 rounded-xl shadow-sm border border-base-300 p-5 mb-2">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-base-content">Tags</h2>
+                    {groups.length > 0 && (
+                        <button
+                            className="btn btn-primary btn-sm"
                             onClick={handleCreateGroup}
                             disabled={loading}
                         >
-                            <span className="text-lg">+</span>
-                            Create First Group
+                            <span className="text-base leading-none">+</span> New Tag
+                        </button>
+                    )}
+                </div>
+
+                {loading && groups.length === 0 ? (
+                    <div className="flex justify-center py-6">
+                        <span className="loading loading-spinner loading-md"></span>
+                    </div>
+                ) : groups.length === 0 ? (
+                    <div className="text-center py-6">
+                        <div className="text-3xl mb-2">🏷️</div>
+                        <p className="text-base-content/60 text-sm mb-4">Create tags to organize your devices</p>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={handleCreateGroup}
+                            disabled={loading}
+                        >
+                            <span className="text-base leading-none">+</span> Create First Tag
                         </button>
                     </div>
                 ) : (
-                    <div className="space-y-4">
-                        {/* New Group Button */}
-                        <div className="flex justify-end">
-                            <button 
-                                className="btn btn-primary btn-sm"
-                                onClick={handleCreateGroup}
-                                disabled={loading}
-                            >
-                                <span className="text-lg">+</span>
-                                New Group
-                            </button>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {groups.map(group => (
-                                <div 
-                                    key={group.id}
-                                    className="bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl border border-gray-200 dark:border-gray-700 transition-all duration-300 overflow-hidden relative hover:shadow-md"
+                    <div className="flex flex-wrap gap-3 justify-center">
+                        {groups.map(group => (
+                            <div key={group.id} className="flex flex-col items-center">
+                                {/* Tag Pill */}
+                                <button
+                                    className="flex items-center gap-2 px-4 py-2 rounded-full border-2 transition-all duration-200 hover:scale-105 focus:outline-none"
+                                    style={{
+                                        backgroundColor: group.color + '18',
+                                        borderColor: expandedGroups.has(group.id) ? group.color : group.color + '50',
+                                        boxShadow: expandedGroups.has(group.id) ? `0 0 0 3px ${group.color}30` : 'none'
+                                    }}
+                                    onClick={() => toggleGroupExpansion(group.id)}
                                 >
-                                    {/* Stylized left accent border using status-based color */}
-                                    <div 
-                                        className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"
+                                    <span className="text-base">{group.icon}</span>
+                                    <span className="text-sm font-semibold text-base-content">{group.name}</span>
+                                    <span
+                                        className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                                        style={{ backgroundColor: group.color + '35', color: group.color }}
+                                    >
+                                        {getDeviceCount(group.id)}
+                                    </span>
+                                    <span
+                                        className="w-2 h-2 rounded-full flex-shrink-0"
                                         style={{ backgroundColor: getGroupAccentColor(group.id) }}
-                                    ></div>
-                                    
-                                    <div className="p-6 pb-4">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center space-x-3 flex-1 min-w-0">
-                                            {/* Group Icon */}
-                                            <div 
-                                                className="flex-shrink-0 p-2 rounded-lg"
-                                                style={{ 
-                                                    backgroundColor: group.color + '20', 
-                                                    color: group.color 
-                                                }}
-                                            >
-                                                <span className="text-2xl">{group.icon}</span>
-                                            </div>
-                                            
-                                            {/* Group Info */}
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{group.name}</h3>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                                                    {getDeviceCount(group.id)} devices
-                                                </p>
-                                                {/* Reserve space for description */}
-                                                <div className="mt-1 min-h-5">
-                                                    {group.description ? (
-                                                        <p className="text-xs text-gray-600 dark:text-gray-300 truncate">
-                                                            {group.description}
-                                                        </p>
-                                                    ) : (
-                                                        <div className="invisible">placeholder</div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* More/Less Button (replaces dropdown) */}
-                                        <button
-                                            className="btn btn-ghost btn-xs"
-                                            onClick={() => toggleGroupExpansion(group.id)}
-                                            title={expandedGroups.has(group.id) ? "Show Less" : "Show More"}
-                                        >
-                                            {expandedGroups.has(group.id) ? 'Less' : 'More'}
-                                        </button>
-                                    </div>
-                                    
-                                    {/* Quick Actions Row */}
-                                    <div className="flex items-center justify-between mt-4">
-                                        {/* Main Toggle */}
-                                        <div className="flex items-center space-x-2">
+                                        title={getDeviceCount(group.id) === 0 ? 'No devices' : getGroupBlockStatus(group.id) ? 'Some blocked' : 'All active'}
+                                    />
+                                </button>
+
+                                {/* Expanded Actions Panel */}
+                                {expandedGroups.has(group.id) && (
+                                    <div className="mt-2 bg-base-200 rounded-xl border border-base-300 p-3 w-52 shadow-lg z-10">
+                                        {/* Status Toggle Row */}
+                                        <div className="flex items-center justify-between pb-2 mb-2 border-b border-base-300">
+                                            <span className="text-xs text-base-content/60">
+                                                {getDeviceCount(group.id) === 0
+                                                    ? 'No devices'
+                                                    : getGroupBlockStatus(group.id)
+                                                        ? 'Some blocked'
+                                                        : 'All active'}
+                                            </span>
                                             <input
                                                 type="checkbox"
-                                                className={`toggle toggle-sm ${
-                                                    !getGroupBlockStatus(group.id) ? 'toggle-success' : 'toggle-error'
-                                                } ${getDeviceCount(group.id) === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                                checked={getDeviceCount(group.id) === 0 ? false : !getGroupBlockStatus(group.id)}
+                                                className={`toggle toggle-xs ${!getGroupBlockStatus(group.id) ? 'toggle-success' : 'toggle-error'}`}
+                                                checked={getDeviceCount(group.id) > 0 && !getGroupBlockStatus(group.id)}
                                                 disabled={getDeviceCount(group.id) === 0}
                                                 onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        handleGroupAction(group.id, 'unblock');
-                                                    } else {
-                                                        handleGroupAction(group.id, 'block');
-                                                    }
+                                                    e.target.checked
+                                                        ? handleGroupAction(group.id, 'unblock')
+                                                        : handleGroupAction(group.id, 'block');
                                                 }}
                                             />
-                                            <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                {getDeviceCount(group.id) === 0 
-                                                    ? 'No Devices' 
-                                                    : getGroupBlockStatus(group.id) 
-                                                        ? 'Allow' 
-                                                        : 'Block'
-                                                }
-                                            </span>
                                         </div>
-
-                                        {/* Action Buttons */}
-                                        <div className="flex items-center space-x-2">
-                                            <button 
-                                                className="btn btn-primary btn-sm"
+                                        <div className="space-y-0.5">
+                                            <button
+                                                className="btn btn-ghost btn-xs w-full justify-start gap-2"
                                                 onClick={() => handleAssignDevices(group)}
-                                                title="Add Devices"
                                             >
-                                                <span className="text-lg font-bold">+</span>
+                                                👥 Assign Devices
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost btn-xs w-full justify-start gap-2"
+                                                onClick={() => handleEditGroup(group)}
+                                            >
+                                                ✏️ Edit Tag
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost btn-xs w-full justify-start gap-2"
+                                                onClick={() => handleManageSchedules(group)}
+                                            >
+                                                ⏰ Schedule
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost btn-xs w-full justify-start gap-2 text-error hover:bg-error/10"
+                                                onClick={() => handleDeleteGroup(group.id)}
+                                            >
+                                                🗑️ Delete Tag
                                             </button>
                                         </div>
-                                    </div>
-                                </div>
-
-                                {/* Expanded Content */}
-                                {expandedGroups.has(group.id) && (
-                                    <div className="px-6 pb-6 pt-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                                        {/* Group Details */}
-                                        <div className="mb-4 text-sm">
-                                            <div>
-                                                <span className="text-gray-500 dark:text-gray-400">Devices:</span>
-                                                <p className="font-medium text-gray-900 dark:text-white mt-1">
-                                                    {getDeviceCount(group.id)} device{getDeviceCount(group.id) !== 1 ? 's' : ''}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Action Buttons Grid */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                                            {/* Management Actions */}
-                                            <div className="space-y-2">
-                                                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Management</h4>
-                                                <button 
-                                                    className="btn btn-outline btn-sm w-full justify-start"
-                                                    onClick={() => handleEditGroup(group)}
-                                                >
-                                                    <span>✏️</span> Edit Group
-                                                </button>
-                                                <button 
-                                                    className="btn btn-outline btn-sm w-full justify-start"
-                                                    onClick={() => handleManageSchedules(group)}
-                                                >
-                                                    <span>⏰</span> Schedule
-                                                </button>
-                                            </div>
-
-                                            {/* Control Actions */}
-                                            <div className="space-y-2">
-                                                <h4 className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Control</h4>
-                                                <button 
-                                                    className="btn btn-error btn-outline btn-sm w-full justify-start"
-                                                    onClick={() => handleDeleteGroup(group.id)}
-                                                >
-                                                    <span>🗑️</span> Delete Group
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        {/* Quick Stats */}
-                                        {getDeviceCount(group.id) > 0 && (
-                                            <div className="bg-base-100 rounded-lg p-3">
-                                                <div className="flex items-center justify-between text-sm">
-                                                    <span className="text-gray-500 dark:text-gray-400">Group Status:</span>
-                                                    <span className={`font-medium ${
-                                                        getGroupBlockStatus(group.id) ? 'text-red-600' : 'text-green-600'
-                                                    }`}>
-                                                        {getGroupBlockStatus(group.id) ? 'Some devices blocked' : 'All devices active'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
                         ))}
-                        </div>
                     </div>
                 )}
             </div>
 
-            {/* Group Creation/Edit Modal */}
+            {/* Tag Creation/Edit Modal */}
             <dialog className="modal" ref={groupModalRef}>
                 <div className="modal-box">
                         <h3 className="font-bold text-lg mb-4">
-                            {editingGroup ? 'Edit Group' : 'Create New Group'}
+                            {editingGroup ? 'Edit Tag' : 'Create New Tag'}
                         </h3>
                         
                         <div className="space-y-4">
                             <div>
                                 <label className="label">
-                                    <span className="label-text">Group Name</span>
+                                    <span className="label-text">Tag Name</span>
                                 </label>
                                 <input
                                     type="text"
-                                    placeholder="Enter group name"
+                                    placeholder="Enter tag name"
                                     className="input input-bordered w-full"
                                     value={groupForm.name}
                                     onChange={(e) => setGroupForm(prev => ({ ...prev, name: e.target.value }))}
@@ -577,7 +493,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                     <span className="label-text">Description (Optional)</span>
                                 </label>
                                 <textarea
-                                    placeholder="Enter group description"
+                                    placeholder="Enter tag description"
                                     className="textarea textarea-bordered w-full"
                                     rows="2"
                                     value={groupForm.description}
@@ -632,7 +548,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                 onClick={handleSaveGroup}
                                 disabled={!groupForm.name.trim() || loading}
                             >
-                                {loading ? 'Saving...' : editingGroup ? 'Update' : 'Create'}
+                                {loading ? 'Saving...' : editingGroup ? 'Update Tag' : 'Create Tag'}
                             </button>
                         </div>
                     </div>
@@ -645,7 +561,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                 <dialog className="modal" ref={assignModalRef}>
                     <div className="modal-box max-w-2xl">
                         <h3 className="font-bold text-lg mb-4">
-                            Manage Devices in "{editingGroup?.name}"
+                            Assign Devices to "{editingGroup?.name}"
                         </h3>
                         
                         <div className="alert alert-info mb-4">
@@ -708,7 +624,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                         <div className="flex items-center gap-2">
                                                             <p className="text-sm text-base-content/60">{device.macAddress}</p>
                                                             {isCurrentlyInGroup && (
-                                                                <span className="badge badge-xs badge-primary">Currently in group</span>
+                                                                <span className="badge badge-xs badge-primary">In this tag</span>
                                                             )}
                                                         </div>
                                                     </div>
@@ -946,7 +862,6 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         <button onClick={handleCloseScheduleModal}>close</button>
                     </form>
                 </dialog>
-            </div>
         </div>
     );
 }

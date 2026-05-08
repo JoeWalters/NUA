@@ -20,6 +20,7 @@ export default function ModernDeviceGrid({
 }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [groupFilter, setGroupFilter] = useState('all');
     const [showFilters, setShowFilters] = useState(true);
     const [showSearch, setShowSearch] = useState(false);
     const [filteredDevices, setFilteredDevices] = useState(devices);
@@ -36,17 +37,25 @@ export default function ModernDeviceGrid({
     // Fetch all devices for the modal
     const { clientDevices, deviceList, loading: allDevicesLoading, reFetch } = useFetchAllDevices();
 
-    // Filter devices based on search and status
+    // Compute unique groups from devices for the group filter dropdown
+    const availableGroups = [...new Map(
+        devices
+            .filter(d => d?.deviceGroup)
+            .map(d => [d.deviceGroup.id, d.deviceGroup])
+    ).values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    // Filter devices based on search, status, and group
     useEffect(() => {
         let filtered = [...devices];
         
-        // Search filter
+        // Search filter (includes group/tag name)
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             filtered = filtered.filter(device => 
                 device?.name?.toLowerCase().includes(term) ||
                 device?.macAddress?.toLowerCase().includes(term) ||
-                device?.hostname?.toLowerCase().includes(term)
+                device?.hostname?.toLowerCase().includes(term) ||
+                device?.deviceGroup?.name?.toLowerCase().includes(term)
             );
         }
         
@@ -64,13 +73,23 @@ export default function ModernDeviceGrid({
             default:
                 break;
         }
+
+        // Group/tag filter
+        if (groupFilter !== 'all') {
+            if (groupFilter === 'none') {
+                filtered = filtered.filter(device => !device?.deviceGroup);
+            } else {
+                filtered = filtered.filter(device => device?.deviceGroup?.id === parseInt(groupFilter));
+            }
+        }
         
         setFilteredDevices(filtered);
-    }, [devices, searchTerm, statusFilter]);
+    }, [devices, searchTerm, statusFilter, groupFilter]);
 
     const handleRefresh = () => {
         setSearchTerm('');
         setStatusFilter('all');
+        setGroupFilter('all');
         if (searchRef.current) {
             searchRef.current.value = '';
         }
@@ -223,7 +242,7 @@ export default function ModernDeviceGrid({
                                 <input
                                     ref={searchRef}
                                     type="text"
-                                    placeholder="Search by name or MAC address..."
+                                    placeholder="Search by name, MAC address, or group..."
                                     className="input input-bordered w-full pl-10 pr-10"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -231,7 +250,7 @@ export default function ModernDeviceGrid({
                             </div>
                             
                             {/* Filter Controls */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <select
                                     className="select select-bordered min-w-[120px]"
                                     value={statusFilter}
@@ -241,6 +260,20 @@ export default function ModernDeviceGrid({
                                     <option value="allowed">Allowed</option>
                                     <option value="blocked">Blocked</option>
                                     <option value="bonus">Bonus Time</option>
+                                </select>
+
+                                <select
+                                    className="select select-bordered min-w-[120px]"
+                                    value={groupFilter}
+                                    onChange={(e) => setGroupFilter(e.target.value)}
+                                >
+                                    <option value="all">All Groups</option>
+                                    <option value="none">No Group</option>
+                                    {availableGroups.map(group => (
+                                        <option key={group.id} value={group.id}>
+                                            {group.icon} {group.name}
+                                        </option>
+                                    ))}
                                 </select>
                                 
                                 <button
@@ -252,7 +285,7 @@ export default function ModernDeviceGrid({
                                 </button>
 
                                 <button
-                                    onClick={() => { setShowFilters(false); setSearchTerm(''); setStatusFilter('all'); }}
+                                    onClick={() => { setShowFilters(false); setSearchTerm(''); setStatusFilter('all'); setGroupFilter('all'); }}
                                     className="btn btn-ghost btn-square"
                                     title="Hide search and filters"
                                 >
@@ -266,6 +299,13 @@ export default function ModernDeviceGrid({
                             <div className="text-sm text-base-content/60">
                                 Showing {filteredDevices.length} of {devices.length} devices
                             </div>
+                            {groupFilter !== 'all' && (
+                                <div className="text-sm text-base-content/60">
+                                    Filtered by group: <span className="font-medium text-base-content">
+                                        {groupFilter === 'none' ? 'No Group' : availableGroups.find(g => g.id === parseInt(groupFilter))?.name}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -278,10 +318,10 @@ export default function ModernDeviceGrid({
                         <HiMagnifyingGlass className="w-16 h-16 mx-auto" />
                     </div>
                     <h3 className="text-lg font-medium text-base-content mb-2">
-                        {searchTerm || statusFilter !== 'all' ? 'No devices found' : 'No devices available'}
+                        {searchTerm || statusFilter !== 'all' || groupFilter !== 'all' ? 'No devices found' : 'No devices available'}
                     </h3>
                     <p className="text-base-content/60">
-                        {searchTerm || statusFilter !== 'all' 
+                        {searchTerm || statusFilter !== 'all' || groupFilter !== 'all'
                             ? 'Try adjusting your search or filter criteria.'
                             : 'Devices will appear here when they connect to the network.'
                         }

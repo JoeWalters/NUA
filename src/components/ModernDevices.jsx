@@ -218,7 +218,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
 
     return (
         <div className="space-y-6">
-            {/* Device Groups Management */}
+            {/* Tags Management */}
             <DeviceGroupManager 
                 devices={macData} 
                 onGroupsUpdate={handleRenderToggle}
