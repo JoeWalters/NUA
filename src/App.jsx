@@ -38,7 +38,7 @@ export default function App() {
   return (
     <>
       <Navbar themeValue={themeValue} callBackChanged={callBackChanged} onSettingsClick={() => setSettingsOpen(true)} />
-      <BreadCrumbs />
+      {location.pathname !== '/' && <BreadCrumbs />}
       <div key={location.pathname} className="page-enter flex items-center justify-center h-full w-full">
         <Outlet context={{ openSettings: () => setSettingsOpen(true) }} />
       </div>

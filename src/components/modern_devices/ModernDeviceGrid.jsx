@@ -197,7 +197,7 @@ export default function ModernDeviceGrid({
     return (
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
                     <div className="text-2xl font-bold text-base-content">{counts.total}</div>
                     <div className="text-sm text-base-content/60">Total Devices</div>
@@ -295,7 +295,7 @@ export default function ModernDeviceGrid({
                         </div>
 
                         {/* Device Count Display */}
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-base-300">
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-base-300">
                             <div className="text-sm text-base-content/60">
                                 Showing {filteredDevices.length} of {devices.length} devices
                             </div>
