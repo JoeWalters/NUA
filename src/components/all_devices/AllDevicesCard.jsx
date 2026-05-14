@@ -43,7 +43,8 @@ export default function AllDevicesCard({ props, length, handleAddToDevices })
                     : <></>
                     }
                     <p><span className="italic font-thin">hostname: </span>{props?.hostname ? props?.hostname : '"none"'}</p>
-                    <p><span className="italic font-thin">oui: </span>{props?.oui ? props?.oui : '"none"'}</p>
+                    <p><span className="italic font-thin">vendor: </span>{props?.oui ? props?.oui : '"none"'}</p>
+                    {props?.note ? <p><span className="italic font-thin">note: </span>{props.note}</p> : null}
                     <p><span className="italic font-thin">mac: </span>{props?.mac}</p>
                     <p><span className="italic font-thin">last ip: </span>{props?.last_ip}</p>
                     {/* <p><span className="italic font-thin">is guest: </span>{props?.is_guest === true ? 'true' : 'false'}</p> */}

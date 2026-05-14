@@ -161,6 +161,7 @@ export default function ModernDeviceGrid({
             const term = allDevicesSearch.toLowerCase();
             filtered = filtered.filter(device => 
                 device?.name?.toLowerCase().includes(term) ||
+                device?.note?.toLowerCase().includes(term) ||
                 device?.oui?.toLowerCase().includes(term) ||
                 device?.mac?.toLowerCase().includes(term) ||
                 device?.hostname?.toLowerCase().includes(term) ||
@@ -372,7 +373,7 @@ export default function ModernDeviceGrid({
                             <input
                                 ref={allDevicesSearchRef}
                                 type="text"
-                                placeholder="Search by name, hostname, vendor, IP, or MAC..."
+                                placeholder="Search by alias, note, hostname, vendor, IP, or MAC..."
                                 className="input input-bordered w-full"
                                 onChange={handleAllDevicesSearch}
                             />
