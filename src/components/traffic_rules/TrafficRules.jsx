@@ -19,7 +19,7 @@ import {
 
 
 
-export default function TrafficRules()
+export default function TrafficRules({ embedded = false })
 {
     const { existingDeviceList, allClientDeviceList } = useGetAllDevices();
     const [customAPIRules, setCustomAPIRules] = useState([]);
@@ -296,11 +296,15 @@ export default function TrafficRules()
     // }, []);
 
 
+    const containerClass = embedded
+        ? 'flex flex-col w-full mx-auto px-4 pb-12 pt-4 gap-6'
+        : 'flex flex-col w-full sm:w-3/4 lg:w-1/2 mx-auto px-4 pb-12 pt-4 gap-6';
+
     return (
         <>
             {pageLoading && <GenericPageSkeleton rows={4} />}
             {!pageLoading && (
-                <div className="flex flex-col w-full sm:w-3/4 lg:w-1/2 mx-auto px-4 pb-12 pt-4 gap-6">
+                <div className={containerClass}>
 
                     {/* Page header */}
                     <div className="flex items-center justify-between">

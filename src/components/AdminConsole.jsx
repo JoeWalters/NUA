@@ -17,12 +17,13 @@ export default function AdminConsole()
     const [toggleReRender, setToggleReRender] = useState(false);
     const [cronJobCheck, setCronJobChecked] = useState({});
     const [loadingMacData, setLoadingMacData] = useState(false);
-    const [activeTab, setActiveTab] = useState('devices');
     const initialized = useRef(false);
     const navigate = useNavigate();
     const { openSettings } = useOutletContext() ?? {};
     const [countdown, setCountdown] = useState(2);
     const dialogRef = useRef();
+    const devicesSectionRef = useRef();
+    const rulesSectionRef = useRef();
 
 
     const timer = t => new Promise(res => setTimeout(res, t));
@@ -200,33 +201,27 @@ export default function AdminConsole()
         fetchStuff();
     }
 
+    const scrollToSection = (sectionRef) => {
+        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
 
     return (
         <>
             <div className="w-full">
-                {/* Tab bar */}
+                {/* Combined policy navigation */}
                 <div className="flex justify-center pt-4 pb-6">
                     <div className="relative flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
                         <button
-                            role="tab"
-                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                                activeTab === 'devices'
-                                    ? 'bg-primary text-primary-content shadow-md'
-                                    : 'text-base-content/60 hover:text-base-content hover:bg-base-300'
-                            }`}
-                            onClick={() => setActiveTab('devices')}
+                            className="relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 text-base-content/80 hover:text-base-content hover:bg-base-300"
+                            onClick={() => scrollToSection(devicesSectionRef)}
                         >
                             <HiOutlineDeviceTablet className="w-4 h-4" />
                             Devices
                         </button>
                         <button
-                            role="tab"
-                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                                activeTab === 'traffic'
-                                    ? 'bg-primary text-primary-content shadow-md'
-                                    : 'text-base-content/60 hover:text-base-content hover:bg-base-300'
-                            }`}
-                            onClick={() => setActiveTab('traffic')}
+                            className="relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 text-base-content/80 hover:text-base-content hover:bg-base-300"
+                            onClick={() => scrollToSection(rulesSectionRef)}
                         >
                             <HiOutlineShieldCheck className="w-4 h-4" />
                             Traffic Rules
@@ -234,16 +229,18 @@ export default function AdminConsole()
                     </div>
                 </div>
 
-                {activeTab === 'devices' ? (
+                <div ref={devicesSectionRef}>
                     <ModernDevices
                         macData={macData && macData}
                         blockedUsers={blockedUsers}
                         handleRenderToggle={handleRenderToggle}
                         loadingMacData={loadingMacData}
                     />
-                ) : (
-                    <TrafficRules />
-                )}
+                </div>
+
+                <div ref={rulesSectionRef} className="pt-2 pb-8">
+                    <TrafficRules embedded={true} />
+                </div>
             </div>
 
             {/* navigate to credentials modal */}

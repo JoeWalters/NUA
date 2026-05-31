@@ -617,6 +617,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                                                         type="checkbox"
                                                         className="checkbox checkbox-primary"
                                                         checked={isSelected}
+                                                        onClick={(event) => event.stopPropagation()}
                                                         onChange={() => handleToggleDeviceSelection(device.id)}
                                                     />
                                                     <div>
