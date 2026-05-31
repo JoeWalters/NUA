@@ -297,7 +297,7 @@ export default function TrafficRules({ embedded = false })
 
 
     const containerClass = embedded
-        ? 'flex flex-col w-full mx-auto px-4 pb-12 pt-4 gap-6'
+        ? 'flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-6'
         : 'flex flex-col w-full sm:w-3/4 lg:w-1/2 mx-auto px-4 pb-12 pt-4 gap-6';
 
     return (
@@ -342,7 +342,7 @@ export default function TrafficRules({ embedded = false })
 
                     {/* Rule cards */}
                     {customAPIRules.length ? (
-                        <ul className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
+                        <ul className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] m-0 p-0">
                             {customAPIRules.map((data) => (
                                 <RuleCard
                                     key={data?.trafficRule.unifiId}
