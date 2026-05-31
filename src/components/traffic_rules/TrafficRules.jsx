@@ -87,8 +87,8 @@ export default function TrafficRules({ embedded = false })
             console.log('importRuleSelection \t', importRuleSelection);
     }
     const handleUnmanageApp = e => {
-        console.log(e.target.dataset.trafficruleid);
-        const dbId = e.target.dataset.trafficruleid;
+        console.log(e.currentTarget.dataset.trafficruleid);
+        const dbId = e.currentTarget.dataset.trafficruleid;
         const unmanageApp = async () => {
             try {
                 const submitUnmanageApp = await fetch('/unmanageapp', {
@@ -133,14 +133,14 @@ export default function TrafficRules({ embedded = false })
         setRender(prev => !prev);
     }
     const handleToggle = async e => {
-        const checked = e.target.checked;
+        const checked = e.currentTarget.checked;
         // console.log('checked \t', checked);
-        const _id = e.target.dataset.unifiruleid;
+        const _id = e.currentTarget.dataset.unifiruleid;
         const findUnifiObj = unifiRuleObject.filter(rule => rule._id === _id).pop();
         const unifiObjCopy = JSON.parse(JSON.stringify(findUnifiObj));
         unifiObjCopy.enabled = checked;
 
-        const trafficRuleId = e.target.dataset.dbtrafficruleid;
+        const trafficRuleId = e.currentTarget.dataset.dbtrafficruleid;
         try {
             const toggleEnabled = await fetch('/updatetrafficruletoggle', {
                 method: 'PUT',
@@ -158,8 +158,8 @@ export default function TrafficRules({ embedded = false })
         }
     }
     const handleDeleteTrafficRule = async e => {
-        const _id = e.target.dataset.trafficid;
-        const trafficRuleId = e.target.dataset.trafficruleid;
+        const _id = e.currentTarget.dataset.trafficid;
+        const trafficRuleId = e.currentTarget.dataset.trafficruleid;
         try {
             const deleteTrafficRule = await fetch('/deletecustomapi', {
                 method: 'DELETE',
@@ -342,7 +342,7 @@ export default function TrafficRules({ embedded = false })
 
                     {/* Rule cards */}
                     {customAPIRules.length ? (
-                        <ul className="flex flex-col gap-3">
+                        <ul className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
                             {customAPIRules.map((data) => (
                                 <RuleCard
                                     key={data?.trafficRule.unifiId}
@@ -419,52 +419,94 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, loadingUnmanageApp }) 
     const [expanded, setExpanded] = useState(false);
     const enabled = data?.trafficRule.enabled;
 
+    const getCardBorderClasses = (isEnabled) => {
+        return `border border-base-300 relative ${isEnabled ? 'border-success' : 'border-error'}`;
+    };
+
+    const getAccentBorderColor = (isEnabled) => {
+        if (isEnabled) return '#10B981'; // green-500
+        return '#EF4444'; // red-500
+    };
+
     return (
         <li className="list-none">
-            <div className={`relative bg-white dark:bg-base-200 rounded-xl shadow-sm border transition-all duration-200 overflow-hidden ${enabled ? 'border-success/40' : 'border-base-300'}`}>
-                {/* Left accent stripe */}
-                <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${enabled ? 'bg-success' : 'bg-base-300'}`} />
+            <div className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(enabled)}`}>
+                {/* Stylized top accent border */}
+                <div
+                    className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"
+                    style={{ backgroundColor: getAccentBorderColor(enabled) }}
+                ></div>
 
-                {/* Main row */}
-                <div className="flex items-center gap-4 px-5 py-4 pl-6">
-                    <input
-                        type="checkbox"
-                        checked={enabled}
-                        className="toggle toggle-success toggle-sm flex-shrink-0"
-                        onClick={onToggle}
-                        data-unifiruleid={data.trafficRule.unifiId}
-                        data-dbtrafficruleid={data.trafficRule.id}
-                        onChange={() => {}}
-                    />
-                    <span className="flex-1 font-semibold text-base-content text-sm truncate">
-                        {data?.trafficRule.description}
-                    </span>
-                    <div className="flex items-center gap-2 flex-shrink-0 text-base-content/40 text-xs">
-                        {data?.matchingAppIds?.length > 0 && (
-                            <span className="flex items-center gap-1">
-                                <HiCpuChip className="w-3.5 h-3.5" />
-                                {data.matchingAppIds.length}
-                            </span>
-                        )}
-                        {data?.matchingTargetDevices?.length > 0 && (
-                            <span className="flex items-center gap-1">
-                                <HiDevicePhoneMobile className="w-3.5 h-3.5" />
-                                {data.matchingTargetDevices.length}
-                            </span>
-                        )}
+                {/* Card Header */}
+                <div className="p-6 pb-4">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="flex-shrink-0 p-2 rounded-lg bg-base-200 text-base-content/70">
+                                <HiShieldCheck className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <h3 className="text-lg font-semibold text-base-content truncate" title={data?.trafficRule.description}>
+                                    {data?.trafficRule.description}
+                                </h3>
+                                <p className="text-sm text-base-content/60">Traffic Rule</p>
+                                <div className="mt-1 min-h-6">
+                                    <div className="flex items-center gap-2 text-xs text-base-content/60">
+                                        <span className="badge badge-ghost badge-sm gap-1">
+                                            <HiCpuChip className="w-3.5 h-3.5" />
+                                            {data?.matchingAppIds?.length || 0}
+                                        </span>
+                                        <span className="badge badge-ghost badge-sm gap-1">
+                                            <HiDevicePhoneMobile className="w-3.5 h-3.5" />
+                                            {data?.matchingTargetDevices?.length || 0}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <button
-                        className="btn btn-ghost btn-xs text-base-content/40 hover:text-base-content"
-                        onClick={() => setExpanded(prev => !prev)}
-                        aria-label="Expand rule details"
-                    >
-                        {expanded ? <HiChevronUp className="w-4 h-4" /> : <HiChevronDown className="w-4 h-4" />}
-                    </button>
+
+                    {/* Quick Actions Row */}
+                    <div className="flex items-center justify-between mt-4">
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                checked={enabled}
+                                className={`toggle toggle-sm ${enabled ? 'toggle-success' : 'toggle-error'}`}
+                                onClick={onToggle}
+                                data-unifiruleid={data.trafficRule.unifiId}
+                                data-dbtrafficruleid={data.trafficRule.id}
+                                onChange={() => {}}
+                                title={enabled ? 'Disable this rule' : 'Enable this rule'}
+                            />
+                            <span className="text-sm text-base-content/70" title={enabled ? 'This rule is currently enabled' : 'This rule is currently disabled'}>
+                                {enabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                            <button
+                                className="btn btn-ghost btn-xs"
+                                onClick={() => setExpanded(prev => !prev)}
+                                aria-label="Expand rule details"
+                            >
+                                {expanded ? 'Less' : 'More'}
+                            </button>
+                            <button
+                                className="btn btn-ghost btn-xs text-base-content/50 hover:text-error"
+                                onClick={onDelete}
+                                data-trafficid={data?.trafficRule.unifiId}
+                                data-trafficruleid={data?.trafficRule.id}
+                                title="Delete Rule"
+                            >
+                                <HiTrash className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Expanded detail section */}
                 {expanded && (
-                    <div className="px-6 pb-5 pt-1 border-t border-base-300 flex flex-col gap-4">
+                    <div className="px-6 pb-6 pt-2 border-t border-base-300 bg-base-200/50 flex flex-col gap-4">
                         {data?.matchingAppIds?.length > 0 && (
                             <div>
                                 <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">Apps</p>
@@ -487,15 +529,6 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, loadingUnmanageApp }) 
                         )}
                         <div className="flex gap-2 pt-1">
                             <button
-                                className="btn btn-error btn-sm gap-1 flex-1"
-                                onClick={onDelete}
-                                data-trafficid={data?.trafficRule.unifiId}
-                                data-trafficruleid={data?.trafficRule.id}
-                            >
-                                <HiTrash className="w-4 h-4" />
-                                Delete
-                            </button>
-                            <button
                                 className={`btn btn-sm flex-1 gap-1 ${loadingUnmanageApp ? 'btn-disabled' : 'btn-outline'}`}
                                 onClick={onUnmanage}
                                 data-trafficruleid={data?.trafficRule.id}
@@ -505,6 +538,15 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, loadingUnmanageApp }) 
                                     ? <span className="loading loading-spinner loading-xs"></span>
                                     : 'Unmanage'
                                 }
+                            </button>
+                            <button
+                                className="btn btn-error btn-outline btn-sm gap-1 flex-1"
+                                onClick={onDelete}
+                                data-trafficid={data?.trafficRule.unifiId}
+                                data-trafficruleid={data?.trafficRule.id}
+                            >
+                                <HiTrash className="w-4 h-4" />
+                                Delete
                             </button>
                         </div>
                     </div>
