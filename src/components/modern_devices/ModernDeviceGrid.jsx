@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { HiMagnifyingGlass, HiAdjustmentsHorizontal } from "react-icons/hi2";
+import { HiMagnifyingGlass, HiAdjustmentsHorizontal, HiPlus } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import ModernDeviceCard from "./ModernDeviceCard";
 import ModernDeviceSkeleton from "../skeletons/ModernDeviceSkeleton";
@@ -198,6 +198,23 @@ export default function ModernDeviceGrid({
 
     return (
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            {/* Section header */}
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-base-content">Devices</h1>
+                    {devices.length > 0 && (
+                        <span className="badge badge-primary badge-sm ml-1">{devices.length}</span>
+                    )}
+                </div>
+                <button
+                    className="btn btn-sm btn-primary gap-1"
+                    onClick={() => document.getElementById('addDeviceModal').showModal()}
+                >
+                    <HiPlus className="w-4 h-4" />
+                    Add Device
+                </button>
+            </div>
+
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
@@ -345,17 +362,6 @@ export default function ModernDeviceGrid({
                     ))}
                 </div>
             )}
-
-            {/* Add Device Button */}
-            <div className="text-center mt-6">
-                <button 
-                    className="btn btn-primary"
-                    onClick={() => document.getElementById('addDeviceModal').showModal()}
-                >
-                    <span className="text-lg">+</span>
-                    Add Device
-                </button>
-            </div>
 
             {/* Add Device Modal */}
             <dialog id="addDeviceModal" className="modal">
