@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+// Removed: import { Link } from "react-router-dom";
 import { HiMiniPencilSquare, HiWifi, HiSignal } from "react-icons/hi2";
 import { 
     HiOutlineDesktopComputer, 
@@ -13,6 +13,7 @@ export default function ModernDeviceCard({
     onToggle, 
     onEdit, 
     onDelete, 
+    onScheduleClick, // Added prop
     timerCancelled, 
     timerHandler, 
     handleRenderToggle 
@@ -180,14 +181,12 @@ export default function ModernDeviceCard({
 
                     {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Link 
-                            to={`/admin/${device?.id}/scheduler`} 
-                            className="flex-1"
+                        <button 
+                            onClick={() => onScheduleClick(device?.id, device?.name)} 
+                            className="btn btn-outline btn-sm w-full flex-1"
                         >
-                            <button className="btn btn-outline btn-sm w-full">
-                                Schedule
-                            </button>
-                        </Link>
+                            Schedule
+                        </button>
                         
                         <button
                             onClick={() => onDelete(device?.id)}
