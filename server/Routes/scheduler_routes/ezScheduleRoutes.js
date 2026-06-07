@@ -41,7 +41,8 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
     });
 
     app.put('/toggleezschedule', async (req, res) => {
-        const { id, deviceId, jobName, date, scheduletype, oneTime, ampm, hour, minute, toggleSched, days } = req.body;
+        const { id, deviceId, jobName, date, scheduletype, blockAllow, oneTime, ampm, hour, minute, toggleSched, days } = req.body;
+        const effectiveScheduleType = scheduletype ?? blockAllow;
         const modifiedDaysOfTheWeek = days && days.split("").map((day) => parseInt(day));
 
         console.log("days\t", days);
@@ -50,7 +51,7 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
         const boolOneTime        = convertStringToBool(oneTime);
         const toggleSchedBoolean = convertStringToBool(toggleSched);
 
-        const data = { date, hour, minute, ampm, boolOneTime, deviceId, scheduletype, modifiedDaysOfTheWeek, id }; // data for nodeOneTimeScheduleRule
+        const data = { date, hour, minute, ampm, boolOneTime, deviceId, scheduletype: effectiveScheduleType, modifiedDaysOfTheWeek, id }; // data for nodeOneTimeScheduleRule
         let jb = jobName;
         try {
             // const getMacAddress = await prisma.device.findUnique({ where: { id: deviceId } });
