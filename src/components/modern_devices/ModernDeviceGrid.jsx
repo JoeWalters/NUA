@@ -12,6 +12,7 @@ export default function ModernDeviceGrid({
     onToggle, 
     onEdit, 
     onDelete,
+    onScheduleClick, // ✅ Added to props destructuring
     timerCancelled,
     timerHandler,
     handleRenderToggle,
@@ -123,7 +124,7 @@ export default function ModernDeviceGrid({
             });
             if (response.ok) {
                 const returnData = await response.json();
-                console.log('Device added successfully', returnData);
+                // console.log('Device added successfully', returnData); // Cleanup comment out or remove
                 reFetch();
                 handleRenderToggle(); // Refresh the main device list
             }
@@ -355,6 +356,7 @@ export default function ModernDeviceGrid({
                             onToggle={onToggle}
                             onEdit={onEdit}
                             onDelete={onDelete}
+                            onScheduleClick={onScheduleClick} // ✅ Forwarded to child
                             timerCancelled={timerCancelled}
                             timerHandler={timerHandler}
                             handleRenderToggle={handleRenderToggle}
@@ -441,5 +443,3 @@ export default function ModernDeviceGrid({
                 </form>
             </dialog>
         </div>
-    );
-}
