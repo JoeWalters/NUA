@@ -50,7 +50,7 @@ export default function SchedulerModal({ deviceId, deviceName, isOpen, onClose, 
         
         setLoadingSchedules(true);
         try {
-            const response = await fetch('/getschedules', {
+            const response = await fetch('/getscheduledata', {
                 method: 'POST',
                 mode: 'cors',
                 headers: {
@@ -60,8 +60,19 @@ export default function SchedulerModal({ deviceId, deviceName, isOpen, onClose, 
             });
             
             if (response.ok) {
-                const schedules = await response.json();
-                setExistingSchedules(Array.isArray(schedules) ? schedules : []);
+                const data = await response.json();
+                // Backend returns an object with previousCronJobData and previousEzScheduleData arrays
+                const cronSchedules = (data.previousCronJobData || []).map(schedule => ({
+                    ...schedule,
+                    source: 'cron'
+                }));
+                const easySchedules = (data.previousEzScheduleData || []).map(schedule => ({
+                    ...schedule,
+                    source: 'easy'
+                }));
+                // Combine both schedule types into a single array
+                const allSchedules = [...cronSchedules, ...easySchedules];
+                setExistingSchedules(allSchedules);
             } else {
                 console.error('Failed to fetch schedules');
                 setExistingSchedules([]);
@@ -165,7 +176,7 @@ export default function SchedulerModal({ deviceId, deviceName, isOpen, onClose, 
                                              'Custom Schedule'}
                                         </p>
                                         <p className="text-sm text-base-content/60">
-                                            Type: {schedule.type === 'allow' ? 'Allow' : 'Block'}
+                                            Type: {schedule.type === 'allow' ? 'Allow' : 'Block'} | Source: {schedule.source}
                                         </p>
                                     </div>
                                     <button
