@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ModernDeviceGrid from "./modern_devices/ModernDeviceGrid";
 import LoadingDialog from "./utility_components/LoadingDialog";
 import DeviceGroupManager from "./DeviceGroupManager";
+import SchedulerModal from "./Scheduler/SchedulerModal.jsx";
 
 export default function ModernDevices({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
     const navigate = useNavigate();
@@ -11,6 +12,10 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
     const [updatedDeviceData, setUpdatedDeviceData] = useState(null);
     const [toggleIsLoading, setToggleIsLoading] = useState(false);
     const [timerCancelled, setTimerCancelled] = useState(false);
+    
+    // Scheduler modal state
+    const [schedulerOpen, setSchedulerOpen] = useState(false);
+    const [selectedDeviceForScheduler, setSelectedDeviceForScheduler] = useState(null);
     
     const toggleLoadingDialogRef = useRef();
     const deleteConfirmRef = useRef();
@@ -42,6 +47,11 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
         console.log('useEffect in modern devices fired...');
         console.log("Data from modern devices upon hopeful re-render:\t", macData);
     }, [macData]);
+
+    const openSchedulerModal = (deviceId, deviceName) => {
+        setSelectedDeviceForScheduler({ id: deviceId, name: deviceName });
+        setSchedulerOpen(true);
+    };
 
     const handleToggle = async (deviceId) => {
         try {
@@ -75,7 +85,6 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 console.error('Toggle failed:', result.error || result.message);
                 setLoading(false);
                 showToast(`Operation failed: ${result.error || result.message || 'Unknown error'}`);
-                // TODO: replace alert
                 
                 delay(2000).then(() => {
                     setToggleIsLoading(false);
@@ -231,6 +240,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 onToggle={handleToggle}
                 onEdit={openEditDialog}
                 onDelete={handleDelete}
+                onScheduleClick={openSchedulerModal}
                 timerCancelled={timerCancelled}
                 timerHandler={timerHandler}
                 handleRenderToggle={handleRenderToggle}
@@ -310,6 +320,15 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 </div>
                 <form method="dialog" className="modal-backdrop"><button>close</button></form>
             </dialog>
+
+            {/* Scheduler Modal */}
+            <SchedulerModal 
+                deviceId={selectedDeviceForScheduler?.id}
+                deviceName={selectedDeviceForScheduler?.name}
+                isOpen={schedulerOpen}
+                onClose={() => setSchedulerOpen(false)}
+                triggerRender={handleRenderToggle}
+            />
 
             {/* Error Toast */}
             {toastMessage && (
