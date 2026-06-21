@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { HiMagnifyingGlass, HiAdjustmentsHorizontal, HiPlus } from "react-icons/hi2";
+import { HiMagnifyingGlass, HiAdjustmentsHorizontal, HiPlus, HiXMark } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import ModernDeviceCard from "./ModernDeviceCard";
 import ModernDeviceSkeleton from "../skeletons/ModernDeviceSkeleton";
@@ -366,56 +366,67 @@ export default function ModernDeviceGrid({
 
             {/* Add Device Modal */}
             <dialog id="addDeviceModal" className="modal">
-                <div className="modal-box w-11/12 max-w-5xl">
-                    <div className="flex justify-between items-center mb-4">
+                <div className="modal-box w-11/12 max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
                         <h3 className="font-bold text-lg">Add Device to Management</h3>
                         <form method="dialog">
-                            <button className="btn btn-sm btn-circle btn-ghost">✕</button>
+                            <button className="btn btn-ghost btn-sm btn-circle" aria-label="Close">
+                                <HiXMark className="w-4 h-4" />
+                            </button>
                         </form>
                     </div>
                     
-                    {/* Search and Filter Bar for All Devices */}
-                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                        <div className="flex-1">
-                            <input
-                                ref={allDevicesSearchRef}
-                                type="text"
-                                placeholder="Search by alias, note, hostname, vendor, IP, or MAC..."
-                                className="input input-bordered w-full"
-                                onChange={handleAllDevicesSearch}
-                            />
+                    {/* Search and Filter Bar */}
+                    <div className="flex-shrink-0 px-6 py-4 border-b border-base-200">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1 relative">
+                                <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 w-4 h-4" />
+                                <input
+                                    ref={allDevicesSearchRef}
+                                    type="text"
+                                    placeholder="Search by alias, hostname, vendor, IP, or MAC..."
+                                    className="input input-bordered input-sm w-full pl-9"
+                                    onChange={handleAllDevicesSearch}
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <select 
+                                    ref={allDevicesSelectRef}
+                                    className="select select-bordered select-sm w-full sm:w-auto"
+                                    onChange={handleAllDevicesFilterChange}
+                                    value={allDevicesFilter}
+                                >
+                                    <option value="all">All Devices</option>
+                                    <option value="Not on Device List">Not on Device List</option>
+                                    <option value="Online Devices">Online</option>
+                                    <option value="Offline Devices">Offline</option>
+                                    <option value="Blocked Devices">Blocked</option>
+                                </select>
+                                <button 
+                                    className="btn btn-ghost btn-sm btn-square"
+                                    onClick={handleAllDevicesRefresh}
+                                    title="Refresh"
+                                >
+                                    <IoMdRefresh className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            <select 
-                                ref={allDevicesSelectRef}
-                                className="select select-bordered w-full sm:w-auto"
-                                onChange={handleAllDevicesFilterChange}
-                                value={allDevicesFilter}
-                            >
-                                <option value="all">All Devices</option>
-                                <option value="Not on Device List">Not on Device List</option>
-                                <option value="Online Devices">Online Devices</option>
-                                <option value="Offline Devices">Offline Devices</option>
-                                <option value="Blocked Devices">Blocked Devices</option>
-                            </select>
-                            <button 
-                                className="btn btn-outline"
-                                onClick={handleAllDevicesRefresh}
-                            >
-                                <IoMdRefresh className="w-4 h-4" />
-                            </button>
+                        <div className="text-xs text-base-content/40 mt-2">
+                            {filteredAllDevices.length} device{filteredAllDevices.length !== 1 ? 's' : ''} found
                         </div>
                     </div>
 
-                    {/* All Devices Grid */}
-                    <div className="max-h-96 overflow-y-auto">
+                    {/* Device List */}
+                    <div className="flex-1 overflow-y-auto px-6 py-4">
                         {allDevicesLoading ? (
-                            <div className="flex justify-center py-8">
-                                <span className="loading loading-spinner loading-md"></span>
+                            <div className="flex justify-center items-center h-full py-12">
+                                <span className="loading loading-spinner loading-lg text-primary"></span>
                             </div>
                         ) : filteredAllDevices.length === 0 ? (
-                            <div className="text-center py-8 text-gray-500">
-                                <p>No devices found matching your criteria.</p>
+                            <div className="flex flex-col items-center justify-center h-full py-12 text-base-content/40 gap-3">
+                                <HiMagnifyingGlass className="w-10 h-10" />
+                                <p className="text-sm">No devices found matching your criteria.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -429,12 +440,6 @@ export default function ModernDeviceGrid({
                                 ))}
                             </div>
                         )}
-                    </div>
-
-                    <div className="modal-action">
-                        <form method="dialog">
-                            <button className="btn">Close</button>
-                        </form>
                     </div>
                 </div>
                 <form method="dialog" className="modal-backdrop">

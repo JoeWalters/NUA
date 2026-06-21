@@ -447,27 +447,32 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                 <div className="modal-box max-w-5xl w-full h-[85vh] flex flex-col p-0 overflow-hidden">
 
                     {/* Fixed header */}
-                    <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                            <HiShieldCheck className="w-5 h-5 text-primary" />
-                            <h2 className="font-bold text-lg">
+                    <div className="flex items-center px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
+                        {/* Left: title */}
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <HiShieldCheck className="w-5 h-5 text-primary flex-shrink-0" />
+                            <h2 className="font-bold text-lg truncate">
                                 {step === 1 ? "New Rule — Select Apps" : "New Rule — Configure"}
                             </h2>
-                            {/* Step indicator */}
-                            <div className="flex items-center gap-1.5 text-sm ml-2">
-                                <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 1 ? 'bg-primary text-primary-content' : 'bg-success text-success-content'}`}>
-                                    {step > 1 ? <HiCheck className="w-3.5 h-3.5" /> : '1'}
-                                </span>
-                                <div className="w-6 h-px bg-base-300" />
-                                <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 2 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/40'}`}>
-                                    2
-                                </span>
-                            </div>
                         </div>
 
-                        <button className="btn btn-ghost btn-sm btn-circle" onClick={handleClose} aria-label="Close">
-                            <HiXMark className="w-4 h-4" />
-                        </button>
+                        {/* Center: step indicator */}
+                        <div className="flex items-center gap-1.5 text-sm flex-shrink-0 px-4">
+                            <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 1 ? 'bg-primary text-primary-content' : 'bg-success text-success-content'}`}>
+                                {step > 1 ? <HiCheck className="w-3.5 h-3.5" /> : '1'}
+                            </span>
+                            <div className="w-6 h-px bg-base-300" />
+                            <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 2 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/40'}`}>
+                                2
+                            </span>
+                        </div>
+
+                        {/* Right: close */}
+                        <div className="flex-1 flex justify-end min-w-0">
+                            <button className="btn btn-ghost btn-sm btn-circle" onClick={handleClose} aria-label="Close">
+                                <HiXMark className="w-4 h-4" />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Scrollable body */}
