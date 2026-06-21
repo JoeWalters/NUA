@@ -448,25 +448,24 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
 
                     {/* Fixed header */}
                     <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <HiShieldCheck className="w-5 h-5 text-primary" />
                             <h2 className="font-bold text-lg">
                                 {step === 1 ? "New Rule — Select Apps" : "New Rule — Configure"}
                             </h2>
+                            {/* Step indicator */}
+                            <div className="flex items-center gap-1.5 text-sm ml-2">
+                                <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 1 ? 'bg-primary text-primary-content' : 'bg-success text-success-content'}`}>
+                                    {step > 1 ? <HiCheck className="w-3.5 h-3.5" /> : '1'}
+                                </span>
+                                <div className="w-6 h-px bg-base-300" />
+                                <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 2 ? 'bg-primary text-primary-content' : 'bg-base-300 text-base-content/40'}`}>
+                                    2
+                                </span>
+                            </div>
                         </div>
 
-                        {/* Step indicator */}
-                        <div className="flex items-center gap-2 text-sm">
-                            <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 1 ? "bg-primary text-primary-content" : "bg-success text-success-content"}`}>
-                                {step > 1 ? <HiCheck className="w-3.5 h-3.5" /> : "1"}
-                            </span>
-                            <div className="w-8 h-px bg-base-300" />
-                            <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 2 ? "bg-primary text-primary-content" : "bg-base-300 text-base-content/30"}`}>
-                                2
-                            </span>
-                        </div>
-
-                        <button className="btn btn-ghost btn-sm btn-circle" onClick={handleClose}>
+                        <button className="btn btn-ghost btn-sm btn-circle" onClick={handleClose} aria-label="Close">
                             <HiXMark className="w-4 h-4" />
                         </button>
                     </div>
@@ -588,19 +587,29 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                                 {/* Block / Allow */}
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm font-semibold">Action</label>
-                                    <div className="join w-full">
+                                    <div className="flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner w-fit">
                                         <button
                                             type="button"
-                                            className={`btn join-item flex-1 ${blockAllow === "ALLOW" ? "btn-success" : "btn-outline"}`}
-                                            onClick={() => setBlockAllow("ALLOW")}
+                                            className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                                                blockAllow === 'ALLOW'
+                                                    ? 'bg-success text-success-content shadow-sm'
+                                                    : 'text-base-content/60 hover:text-base-content hover:bg-base-300'
+                                            }`}
+                                            onClick={() => setBlockAllow('ALLOW')}
                                         >
+                                            <HiCheck className="w-4 h-4" />
                                             Allow
                                         </button>
                                         <button
                                             type="button"
-                                            className={`btn join-item flex-1 ${blockAllow === "BLOCK" ? "btn-error" : "btn-outline"}`}
-                                            onClick={() => setBlockAllow("BLOCK")}
+                                            className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                                                blockAllow === 'BLOCK'
+                                                    ? 'bg-error text-error-content shadow-sm'
+                                                    : 'text-base-content/60 hover:text-base-content hover:bg-base-300'
+                                            }`}
+                                            onClick={() => setBlockAllow('BLOCK')}
                                         >
+                                            <HiXMark className="w-4 h-4" />
                                             Block
                                         </button>
                                     </div>
@@ -611,25 +620,28 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                                     <label className="text-sm font-semibold">Target Devices</label>
                                     {devices.length > 0 ? (
                                         <div className="flex flex-col gap-1.5">
-                                            {devices.map((device) => (
-                                                <label
-                                                    key={device.id}
-                                                    className={`flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
-                                                        deviceSelection.some((d) => d.id === device.id)
-                                                            ? "border-accent bg-accent/10"
-                                                            : "border-base-300 bg-base-200 hover:border-accent/50"
-                                                    }`}
-                                                >
-                                                    <span className="text-sm font-medium">{device.name}</span>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="checkbox checkbox-accent checkbox-sm"
-                                                        data-deviceid={device.id}
-                                                        onChange={handleSelectDevice}
-                                                        checked={deviceSelection.some((d) => d.id === device.id)}
-                                                    />
-                                                </label>
-                                            ))}
+                                            {devices.map((device) => {
+                                                const isSelected = deviceSelection.some((d) => d.id === device.id);
+                                                return (
+                                                    <label
+                                                        key={device.id}
+                                                        className={`flex items-center justify-between px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                                                            isSelected
+                                                                ? 'border-accent bg-accent/10'
+                                                                : 'border-base-300 bg-base-200 hover:border-accent/50'
+                                                        }`}
+                                                    >
+                                                        <span className="text-sm font-medium">{device.name}</span>
+                                                        <input
+                                                            type="checkbox"
+                                                            className={`toggle toggle-sm ${isSelected ? 'toggle-accent' : ''}`}
+                                                            data-deviceid={device.id}
+                                                            onChange={handleSelectDevice}
+                                                            checked={isSelected}
+                                                        />
+                                                    </label>
+                                                );
+                                            })}
                                         </div>
                                     ) : (
                                         <p className="text-sm text-base-content/40 italic p-3 border border-base-300 rounded-lg">
@@ -649,13 +661,15 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                                     Cancel
                                 </button>
                                 <div className="flex items-center gap-3">
-                                    <span className="text-sm text-base-content/40">
-                                        {appSelection.length > 0
-                                            ? `${appSelection.length} app${appSelection.length !== 1 ? "s" : ""} selected`
-                                            : canProceedToStep2
-                                            ? `Category: ${categoryName}`
-                                            : "Select apps or a category"}
-                                    </span>
+                                    {appSelection.length > 0 ? (
+                                        <span className="badge badge-primary badge-sm gap-1">
+                                            {appSelection.length} app{appSelection.length !== 1 ? 's' : ''}
+                                        </span>
+                                    ) : canProceedToStep2 ? (
+                                        <span className="badge badge-ghost badge-sm">{categoryName}</span>
+                                    ) : (
+                                        <span className="text-sm text-base-content/40">Select apps or a category</span>
+                                    )}
                                     <button
                                         className="btn btn-primary gap-1"
                                         disabled={!canProceedToStep2}
@@ -670,17 +684,24 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                                 <button className="btn btn-ghost gap-1" onClick={() => setStep(1)}>
                                     <HiArrowLeft className="w-4 h-4" /> Back
                                 </button>
-                                <button
-                                    className="btn btn-primary"
-                                    disabled={!canSubmit}
-                                    onClick={appSelection.length ? handleManageApps : handleManageCategory}
-                                >
-                                    {loading ? (
-                                        <span className="loading loading-spinner loading-sm" />
-                                    ) : (
-                                        "Create Rule"
+                                <div className="flex items-center gap-3">
+                                    {deviceSelection.length > 0 && (
+                                        <span className="badge badge-accent badge-sm gap-1">
+                                            {deviceSelection.length} device{deviceSelection.length !== 1 ? 's' : ''}
+                                        </span>
                                     )}
-                                </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        disabled={!canSubmit}
+                                        onClick={appSelection.length ? handleManageApps : handleManageCategory}
+                                    >
+                                        {loading ? (
+                                            <span className="loading loading-spinner loading-sm" />
+                                        ) : (
+                                            'Create Rule'
+                                        )}
+                                    </button>
+                                </div>
                             </>
                         )}
                     </div>
@@ -695,22 +716,25 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
             {/* UniFi error dialog */}
             <dialog ref={unifiErrorDialogRef} className="modal">
                 <div className="modal-box">
-                    <h3 className="font-bold text-lg text-error text-center">UniFi Error</h3>
-                    <div className="flex flex-col gap-2 my-4 text-sm">
-                        <p>Response Code: <span className="text-error">{unifiSubmissionError.code ?? "none"}</span></p>
-                        <p>Invalid App Id: <span className="text-error">{unifiSubmissionError.details ?? "none"}</span></p>
-                        <p>HTTP Error Code: <span className="text-error">{unifiSubmissionError.errorCode ?? "none"}</span></p>
-                        <p>Error Message: <span className="text-error">{unifiSubmissionError.message ?? "none"}</span></p>
-                        <p className="text-info italic">
-                            {unifiSubmissionError.feedback}{" "}
-                            <Link className="underline font-bold" to={unifiSubmissionError.url} target="_blank">
-                                Readme.md
-                            </Link>
-                        </p>
+                    <div className="flex items-center gap-2 mb-4">
+                        <HiXMark className="w-6 h-6 text-error" />
+                        <h3 className="font-bold text-lg">UniFi Error</h3>
                     </div>
+                    <div className="flex flex-col gap-2 text-sm bg-base-200 rounded-lg p-4">
+                        <p className="flex justify-between"><span className="text-base-content/60">Response Code:</span> <span className="text-error font-medium">{unifiSubmissionError.code ?? 'none'}</span></p>
+                        <p className="flex justify-between"><span className="text-base-content/60">Invalid App ID:</span> <span className="text-error font-medium">{unifiSubmissionError.details ?? 'none'}</span></p>
+                        <p className="flex justify-between"><span className="text-base-content/60">HTTP Error Code:</span> <span className="text-error font-medium">{unifiSubmissionError.errorCode ?? 'none'}</span></p>
+                        <p className="flex justify-between"><span className="text-base-content/60">Message:</span> <span className="text-error font-medium">{unifiSubmissionError.message ?? 'none'}</span></p>
+                    </div>
+                    <p className="text-xs text-base-content/50 italic mt-3">
+                        {unifiSubmissionError.feedback}{' '}
+                        <Link className="underline font-semibold text-primary" to={unifiSubmissionError.url} target="_blank">
+                            Readme.md
+                        </Link>
+                    </p>
                     <div className="modal-action">
                         <form method="dialog">
-                            <button className="btn">Close</button>
+                            <button className="btn btn-ghost">Close</button>
                         </form>
                     </div>
                 </div>
@@ -719,14 +743,17 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
             {/* Frontend error dialog */}
             <dialog ref={errorDialogRef} className="modal">
                 <div className="modal-box">
-                    <h3 className="font-bold text-lg text-error text-center">Submission Error</h3>
-                    <div className="flex flex-col gap-2 my-4 text-sm">
-                        <p>Error Name: <span className="text-error">{submissionError.name ?? "none"}</span></p>
-                        <p>Error Message: <span className="text-error">{submissionError.message ?? "none"}</span></p>
+                    <div className="flex items-center gap-2 mb-4">
+                        <HiXMark className="w-6 h-6 text-error" />
+                        <h3 className="font-bold text-lg">Submission Error</h3>
+                    </div>
+                    <div className="flex flex-col gap-2 text-sm bg-base-200 rounded-lg p-4">
+                        <p className="flex justify-between"><span className="text-base-content/60">Error Name:</span> <span className="text-error font-medium">{submissionError.name ?? 'none'}</span></p>
+                        <p className="flex justify-between"><span className="text-base-content/60">Error Message:</span> <span className="text-error font-medium">{submissionError.message ?? 'none'}</span></p>
                     </div>
                     <div className="modal-action">
                         <form method="dialog">
-                            <button className="btn">Close</button>
+                            <button className="btn btn-ghost">Close</button>
                         </form>
                     </div>
                 </div>
