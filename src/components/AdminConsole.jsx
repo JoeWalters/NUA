@@ -26,18 +26,24 @@ export default function AdminConsole()
     const rulesSectionRef = useRef();
     const [activeTab, setActiveTab] = useState('devices');
     const [showScrollTop, setShowScrollTop] = useState(false);
+    const scrollSentinelRef = useRef();
 
-    // Show/hide "scroll to top" button based on scroll position
+    // Show/hide "scroll to top" button when user scrolls past the sentinel
     useEffect(() => {
-        const handleScroll = () => {
-            setShowScrollTop(window.scrollY > 400);
-        };
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
+        const sentinel = scrollSentinelRef.current;
+        if (!sentinel) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                setShowScrollTop(!entry.isIntersecting);
+            },
+            { threshold: 0 }
+        );
+        observer.observe(sentinel);
+        return () => observer.disconnect();
     }, []);
 
     const scrollToTop = useCallback(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' });
     }, []);
 
     // Scroll-spy: update active tab as user scrolls between sections
@@ -275,6 +281,9 @@ export default function AdminConsole()
                         </button>
                     </div>
                 </div>
+
+                {/* Sentinel — when this scrolls out of view, the scroll-to-top button appears */}
+                <div ref={scrollSentinelRef} className="h-px" />
 
                 {/* Unified content wrapper */}
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-8">
