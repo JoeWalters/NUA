@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { HiPlus } from 'react-icons/hi2';
 
 export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const [groups, setGroups] = useState([]);
@@ -347,19 +348,19 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     };
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
             {/* Tags Section */}
-            <div className="bg-base-100 rounded-xl shadow-sm border border-base-300 p-5 mb-2">
+            <div className="mb-1">
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold text-base-content">Tags</h2>
                     {groups.length > 0 && (
                         <button
-                            className="btn btn-primary btn-sm"
+                            className="btn btn-primary btn-sm gap-1"
                             onClick={handleCreateGroup}
                             disabled={loading}
                         >
-                            <span className="text-base leading-none">+</span> New Tag
+                            <HiPlus className="w-4 h-4" /> Add Tag
                         </button>
                     )}
                 </div>
@@ -465,7 +466,6 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         ))}
                     </div>
                 )}
-            </div>
 
             {/* Tag Creation/Edit Modal */}
             <dialog className="modal" ref={groupModalRef}>
