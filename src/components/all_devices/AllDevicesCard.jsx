@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { HiCheck, HiOutlineDesktopComputer, HiWifi } from "react-icons/hi2";
+import { HiCheck, HiWifi } from "react-icons/hi2";
+import { HiOutlineDesktopComputer } from "react-icons/hi";
 
 export default function AllDevicesCard({ props, length, handleAddToDevices })
 {
