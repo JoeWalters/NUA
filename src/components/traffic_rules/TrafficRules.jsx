@@ -297,7 +297,7 @@ export default function TrafficRules({ embedded = false })
 
 
     const containerClass = embedded
-        ? 'flex flex-col w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 gap-6'
+        ? 'flex flex-col w-full px-4 sm:px-6 lg:px-8 py-6 gap-6'
         : 'flex flex-col w-full sm:w-3/4 lg:w-1/2 mx-auto px-4 pb-12 pt-4 gap-6';
 
     return (

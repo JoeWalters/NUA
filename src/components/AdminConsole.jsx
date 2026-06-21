@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import ModernDevices from "./ModernDevices";
 import TrafficRules from "./traffic_rules/TrafficRules";
 import { useNavigate, useOutletContext } from 'react-router-dom';
@@ -24,6 +24,36 @@ export default function AdminConsole()
     const dialogRef = useRef();
     const devicesSectionRef = useRef();
     const rulesSectionRef = useRef();
+    const [activeTab, setActiveTab] = useState('devices');
+
+    // Scroll-spy: update active tab as user scrolls between sections
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        if (entry.target === devicesSectionRef.current) {
+                            setActiveTab('devices');
+                        } else if (entry.target === rulesSectionRef.current) {
+                            setActiveTab('rules');
+                        }
+                    }
+                });
+            },
+            { rootMargin: '-15% 0px -70% 0px', threshold: 0 }
+        );
+
+        const devicesEl = devicesSectionRef.current;
+        const rulesEl = rulesSectionRef.current;
+        if (devicesEl) observer.observe(devicesEl);
+        if (rulesEl) observer.observe(rulesEl);
+
+        return () => observer.disconnect();
+    }, []);
+
+    const scrollToSection = useCallback((sectionRef) => {
+        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, []);
 
 
     const timer = t => new Promise(res => setTimeout(res, t));
@@ -201,11 +231,6 @@ export default function AdminConsole()
         fetchStuff();
     }
 
-    const scrollToSection = (sectionRef) => {
-        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
-
     return (
         <>
             <div className="w-full">
@@ -213,14 +238,22 @@ export default function AdminConsole()
                 <div className="flex justify-center pt-4 pb-6">
                     <div className="relative flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
                         <button
-                            className="relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 text-base-content/80 hover:text-base-content hover:bg-base-300"
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                                activeTab === 'devices'
+                                    ? 'bg-base-100 shadow-sm text-base-content'
+                                    : 'text-base-content/70 hover:text-base-content hover:bg-base-300'
+                            }`}
                             onClick={() => scrollToSection(devicesSectionRef)}
                         >
                             <HiOutlineDeviceTablet className="w-4 h-4" />
                             Devices
                         </button>
                         <button
-                            className="relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 text-base-content/80 hover:text-base-content hover:bg-base-300"
+                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                                activeTab === 'rules'
+                                    ? 'bg-base-100 shadow-sm text-base-content'
+                                    : 'text-base-content/70 hover:text-base-content hover:bg-base-300'
+                            }`}
                             onClick={() => scrollToSection(rulesSectionRef)}
                         >
                             <HiOutlineShieldCheck className="w-4 h-4" />
@@ -229,17 +262,20 @@ export default function AdminConsole()
                     </div>
                 </div>
 
-                <div ref={devicesSectionRef}>
-                    <ModernDevices
-                        macData={macData && macData}
-                        blockedUsers={blockedUsers}
-                        handleRenderToggle={handleRenderToggle}
-                        loadingMacData={loadingMacData}
-                    />
-                </div>
+                {/* Unified content wrapper */}
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-8">
+                    <div ref={devicesSectionRef} id="devices-section" className="bg-base-100 rounded-2xl border border-base-300 shadow-sm overflow-hidden">
+                        <ModernDevices
+                            macData={macData && macData}
+                            blockedUsers={blockedUsers}
+                            handleRenderToggle={handleRenderToggle}
+                            loadingMacData={loadingMacData}
+                        />
+                    </div>
 
-                <div ref={rulesSectionRef} className="pt-2 pb-8">
-                    <TrafficRules embedded={true} />
+                    <div ref={rulesSectionRef} id="rules-section" className="bg-base-100 rounded-2xl border border-base-300 shadow-sm overflow-hidden">
+                        <TrafficRules embedded={true} />
+                    </div>
                 </div>
             </div>
 

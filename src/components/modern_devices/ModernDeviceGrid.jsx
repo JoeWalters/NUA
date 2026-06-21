@@ -197,7 +197,7 @@ export default function ModernDeviceGrid({
     }
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
             {/* Section header */}
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
