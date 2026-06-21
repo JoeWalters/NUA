@@ -3,7 +3,7 @@ import ModernDevices from "./ModernDevices";
 import TrafficRules from "./traffic_rules/TrafficRules";
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import NuaSvg from "../images/nua.svg";
-import { HiOutlineDeviceTablet, HiOutlineShieldCheck } from 'react-icons/hi2';
+import { HiOutlineDeviceTablet, HiOutlineShieldCheck, HiOutlineChevronUp } from 'react-icons/hi2';
 
 
 export default function AdminConsole()
@@ -25,6 +25,20 @@ export default function AdminConsole()
     const devicesSectionRef = useRef();
     const rulesSectionRef = useRef();
     const [activeTab, setActiveTab] = useState('devices');
+    const [showScrollTop, setShowScrollTop] = useState(false);
+
+    // Show/hide "scroll to top" button based on scroll position
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowScrollTop(window.scrollY > 400);
+        };
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
+    const scrollToTop = useCallback(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, []);
 
     // Scroll-spy: update active tab as user scrolls between sections
     useEffect(() => {
@@ -295,6 +309,20 @@ export default function AdminConsole()
                     </div>
                 </div>
             </dialog>
+
+            {/* Scroll-to-top button */}
+            <button
+                className={`fixed bottom-6 right-6 z-50 btn btn-circle btn-primary shadow-lg transition-all duration-300 ${
+                    showScrollTop
+                        ? 'opacity-100 translate-y-0 pointer-events-auto'
+                        : 'opacity-0 translate-y-4 pointer-events-none'
+                }`}
+                onClick={scrollToTop}
+                aria-label="Scroll to top"
+                title="Back to top"
+            >
+                <HiOutlineChevronUp className="w-5 h-5" />
+            </button>
         </>
     )
 }
