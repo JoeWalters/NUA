@@ -3,6 +3,7 @@ import CronManager from "../CronManager";
 import EasySched from "../EasySched";
 import ScheduleData from "./ScheduleData";
 import { SelectStandardOrAdvanced } from "./SchedulerComponents/SelectStandardOrAdvanced";
+import { HiXMark } from "react-icons/hi2";
 
 export default function SchedulerModal({ deviceId, deviceName, isOpen, onClose, triggerRender }) {
     const [scheduleMode, setScheduleMode] = useState("standard");
@@ -86,61 +87,52 @@ export default function SchedulerModal({ deviceId, deviceName, isOpen, onClose, 
             }}
         >
             <div className="modal-box max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold">Schedule for "{deviceInfo?.name}"</h2>
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold text-base-content">
+                        Schedule for <span className="text-primary">"{deviceInfo?.name}"</span>
+                    </h2>
                     <button 
                         ref={closeButtonRef}
                         className="btn btn-sm btn-circle btn-ghost"
                         onClick={onClose}
                         aria-label="Close scheduler modal"
                     >
-                        ✕
+                        <HiXMark className="w-5 h-5" />
                     </button>
                 </div>
                 
-                <div className="divider"></div>
-                
-                {/* Existing Schedules List */}
-                <div className="mb-4">
-                    <h3 className="text-lg font-semibold mb-2">Existing Schedules</h3>
+                {/* Existing Schedules */}
+                <div className="bg-base-200 rounded-xl p-5 mb-6">
+                    <h3 className="text-lg font-semibold mb-3 text-base-content">Existing Schedules</h3>
                     <ScheduleData changed={changed} deviceId={deviceId} />
                 </div>
                 
-                <div className="divider"></div>
-                
-                <SelectStandardOrAdvanced 
-                    scheduleMode={scheduleMode}
-                    setScheduleMode={setScheduleMode} 
-                    reRender={reRender} 
-                />
-                
-                <div className="divider my-2"></div>
-                
-                {scheduleMode === "standard" ? (
-                    <EasySched 
-                        key={`easy-${render}`} // Key forces re-mount on mode switch
-                        triggerRender={triggerRenderCallback} 
-                        deviceId={deviceId}
-                        deviceName={deviceInfo?.name}
+                {/* New Schedule Form */}
+                <div className="border-t border-base-300 pt-5">
+                    <SelectStandardOrAdvanced 
+                        scheduleMode={scheduleMode}
+                        setScheduleMode={setScheduleMode} 
+                        reRender={reRender} 
                     />
-                ) : (
-                    <CronManager 
-                        key={`cron-${render}`} // Key forces re-mount on mode switch
-                        triggerRender={triggerRenderCallback} 
-                        deviceId={deviceId}
-                        deviceName={deviceInfo?.name}
-                    />
-                )}
-                
-                <div className="divider my-2"></div>
-                
-                <div className="flex justify-end gap-2">
-                    <button 
-                        className="btn btn-ghost"
-                        onClick={onClose}
-                    >
-                        Close
-                    </button>
+                    
+                    <div className="mt-4">
+                        {scheduleMode === "standard" ? (
+                            <EasySched 
+                                key={`easy-${render}`}
+                                triggerRender={triggerRenderCallback} 
+                                deviceId={deviceId}
+                                deviceName={deviceInfo?.name}
+                            />
+                        ) : (
+                            <CronManager 
+                                key={`cron-${render}`}
+                                triggerRender={triggerRenderCallback} 
+                                deviceId={deviceId}
+                                deviceName={deviceInfo?.name}
+                            />
+                        )}
+                    </div>
                 </div>
             </div>
             <form method="dialog" className="modal-backdrop">

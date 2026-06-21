@@ -466,6 +466,7 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         ))}
                     </div>
                 )}
+            </div>
 
             {/* Tag Creation/Edit Modal */}
             <dialog className="modal" ref={groupModalRef}>

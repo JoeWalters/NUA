@@ -1,3 +1,5 @@
+import { HiOutlineClock, HiOutlineCog6Tooth } from 'react-icons/hi2';
+
 export function SelectStandardOrAdvanced({ scheduleMode, setScheduleMode, reRender }) {
     const handleSelectMode = (mode) => {
         if (scheduleMode === mode) return;
@@ -6,30 +8,31 @@ export function SelectStandardOrAdvanced({ scheduleMode, setScheduleMode, reRend
     };
 
     return (
-        <>
-            <div className="flex items-center justify-center">
-                <div className="join m-4 bg-base-200 border-8 border-base-200 rounded-lg">
-                    <input
-                        onChange={() => handleSelectMode("standard")}
-                        className="join-item btn"
-                        value="standard"
-                        type="radio"
-                        name="optionsStandardAdvanced"
-                        aria-label="Standard"
-                        checked={scheduleMode === "standard"}
-                    />
-                    <input
-                        onChange={() => handleSelectMode("advanced")}
-                        className="join-item btn"
-                        value="advanced"
-                        type="radio"
-                        name="optionsStandardAdvanced"
-                        aria-label="Advanced"
-                        checked={scheduleMode === "advanced"}
-                    />
-                </div>
+        <div className="flex justify-center">
+            <div className="flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
+                <button
+                    className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                        scheduleMode === 'standard'
+                            ? 'bg-base-100 shadow-sm text-base-content'
+                            : 'text-base-content/70 hover:text-base-content hover:bg-base-300'
+                    }`}
+                    onClick={() => handleSelectMode('standard')}
+                >
+                    <HiOutlineClock className="w-4 h-4" />
+                    Easy Schedule
+                </button>
+                <button
+                    className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                        scheduleMode === 'advanced'
+                            ? 'bg-base-100 shadow-sm text-base-content'
+                            : 'text-base-content/70 hover:text-base-content hover:bg-base-300'
+                    }`}
+                    onClick={() => handleSelectMode('advanced')}
+                >
+                    <HiOutlineCog6Tooth className="w-4 h-4" />
+                    Advanced
+                </button>
             </div>
-
-        </>
+        </div>
     );
 }
