@@ -131,6 +131,7 @@ export default function ScheduleData({ changed, deviceId: providedDeviceId = nul
                 }
             } catch (error) {
                 console.error('Error on initial fetch...');
+                console.error(error);
                 setReturnData({ cronData: [], ezScheduleData: [] });
                 setErrorMessage('Error loading schedules.');
             } finally {

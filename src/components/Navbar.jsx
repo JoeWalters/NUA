@@ -36,7 +36,7 @@ export default function Navbar({ themeValue, callBackChanged, onSettingsClick })
       });
       if (res.ok) callBackChanged();
     } catch (error) {
-      if (error) throw error;
+      console.error('Failed to update theme:', error);
     }
   };
 

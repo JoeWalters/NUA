@@ -116,7 +116,7 @@ export default function SiteSettings({ isOpen, onClose })
                 timerRef.current.disabled = true;
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Failed to save site settings:', error);
         }
     }
 
@@ -150,7 +150,7 @@ export default function SiteSettings({ isOpen, onClose })
                     timerRef.current.disabled = false;
                 }
             } catch (error) {
-                if (error) throw error;
+                console.error('Failed to check for settings:', error);
             }
         }
         checkForSettings();

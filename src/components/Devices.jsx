@@ -128,7 +128,7 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
                 handleRenderToggle();
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Error blocking all devices:', error);
         }
     }
     const handleDelete = async e => {
@@ -147,7 +147,7 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
                 handleRenderToggle();
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Error deleting device:', error);
         }
     }
     const openEditDialog = e => {

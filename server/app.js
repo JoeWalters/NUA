@@ -234,6 +234,10 @@ async function getBlockedUsers() {
             return blockedUsers;
         }
     } catch (error) {
+        if (error?.response?.status === 401 || error?.response?.data?.code === 401) {
+            console.warn('UniFi blocked-users request unauthorized (401). Returning empty list.');
+            return [];
+        }
         console.error('Error getting blocked users:', error.message);
         return [];
     }
@@ -717,7 +721,7 @@ app.post('/addmacaddresses', async (req, res) => {
     if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     const { name, macAddress } = req.body;
     if (!isValidMac(macAddress)) return res.status(400).json({ error: 'Invalid MAC address format.' });
-    const blockedUsers = await unifi.getBlockedUsers();
+    const blockedUsers = await getBlockedUsers();
 
     const filterBlockedUsers = blockedUsers.filter((device) => {
         return device.mac === macAddress;
@@ -897,7 +901,7 @@ app.put('/updatemacaddressstatus', async (req, res) => { // toggler
             });
             
             // Get current blocked users for response consistency
-            const blockedUsers = await unifi.getBlockedUsers();
+            const blockedUsers = await getBlockedUsers();
             
             res.json({ 
                 updatedUser: updateUser, 

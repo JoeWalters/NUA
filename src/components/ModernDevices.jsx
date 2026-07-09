@@ -141,7 +141,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 handleRenderToggle();
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Error blocking all devices:', error);
         }
     };
 
@@ -170,7 +170,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 handleRenderToggle();
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Error deleting device:', error);
         }
     };
 
