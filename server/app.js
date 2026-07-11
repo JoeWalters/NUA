@@ -143,6 +143,49 @@ async function logIntoUnifi(hostname, port, sslverify, username, password) {
     }
 }
 
+function isUnauthorizedUnifiError(error) {
+    return error?.response?.status === 401 || error?.response?.data?.code === 401;
+}
+
+async function reAuthenticateUnifi() {
+    const loginData = await fetchLoginInfo();
+    if (!loginData?.hostname || !loginData?.username || !loginData?.password) {
+        throw new Error('UniFi credentials not configured. Please configure credentials at /sitesettings');
+    }
+
+    const result = await logIntoUnifi(
+        loginData.hostname,
+        loginData.port,
+        loginData.sslverify,
+        loginData.username,
+        loginData.password
+    );
+
+    if (!result?.validCredentials) {
+        throw new Error('Failed to re-authenticate with UniFi controller');
+    }
+
+    return true;
+}
+
+async function withUnifiRetry(requestFn) {
+    if (!unifi) {
+        await reAuthenticateUnifi();
+    }
+
+    try {
+        return await requestFn();
+    } catch (error) {
+        if (!isUnauthorizedUnifiError(error)) {
+            throw error;
+        }
+
+        console.warn('UniFi request returned 401. Attempting to re-authenticate and retry once.');
+        await reAuthenticateUnifi();
+        return requestFn();
+    }
+}
+
 // fetch login arguments // original
 // let loginData;
 // const fetchLoginInfo = async () => {
@@ -221,20 +264,15 @@ init();
 //     .catch((error) => console.error(error))
 
 async function getBlockedUsers() {
-    if (!unifi) {
-        console.log('⚠️ UniFi not connected - returning empty blocked users list');
-        return [];
-    }
-    
     try {
-        const blockedUsers = await unifi.getBlockedUsers();
+        const blockedUsers = await withUnifiRetry(() => unifi.getBlockedUsers());
         if (blockedUsers === undefined) {
             return [];
         } else {
             return blockedUsers;
         }
     } catch (error) {
-        if (error?.response?.status === 401 || error?.response?.data?.code === 401) {
+        if (isUnauthorizedUnifiError(error)) {
             console.warn('UniFi blocked-users request unauthorized (401). Returning empty list.');
             return [];
         }
@@ -1532,7 +1570,7 @@ app.post('/reinitialize-connection', async (req, res) => {
     try {
         console.log('🔄 Reinitializing UniFi connection...');
         
-        const loginData = await prisma.credentials.findUnique({ where: { id: 1 }});
+        const loginData = await fetchLoginInfo();
         
         if (!loginData) {
             return res.status(400).json({ error: 'No credentials found' });
@@ -1577,7 +1615,7 @@ app.post('/connect-unifi', async (req, res) => {
             return res.json({ message: 'UniFi already connected', connected: true });
         }
 
-        const loginData = await prisma.credentials.findUnique({ where: { id: 1 }});
+        const loginData = await fetchLoginInfo();
         
         if (!loginData || !loginData.hostname || !loginData.username || !loginData.password) {
             return res.status(400).json({ error: 'UniFi credentials not configured' });
@@ -1620,10 +1658,9 @@ app.get('/getallblockeddevices', async (req, res) => {
 });
 
 app.get('/getalldevices', async (req, res) => {
-    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     try {
         // const getAccessDevices = await unifi.getAccessDevices();
-        const getClientDevices = await unifi.getAllUsers();
+        const getClientDevices = await withUnifiRetry(() => unifi.getAllUsers());
         // const getClientDevices = await unifi.getClientDevices();
         const getDeviceList = await prisma.device.findMany({
             include: {
@@ -1634,7 +1671,11 @@ app.get('/getalldevices', async (req, res) => {
         res.json({ getClientDevices: getClientDevices, getDeviceList: getDeviceList })
         // res.sendStatus(200)
     } catch (error) {
-        console.error(error);
+        console.error('Error in /getalldevices:', error);
+        if (isUnauthorizedUnifiError(error)) {
+            return res.status(401).json({ error: 'UniFi authorization failed. Please verify credentials in /sitesettings.' });
+        }
+        return res.status(503).json({ error: 'Unable to fetch devices from UniFi controller.' });
     }
 });
 
@@ -1880,10 +1921,9 @@ app.put('/updatedeviceorder', async (req, res) => {
 //~~~~~~~category/app firewall rules~~~~~~
 
 app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && unifi rules
-    if (!unifi) return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
     try {
         const path = '/v2/api/site/default/trafficrules';
-        const result = await unifi.customApiRequest(path, 'GET');
+        const result = await withUnifiRetry(() => unifi.customApiRequest(path, 'GET'));
 
         const fetchTrafficRules = await prisma?.trafficRules?.findMany();
         const fetchAppCatIds = await prisma?.appCatIds?.findMany();
@@ -1903,12 +1943,18 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
             }
         });
         if (joinedData.length) {
-            res.status(200).json({ trafficRuleDbData: joinedData, unifiData: result });
-        } else if (result.length && !joinedData.length) {
-            res.status(206).json({ unifiData: result });
+            return res.status(200).json({ trafficRuleDbData: joinedData, unifiData: result });
         }
+        if (result.length && !joinedData.length) {
+            return res.status(206).json({ unifiData: result });
+        }
+        return res.status(200).json({ trafficRuleDbData: [], unifiData: result || [] });
     } catch (error) {
-        console.error(error);
+        console.error('Error in /getdbcustomapirules:', error);
+        if (isUnauthorizedUnifiError(error)) {
+            return res.status(401).json({ error: 'UniFi authorization failed. Please verify credentials in /sitesettings.' });
+        }
+        return res.status(503).json({ error: 'Unable to fetch traffic rules from UniFi controller.' });
     }
 });
 
