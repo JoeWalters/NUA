@@ -159,6 +159,7 @@ model DeviceGroup {
   updatedAt               DateTime     @updatedAt
   devices                 Device[]
   schedules               EasySchedule[]
+  crons                   Cron[]
 }
 
 

@@ -1,5 +1,5 @@
-# Use the official Node.js image as the base image
-FROM node:18
+# Use the official Node.js image as the base image (Prisma 7.x requires Node >=20)
+FROM node:20-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
