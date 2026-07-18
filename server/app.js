@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 const Unifi = require('node-unifi');
 const { PrismaClient, Prisma } = require('@prisma/client');
 const schedule = require('node-schedule');
@@ -27,11 +28,14 @@ const { version: appVersion } = require('./package.json');
 
 const prisma = new PrismaClient();
 
+// Resolved project root directory (avoids fragile string slicing of process.cwd())
+const PROJECT_ROOT = path.resolve(__dirname, '..');
+
 // create server & add middleware
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static(process.cwd().slice(0, -7) + '/dist'));
+app.use(express.static(path.join(PROJECT_ROOT, 'dist')));
 consoleReader(schedule);
 
 // Rate limiters (Fix 11)
@@ -3209,7 +3213,7 @@ app.delete('/deletetestids', async (req, res) => {
 
 //~~~~~~refresh redirect~~~~~~
 app.get('**', async (req, res) => {
-    res.sendFile(process.cwd().slice(0, -7) + '/dist/index.html')
+    res.sendFile(path.join(PROJECT_ROOT, 'dist', 'index.html'))
 });
 
 const PORT = process.env.PORT || customPORT; // portSettings.js

@@ -44,6 +44,8 @@ model Cron {
   jobName                 String?
   device                  Device?  @relation(fields: [deviceId], references: [id])
   deviceId                Int?
+  deviceGroup             DeviceGroup? @relation(fields: [deviceGroupId], references: [id])
+  deviceGroupId           Int?
   toggleCron              Boolean?
 }
 
