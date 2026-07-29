@@ -17,6 +17,11 @@ export default function AdminConsole()
     const [toggleReRender, setToggleReRender] = useState(false);
     const [cronJobCheck, setCronJobChecked] = useState({});
     const [loadingMacData, setLoadingMacData] = useState(false);
+    const [syncHealth, setSyncHealth] = useState({
+        stale: false,
+        stateSource: 'unknown',
+        lastSyncedAt: null,
+    });
     const initialized = useRef(false);
     const navigate = useNavigate();
     const { openSettings } = useOutletContext() ?? {};
@@ -27,6 +32,8 @@ export default function AdminConsole()
     const [activeTab, setActiveTab] = useState('devices');
     const [showScrollTop, setShowScrollTop] = useState(false);
     const scrollSentinelRef = useRef();
+    const macRequestCounterRef = useRef(0);
+    const macRequestAbortRef = useRef(null);
 
     // Show/hide "scroll to top" button when user scrolls past the sentinel
     useEffect(() => {
@@ -139,32 +146,70 @@ export default function AdminConsole()
     // }
 
     useEffect(() => { // /getmacaddresses initial fetch
+        const requestId = ++macRequestCounterRef.current;
+        if (macRequestAbortRef.current) {
+            macRequestAbortRef.current.abort();
+        }
+        const controller = new AbortController();
+        macRequestAbortRef.current = controller;
+
         setLoadingMacData(true);
         const handleGetMacAddresses = async () => {
             try {
                 const response = await fetch('/getmacaddresses', {
                     method: 'GET',
                     mode: 'cors',
+                    signal: controller.signal,
                 });
+
+                if (requestId !== macRequestCounterRef.current) {
+                    return;
+                }
+
                 if (response.ok) {
                     const data = await response.json();
                     console.log('macData from ping re-render:\t', data);
                     // setMacData(data ? data : {}); // previous, updating
                     setMacData([...data.macData] || []);
                     setBlockedUsers([...data.blockedUsers] || []);
-                    setLoadingMacData(false)
+                    setSyncHealth({
+                        stale: Boolean(data?.stale),
+                        stateSource: data?.stateSource || 'unknown',
+                        lastSyncedAt: Date.now(),
+                    });
                 } else if (!response.ok) {
-                    dialogRef.current.showModal();
-                    setLoadingMacData(false);
+                    if (response.status === 401) {
+                        dialogRef.current.showModal();
+                    } else {
+                        setSyncHealth((previous) => ({
+                            ...previous,
+                            stale: true,
+                            stateSource: 'fetch-error',
+                        }));
+                    }
                     // await handleTimer();
                 }
             } catch (error) {
-                dialogRef.current.showModal();
-                setLoadingMacData(false);
+                if (error?.name === 'AbortError') {
+                    return;
+                }
+                setSyncHealth((previous) => ({
+                    ...previous,
+                    stale: true,
+                    stateSource: 'network-error',
+                }));
                 console.error('consoleerror in /getmacaddresses', error);
+            } finally {
+                if (requestId === macRequestCounterRef.current) {
+                    setLoadingMacData(false);
+                }
             }
         }
         handleGetMacAddresses();
+
+        return () => {
+            controller.abort();
+        };
     }, [toggleReRender]);
 
     // useEffect(() => { // original 03/04/2024
@@ -287,6 +332,20 @@ export default function AdminConsole()
 
                 {/* Unified content wrapper */}
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pb-8">
+                    <div className={`rounded-xl border px-4 py-3 text-sm flex flex-wrap items-center justify-between gap-3 ${
+                        syncHealth.stale ? 'border-warning/40 bg-warning/10 text-warning-content' : 'border-success/30 bg-success/10 text-success-content'
+                    }`}>
+                        <div className="font-medium">
+                            {syncHealth.stale
+                                ? 'Device state is using fallback data. Live UniFi sync is temporarily unavailable.'
+                                : 'Device state is synced with UniFi.'}
+                        </div>
+                        <div className="opacity-80">
+                            <span className="font-semibold">Source:</span> {syncHealth.stateSource}
+                            {syncHealth.lastSyncedAt ? ` • Updated ${new Date(syncHealth.lastSyncedAt).toLocaleTimeString()}` : ''}
+                        </div>
+                    </div>
+
                     <div ref={devicesSectionRef} id="devices-section" className="bg-base-100 rounded-2xl border border-base-300 shadow-sm overflow-hidden">
                         <ModernDevices
                             macData={macData && macData}

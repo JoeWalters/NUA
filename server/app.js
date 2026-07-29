@@ -357,10 +357,6 @@ async function blockSingle(reqBodyMac) {
     throw error;
   }
 }
-function extractMacs(body) {
-  // console.log(body);
-  return body.macData.map(mac => mac.macAddress);
-}
 // Fix 8: MAC address validation helper
 const MAC_REGEX = /^([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}$/;
 function isValidMac(mac) {
@@ -616,86 +612,45 @@ app.get('/getmacaddresses', async (req, res) => {
     console.log('🔍 /getmacaddresses - initialSetup:', initialSetup, 'unifi connected:', !!unifi);
 
     if (!initialSetup) {
-      let macData = await prisma.device.findMany({
+      const macData = await prisma.device.findMany({
         include: {
           deviceGroup: true
         }
       });
-      // let getRefreshTimer = await prisma.credentials.findUnique({
-      //     where: {
-      //         id: 1
-      //     }
-      // });
-      // let refreshRate = getRefreshTimer.refreshRate;
+      let blockedUsers = [];
+      let unifiSyncOk = false;
 
-      // const blockedUsers = await unifi?.getBlockedUsers(); // old 03/11/2024
-      const blockedUsers = await getBlockedUsers();
-      // console.log('blockedUsers in get mac addresses \t', blockedUsers);
-      // console.log(blockedUsers.filter((mac) => mac.mac === '48:b4:23:f7:30:0a')) // "tablet" is blocked on server side, preventing you from updating it 11/19/2024
-      // console.log('refreshRate \t', refreshRate);
-
-      const doMacAddressMatch = (unifiDataMacAddress, macData) => {
-        return macData.some(obj => obj.macAddress === unifiDataMacAddress);
-      };
-      let matchedObjects;
-      if (blockedUsers.length) {
-        matchedObjects = blockedUsers?.filter(obj1 => doMacAddressMatch(obj1.mac, macData));
-      } else {
-        matchedObjects = [];
+      // Read-only reconciliation: never mutate DB during refresh fetch.
+      try {
+        if (unifi) {
+          const blockedUsersResponse = await withUnifiRetry(() => unifi.getBlockedUsers());
+          blockedUsers = Array.isArray(blockedUsersResponse) ? blockedUsersResponse : [];
+          unifiSyncOk = true;
+        }
+      } catch (blockedUsersError) {
+        console.warn('Failed to refresh blocked users from UniFi, serving DB fallback:', blockedUsersError?.message || blockedUsersError);
       }
-      if (matchedObjects.length === 0) {
-        const recordIds = macData.map(obj => obj.id);
-        const updateData = { active: true };
-        const updateRecordsToActive = async (recordIds, updateData) => {
-          try {
-            const updatedMacData = await prisma.device.updateMany({
-              where: {
-                id: {
-                  in: recordIds,
-                },
-              },
-              data: updateData
-            });
-            const newMacData = await prisma.device.findMany({
-              include: {
-                deviceGroup: true
-              }
-            });
-            res.json({ macData: newMacData, blockedUsers: blockedUsers });
-          } catch (error) {
-            console.error(error);
-          }
-        };
-        updateRecordsToActive(recordIds, updateData);
 
-      } else if (matchedObjects.length >= 1) { // something is inactive
-        const findBlocked = matchedObjects.filter(obj => obj.blocked === true);
-        const extractedMacAddress = findBlocked.map(blockedMac => blockedMac.mac);
-        const matchedMacAddys = macData.filter(macData => extractedMacAddress.includes(macData.macAddress));
-        const recordIds = matchedMacAddys.map(obj => obj.id);
-        const updateData = { active: false };
-        const updateRecordsToActive = async (recordIds, updateData) => {
-          try {
-            const updatedMacData = await prisma.device.updateMany({
-              where: {
-                id: {
-                  in: recordIds,
-                },
-              },
-              data: updateData
-            });
-            const newMacData = await prisma.device.findMany({
-              include: {
-                deviceGroup: true
-              }
-            });
-            res.json({ macData: newMacData, blockedUsers: blockedUsers });
-          } catch (error) {
-            console.error(error);
-          }
-        };
-        updateRecordsToActive(recordIds, updateData);
+      let responseMacData = macData;
+      if (unifiSyncOk) {
+        const blockedMacSet = new Set(
+          blockedUsers
+            .filter((device) => device?.blocked === true && typeof device?.mac === 'string')
+            .map((device) => device.mac)
+        );
+
+        responseMacData = macData.map((device) => ({
+          ...device,
+          active: !blockedMacSet.has(device.macAddress)
+        }));
       }
+
+      return res.json({
+        macData: responseMacData,
+        blockedUsers,
+        stale: !unifiSyncOk,
+        stateSource: unifiSyncOk ? 'unifi-reconciled' : 'database-fallback'
+      });
     } else {
       console.log('⚠️ Initial setup flag is true, checking if UniFi is actually connected...');
             
@@ -715,17 +670,24 @@ app.get('/getmacaddresses', async (req, res) => {
         });
         const blockedUsers = await getBlockedUsers();
                 
-        res.json({ macData: macData, blockedUsers: blockedUsers });
+        return res.json({
+          macData: macData,
+          blockedUsers: blockedUsers,
+          stale: false,
+          stateSource: 'unifi-reconciled'
+        });
       } else {
         throw new Error('This is the initial setup, redirect.');
       }
     }
   } catch (error) {
-    if (error) {
-      console.error('error in /getmacaddresses: \t');
-      handleLoginError(error);
-      res.sendStatus(401);
-    }
+    console.error('error in /getmacaddresses: \t', error);
+    handleLoginError(error);
+    return res.status(401).json({
+      success: false,
+      error: 'Failed to fetch device state. Please verify site settings.',
+      details: error?.message || 'Unknown error'
+    });
   }
 });
 
@@ -995,7 +957,11 @@ app.put('/updatemacaddressstatus', async (req, res) => { // toggler
 
 app.put('/blockallmacs', async (req, res) => {
   try {
-    const { macData, blockedUsers } = req.body;
+    const { macData = [] } = req.body;
+    if (!Array.isArray(macData)) {
+      return res.status(400).json({ success: false, error: 'Invalid request body. Expected macData array.' });
+    }
+
     const deviceIdList = macData.map((mac) => {
       return mac?.id; // device ids of user devices
     });
@@ -1028,24 +994,37 @@ app.put('/blockallmacs', async (req, res) => {
     //     data: updatedData
     // });
     // res.json({ updatedRecords });
-    res.json({ msg: 'All mac addresses blocked, jobs reinitiated, bonus time ended'});
+    return res.json({
+      success: true,
+      msg: 'All mac addresses blocked, jobs reinitiated, bonus time ended',
+      deviceCount: deviceIdList.length
+    });
     /////////////////////////////
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ success: false, error: 'Failed to block all devices.' });
   }
 });
 
 app.put('/unblockallmacs', async (req, res) => {
-  const { data } = req.body;
-  const filteredIds = data?.macData?.map((mac) => {
-    return mac?.id;
-  });
+  const { macData = [] } = req.body;
+  if (!Array.isArray(macData)) {
+    return res.status(400).json({ success: false, error: 'Invalid request body. Expected macData array.' });
+  }
+
+  const filteredIds = macData
+    .map((mac) => mac?.id)
+    .filter((id) => Number.isInteger(id));
+
+  const filteredMacs = macData
+    .map((mac) => mac?.macAddress)
+    .filter((macAddress) => isValidMac(macAddress));
+
   const updatedData = {
     active: true
   };
   try {
-    const filtMacs = extractMacs(req.body);
-    await unBlockMultiple(filtMacs);
+    await unBlockMultiple(filteredMacs);
     const updatedRecords = await prisma.device.updateMany({
       where: {
         id: {
@@ -1054,10 +1033,14 @@ app.put('/unblockallmacs', async (req, res) => {
       },
       data: updatedData
     });
-    res.json({ msg: 'OKAY' });
-    // res.json({ updatedRecords });
+    return res.json({
+      success: true,
+      msg: 'All mac addresses unblocked',
+      updatedCount: updatedRecords?.count || 0
+    });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ success: false, error: 'Failed to unblock all devices.' });
   }
 });
 
@@ -1081,9 +1064,10 @@ app.post('/unblockmac', async (req, res) => {
       });
       console.log('updated if on list: ', updateIfOnList);
     }
-    res.sendStatus(200);
+    return res.sendStatus(200);
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ success: false, error: 'Failed to unblock device.' });
   }
 });
 
@@ -1683,9 +1667,10 @@ app.get('/getallblockeddevices', async (req, res) => {
   try {
     const blockedUsers = await getBlockedUsers();
     const deviceList = await prisma.device.findMany();
-    res.json({ blockedUsers: blockedUsers, deviceList: deviceList });
+    return res.json({ blockedUsers: blockedUsers, deviceList: deviceList });
   } catch (error) {
     console.error(error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch blocked devices.' });
   }
 });
 
