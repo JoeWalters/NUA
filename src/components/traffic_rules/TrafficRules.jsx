@@ -5,6 +5,7 @@ import { importToDbConverter } from "../utility_functions/app_cat_utils";
 import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
 import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
 import CreateRuleModal from "./CreateRuleModal";
+import RuleBonusTimeButton from "../utility_components/RuleBonusTimeButton";
 import {
     HiShieldCheck,
     HiPlus,
@@ -350,6 +351,7 @@ export default function TrafficRules({ embedded = false })
                                     onToggle={handleToggle}
                                     onDelete={handleDeleteTrafficRule}
                                     onUnmanage={handleUnmanageApp}
+                                    onStateChange={reRender}
                                     loadingUnmanageApp={loadingUnmanageApp}
                                 />
                             ))}
@@ -415,9 +417,10 @@ export default function TrafficRules({ embedded = false })
     );
 }
 
-function RuleCard({ data, onToggle, onDelete, onUnmanage, loadingUnmanageApp }) {
+function RuleCard({ data, onToggle, onDelete, onUnmanage, onStateChange, loadingUnmanageApp }) {
     const [expanded, setExpanded] = useState(false);
     const enabled = data?.trafficRule.enabled;
+    const bonusTimeActive = data?.trafficRule.bonusTimeActive || false;
 
     const getCardBorderClasses = (isEnabled) => {
         return `border border-base-300 relative ${isEnabled ? 'border-success' : 'border-error'}`;
@@ -481,6 +484,11 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, loadingUnmanageApp }) 
                             <span className="text-sm text-base-content/70" title={enabled ? 'This rule is currently enabled' : 'This rule is currently disabled'}>
                                 {enabled ? 'Enabled' : 'Disabled'}
                             </span>
+                            <RuleBonusTimeButton
+                                trafficRuleId={data?.trafficRule.id}
+                                bonusTimeActive={bonusTimeActive}
+                                onStateChange={onStateChange}
+                            />
                         </div>
 
                         <div className="flex items-center space-x-2">
