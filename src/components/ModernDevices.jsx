@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ModernDeviceGrid from "./modern_devices/ModernDeviceGrid";
 import LoadingDialog from "./utility_components/LoadingDialog";
 import DeviceGroupManager from "./DeviceGroupManager";
+import SchedulerModal from "./Scheduler/SchedulerModal.jsx";
 
 export default function ModernDevices({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
     const navigate = useNavigate();
@@ -12,9 +13,16 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
     const [toggleIsLoading, setToggleIsLoading] = useState(false);
     const [timerCancelled, setTimerCancelled] = useState(false);
     
+    // Scheduler modal state
+    const [schedulerOpen, setSchedulerOpen] = useState(false);
+    const [selectedDeviceForScheduler, setSelectedDeviceForScheduler] = useState(null);
+    
     const toggleLoadingDialogRef = useRef();
+    const deleteConfirmRef = useRef();
     const newDeviceNameRef = useRef();
     const newMacAddressRef = useRef();
+    const [pendingDeleteId, setPendingDeleteId] = useState(null);
+    const [toastMessage, setToastMessage] = useState('');
 
     function timerHandler(cancelled) {
         setTimerCancelled(cancelled);
@@ -30,10 +38,20 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
 
     const delay = t => new Promise(res => setTimeout(res, t));
 
+    const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(''), 4000);
+    };
+
     useEffect(() => {
         console.log('useEffect in modern devices fired...');
         console.log("Data from modern devices upon hopeful re-render:\t", macData);
     }, [macData]);
+
+    const openSchedulerModal = (deviceId, deviceName) => {
+        setSelectedDeviceForScheduler({ id: deviceId, name: deviceName });
+        setSchedulerOpen(true);
+    };
 
     const handleToggle = async (deviceId) => {
         try {
@@ -66,7 +84,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
             } else {
                 console.error('Toggle failed:', result.error || result.message);
                 setLoading(false);
-                alert(`Operation failed: ${result.error || result.message || 'Unknown error'}`);
+                showToast(`Operation failed: ${result.error || result.message || 'Unknown error'}`);
                 
                 delay(2000).then(() => {
                     setToggleIsLoading(false);
@@ -76,7 +94,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
         } catch (error) {
             console.error('Toggle network error:', error);
             setLoading(false);
-            alert('Network error occurred. Please check your connection and try again.');
+            showToast('Network error occurred. Please check your connection and try again.');
 
             delay(2000).then(() => {
                 setToggleIsLoading(false);
@@ -123,16 +141,20 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 handleRenderToggle();
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Error blocking all devices:', error);
         }
     };
 
-    const handleDelete = async (deviceId) => {
-        // Show confirmation dialog
-        if (!confirm('Are you sure you want to delete this device? This action cannot be undone.')) {
-            return;
-        }
+    const handleDelete = (deviceId) => {
+        setPendingDeleteId(deviceId);
+        deleteConfirmRef.current.showModal();
+    };
 
+    const handleConfirmDelete = async () => {
+        deleteConfirmRef.current.close();
+        if (!pendingDeleteId) return;
+        const deviceId = pendingDeleteId;
+        setPendingDeleteId(null);
         try {
             const submitForDeletion = await fetch('/removedevice', {
                 method: "delete",
@@ -148,7 +170,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 handleRenderToggle();
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Error deleting device:', error);
         }
     };
 
@@ -205,7 +227,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
 
     return (
         <div className="space-y-6">
-            {/* Device Groups Management */}
+            {/* Tags Management */}
             <DeviceGroupManager 
                 devices={macData} 
                 onGroupsUpdate={handleRenderToggle}
@@ -218,6 +240,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 onToggle={handleToggle}
                 onEdit={openEditDialog}
                 onDelete={handleDelete}
+                onScheduleClick={openSchedulerModal}
                 timerCancelled={timerCancelled}
                 timerHandler={timerHandler}
                 handleRenderToggle={handleRenderToggle}
@@ -284,6 +307,37 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
             </dialog>
 
             <LoadingDialog toggleLoadingDialogRef={toggleLoadingDialogRef} />
+
+            {/* Delete Confirmation Modal */}
+            <dialog className="modal" ref={deleteConfirmRef}>
+                <div className="modal-box">
+                    <h3 className="font-bold text-lg">Delete Device</h3>
+                    <p className="py-4">Are you sure you want to delete this device? This action cannot be undone.</p>
+                    <div className="modal-action">
+                        <button className="btn btn-ghost" onClick={() => deleteConfirmRef.current.close()}>Cancel</button>
+                        <button className="btn btn-error" onClick={handleConfirmDelete}>Delete</button>
+                    </div>
+                </div>
+                <form method="dialog" className="modal-backdrop"><button>close</button></form>
+            </dialog>
+
+            {/* Scheduler Modal */}
+            <SchedulerModal 
+                deviceId={selectedDeviceForScheduler?.id}
+                deviceName={selectedDeviceForScheduler?.name}
+                isOpen={schedulerOpen}
+                onClose={() => setSchedulerOpen(false)}
+                triggerRender={handleRenderToggle}
+            />
+
+            {/* Error Toast */}
+            {toastMessage && (
+                <div className="toast toast-bottom toast-center z-50">
+                    <div className="alert alert-error">
+                        <span>{toastMessage}</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

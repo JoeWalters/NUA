@@ -3,16 +3,10 @@ export default function ModernDeviceSkeleton({ count = 6 }) {
 
     return (
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header Skeleton */}
-            <div className="text-center mb-8">
-                <div className="skeleton h-8 w-64 mx-auto mb-2"></div>
-                <div className="skeleton h-4 w-48 mx-auto"></div>
-            </div>
-
             {/* Stats Cards Skeleton */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
                 {Array.from({ length: 4 }, (_, i) => (
-                    <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div key={i} className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
                         <div className="skeleton h-8 w-12 mb-2"></div>
                         <div className="skeleton h-4 w-20"></div>
                     </div>
@@ -20,7 +14,7 @@ export default function ModernDeviceSkeleton({ count = 6 }) {
             </div>
 
             {/* Search Bar Skeleton */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700 mb-6">
+            <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300 mb-6">
                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                     <div className="skeleton h-12 flex-1"></div>
                     <div className="flex items-center gap-2">
@@ -28,7 +22,7 @@ export default function ModernDeviceSkeleton({ count = 6 }) {
                         <div className="skeleton h-12 w-12"></div>
                     </div>
                 </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-base-300">
                     <div className="skeleton h-4 w-32"></div>
                     <div className="flex items-center gap-2">
                         <div className="skeleton h-8 w-20"></div>
@@ -42,7 +36,7 @@ export default function ModernDeviceSkeleton({ count = 6 }) {
                 {skeletons.map((_, index) => (
                     <div 
                         key={index} 
-                        className="bg-white dark:bg-base-200 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+                        className="bg-base-100 rounded-xl shadow-lg border border-base-300 overflow-hidden"
                     >
                         {/* Card Header */}
                         <div className="p-6 pb-4">

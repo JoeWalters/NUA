@@ -4,7 +4,7 @@ import { GoLock, GoUnlock } from "react-icons/go";
 import Confirmation from "./confirmations/Confirmation";
 
 
-export default function SiteSettings()
+export default function SiteSettings({ isOpen, onClose })
 {
     const [data, setData] = useState({});
     const [message, setMessage] = useState("");
@@ -116,7 +116,7 @@ export default function SiteSettings()
                 timerRef.current.disabled = true;
             }
         } catch (error) {
-            if (error) throw error;
+            console.error('Failed to save site settings:', error);
         }
     }
 
@@ -150,7 +150,7 @@ export default function SiteSettings()
                     timerRef.current.disabled = false;
                 }
             } catch (error) {
-                if (error) throw error;
+                console.error('Failed to check for settings:', error);
             }
         }
         checkForSettings();
@@ -227,6 +227,35 @@ export default function SiteSettings()
     
     const [debugStatus, setDebugStatus] = useState(null);
     const [showDebugStatus, setShowDebugStatus] = useState(false);
+    const [encryptionEnabled, setEncryptionEnabled] = useState(null);
+    const [encryptionLoading, setEncryptionLoading] = useState(false);
+    const [encryptionMessage, setEncryptionMessage] = useState('');
+
+    useEffect(() => {
+        fetch('/encryption-status')
+            .then(r => r.json())
+            .then(data => setEncryptionEnabled(data.enabled))
+            .catch(() => setEncryptionEnabled(false));
+    }, []);
+
+    const handleEnableEncryption = async () => {
+        setEncryptionLoading(true);
+        setEncryptionMessage('');
+        try {
+            const res = await fetch('/enable-encryption', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                setEncryptionEnabled(true);
+                setEncryptionMessage(data.message);
+            } else {
+                setEncryptionMessage(data.error || 'Failed to enable encryption.');
+            }
+        } catch (error) {
+            setEncryptionMessage('An error occurred.');
+        } finally {
+            setEncryptionLoading(false);
+        }
+    };
     
     const handleDebugStatus = async () => {
         try {
@@ -255,9 +284,14 @@ export default function SiteSettings()
     }
     return (
         <>
-            <div className="flex flex-col items-center justify-center w-full h-full sm:w-3/4 lg:w-1/2 mx-auto pb-24">
-                <div className="flex w-full mx-2">
-                    <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 m-8">
+            <dialog className={`modal ${isOpen ? 'modal-open' : ''}`}>
+                <div className="modal-box max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold">Settings</h2>
+                        <button className="btn btn-sm btn-circle btn-ghost" onClick={onClose}>✕</button>
+                    </div>
+                <div className="flex w-full">
+                    <div className="flex flex-col items-center justify-center w-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 mb-4">
                         <div className="flex w-full mt-2 justify-around">
                             <div className="text-2xl font-bold">Connection Settings</div>
                         </div>
@@ -406,6 +440,48 @@ export default function SiteSettings()
                 </div>
                 {reveal && <Confirmation message={testMessage} alertType={alertType} duration={5000} reveal={reveal} />}
 
+                {/* Encryption Settings */}
+                <div className="flex w-full mt-2">
+                    <div className="flex flex-col items-center justify-center w-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 p-4 gap-4">
+                        <div className="text-2xl font-bold">Credential Encryption</div>
+                        <div className="divider mt-0"></div>
+                        <div className="flex items-center gap-3">
+                            <span>Status:</span>
+                            {encryptionEnabled === null ? (
+                                <span className="loading loading-spinner loading-sm"></span>
+                            ) : encryptionEnabled ? (
+                                <span className="badge badge-success gap-1">&#x1F512; Enabled</span>
+                            ) : (
+                                <span className="badge badge-warning gap-1">&#x26A0; Disabled</span>
+                            )}
+                        </div>
+                        {encryptionEnabled === false && (
+                            <p className="text-sm text-center opacity-70 max-w-xs">
+                                Enable encryption to store your UniFi password encrypted at rest using AES-256-GCM. A key file will be generated in <code>config/encryption.key</code>.
+                            </p>
+                        )}
+                        {encryptionEnabled === false && (
+                            <button
+                                className={`btn btn-outline btn-success ${encryptionLoading ? 'loading' : ''}`}
+                                onClick={handleEnableEncryption}
+                                disabled={encryptionLoading}
+                            >
+                                {encryptionLoading ? 'Enabling...' : 'Enable Encryption'}
+                            </button>
+                        )}
+                        {encryptionMessage && (
+                            <div className={`alert ${encryptionEnabled ? 'alert-success' : 'alert-error'} text-sm`}>
+                                <span>{encryptionMessage}</span>
+                            </div>
+                        )}
+                        {encryptionEnabled && (
+                            <p className="text-sm text-center opacity-70 max-w-xs">
+                                Your credentials are encrypted at rest. Back up <code>config/encryption.key</code> — it is required to start the server.
+                            </p>
+                        )}
+                    </div>
+                </div>
+
                     {/* <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 mt-4">
                         <div className="flex w-full mt-2 justify-around">
                             <div className="text-2xl font-bold">General</div>
@@ -425,7 +501,11 @@ export default function SiteSettings()
                             </div>
                         </div>
                     </div> */}
-            </div>
+                </div>
+                <form method="dialog" className="modal-backdrop">
+                    <button onClick={onClose}>close</button>
+                </form>
+            </dialog>
             
             {/* Debug Status Modal */}
             {showDebugStatus && (

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { HiMagnifyingGlass, HiAdjustmentsHorizontal } from "react-icons/hi2";
+import { HiMagnifyingGlass, HiAdjustmentsHorizontal, HiPlus, HiXMark } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import ModernDeviceCard from "./ModernDeviceCard";
 import ModernDeviceSkeleton from "../skeletons/ModernDeviceSkeleton";
@@ -12,6 +12,7 @@ export default function ModernDeviceGrid({
     onToggle, 
     onEdit, 
     onDelete,
+    onScheduleClick, // ✅ Added to props destructuring
     timerCancelled,
     timerHandler,
     handleRenderToggle,
@@ -20,7 +21,8 @@ export default function ModernDeviceGrid({
 }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
-    const [showFilters, setShowFilters] = useState(false);
+    const [groupFilter, setGroupFilter] = useState('all');
+    const [showFilters, setShowFilters] = useState(true);
     const [showSearch, setShowSearch] = useState(false);
     const [filteredDevices, setFilteredDevices] = useState(devices);
     
@@ -36,17 +38,25 @@ export default function ModernDeviceGrid({
     // Fetch all devices for the modal
     const { clientDevices, deviceList, loading: allDevicesLoading, reFetch } = useFetchAllDevices();
 
-    // Filter devices based on search and status
+    // Compute unique groups from devices for the group filter dropdown
+    const availableGroups = [...new Map(
+        devices
+            .filter(d => d?.deviceGroup)
+            .map(d => [d.deviceGroup.id, d.deviceGroup])
+    ).values()].sort((a, b) => a.name.localeCompare(b.name));
+
+    // Filter devices based on search, status, and group
     useEffect(() => {
         let filtered = [...devices];
         
-        // Search filter
+        // Search filter (includes group/tag name)
         if (searchTerm) {
             const term = searchTerm.toLowerCase();
             filtered = filtered.filter(device => 
                 device?.name?.toLowerCase().includes(term) ||
                 device?.macAddress?.toLowerCase().includes(term) ||
-                device?.hostname?.toLowerCase().includes(term)
+                device?.hostname?.toLowerCase().includes(term) ||
+                device?.deviceGroup?.name?.toLowerCase().includes(term)
             );
         }
         
@@ -64,13 +74,23 @@ export default function ModernDeviceGrid({
             default:
                 break;
         }
+
+        // Group/tag filter
+        if (groupFilter !== 'all') {
+            if (groupFilter === 'none') {
+                filtered = filtered.filter(device => !device?.deviceGroup);
+            } else {
+                filtered = filtered.filter(device => device?.deviceGroup?.id === parseInt(groupFilter));
+            }
+        }
         
         setFilteredDevices(filtered);
-    }, [devices, searchTerm, statusFilter]);
+    }, [devices, searchTerm, statusFilter, groupFilter]);
 
     const handleRefresh = () => {
         setSearchTerm('');
         setStatusFilter('all');
+        setGroupFilter('all');
         if (searchRef.current) {
             searchRef.current.value = '';
         }
@@ -104,7 +124,6 @@ export default function ModernDeviceGrid({
             });
             if (response.ok) {
                 const returnData = await response.json();
-                console.log('Device added successfully', returnData);
                 reFetch();
                 handleRenderToggle(); // Refresh the main device list
             }
@@ -142,9 +161,11 @@ export default function ModernDeviceGrid({
             const term = allDevicesSearch.toLowerCase();
             filtered = filtered.filter(device => 
                 device?.name?.toLowerCase().includes(term) ||
+                device?.note?.toLowerCase().includes(term) ||
                 device?.oui?.toLowerCase().includes(term) ||
                 device?.mac?.toLowerCase().includes(term) ||
-                device?.hostname?.toLowerCase().includes(term)
+                device?.hostname?.toLowerCase().includes(term) ||
+                device?.last_ip?.toLowerCase().includes(term)
             );
         }
         
@@ -176,34 +197,44 @@ export default function ModernDeviceGrid({
     }
 
     return (
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
-            <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Device Management
-                </h1>
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+            {/* Section header */}
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                    <h1 className="text-2xl font-bold text-base-content">Devices</h1>
+                    {devices.length > 0 && (
+                        <span className="badge badge-primary badge-sm ml-1">{devices.length}</span>
+                    )}
+                </div>
+                <button
+                    className="btn btn-sm btn-primary gap-1"
+                    onClick={() => document.getElementById('addDeviceModal').showModal()}
+                >
+                    <HiPlus className="w-4 h-4" />
+                    Add Device
+                </button>
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-gray-900 dark:text-white">{counts.total}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Total Devices</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-base-content">{counts.total}</div>
+                    <div className="text-sm text-base-content/60">Total Devices</div>
                 </div>
                 
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-green-600">{counts.allowed}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Allowed</div>
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-success">{counts.allowed}</div>
+                    <div className="text-sm text-base-content/60">Allowed</div>
                 </div>
                 
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-red-600">{counts.blocked}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Blocked</div>
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-error">{counts.blocked}</div>
+                    <div className="text-sm text-base-content/60">Blocked</div>
                 </div>
                 
-                <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
-                    <div className="text-2xl font-bold text-blue-600">{counts.bonus}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">Bonus Time</div>
+                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
+                    <div className="text-2xl font-bold text-info">{counts.bonus}</div>
+                    <div className="text-sm text-base-content/60">Bonus Time</div>
                 </div>
             </div>
 
@@ -222,15 +253,15 @@ export default function ModernDeviceGrid({
                         </button>
                     </div>
                 ) : (
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm border border-gray-200 dark:border-gray-700">
+                    <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
                         <div className="flex flex-col sm:flex-row gap-4 items-center">
                             {/* Search Input */}
                             <div className="flex-1 relative">
-                                <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                                <HiMagnifyingGlass className="absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/40 w-5 h-5" />
                                 <input
                                     ref={searchRef}
                                     type="text"
-                                    placeholder="Search by name or MAC address..."
+                                    placeholder="Search by name, MAC address, or tag..."
                                     className="input input-bordered w-full pl-10 pr-10"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -238,7 +269,7 @@ export default function ModernDeviceGrid({
                             </div>
                             
                             {/* Filter Controls */}
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                                 <select
                                     className="select select-bordered min-w-[120px]"
                                     value={statusFilter}
@@ -248,6 +279,20 @@ export default function ModernDeviceGrid({
                                     <option value="allowed">Allowed</option>
                                     <option value="blocked">Blocked</option>
                                     <option value="bonus">Bonus Time</option>
+                                </select>
+
+                                <select
+                                    className="select select-bordered min-w-[120px]"
+                                    value={groupFilter}
+                                    onChange={(e) => setGroupFilter(e.target.value)}
+                                >
+                                    <option value="all">All Tags</option>
+                                    <option value="none">No Tag</option>
+                                    {availableGroups.map(group => (
+                                        <option key={group.id} value={group.id}>
+                                            {group.icon} {group.name}
+                                        </option>
+                                    ))}
                                 </select>
                                 
                                 <button
@@ -259,7 +304,7 @@ export default function ModernDeviceGrid({
                                 </button>
 
                                 <button
-                                    onClick={() => { setShowFilters(false); setSearchTerm(''); setStatusFilter('all'); }}
+                                    onClick={() => { setShowFilters(false); setSearchTerm(''); setStatusFilter('all'); setGroupFilter('all'); }}
                                     className="btn btn-ghost btn-square"
                                     title="Hide search and filters"
                                 >
@@ -269,10 +314,17 @@ export default function ModernDeviceGrid({
                         </div>
 
                         {/* Device Count Display */}
-                        <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-base-300">
+                            <div className="text-sm text-base-content/60">
                                 Showing {filteredDevices.length} of {devices.length} devices
                             </div>
+                            {groupFilter !== 'all' && (
+                                <div className="text-sm text-base-content/60">
+                                    Filtered by tag: <span className="font-medium text-base-content">
+                                        {groupFilter === 'none' ? 'No Tag' : availableGroups.find(g => g.id === parseInt(groupFilter))?.name}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )}
@@ -281,21 +333,21 @@ export default function ModernDeviceGrid({
             {/* Device Grid */}
             {filteredDevices.length === 0 ? (
                 <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
+                    <div className="text-base-content/40 mb-4">
                         <HiMagnifyingGlass className="w-16 h-16 mx-auto" />
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                        {searchTerm || statusFilter !== 'all' ? 'No devices found' : 'No devices available'}
+                    <h3 className="text-lg font-medium text-base-content mb-2">
+                        {searchTerm || statusFilter !== 'all' || groupFilter !== 'all' ? 'No devices found' : 'No devices available'}
                     </h3>
-                    <p className="text-gray-500 dark:text-gray-400">
-                        {searchTerm || statusFilter !== 'all' 
+                    <p className="text-base-content/60">
+                        {searchTerm || statusFilter !== 'all' || groupFilter !== 'all'
                             ? 'Try adjusting your search or filter criteria.'
                             : 'Devices will appear here when they connect to the network.'
                         }
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
                     {filteredDevices.map((device) => (
                         <ModernDeviceCard
                             key={device?.id}
@@ -303,6 +355,7 @@ export default function ModernDeviceGrid({
                             onToggle={onToggle}
                             onEdit={onEdit}
                             onDelete={onDelete}
+                            onScheduleClick={onScheduleClick}
                             timerCancelled={timerCancelled}
                             timerHandler={timerHandler}
                             handleRenderToggle={handleRenderToggle}
@@ -311,69 +364,69 @@ export default function ModernDeviceGrid({
                 </div>
             )}
 
-            {/* Add Device Button */}
-            <div className="text-center mt-6">
-                <button 
-                    className="btn btn-primary"
-                    onClick={() => document.getElementById('addDeviceModal').showModal()}
-                >
-                    <span className="text-lg">+</span>
-                    Add Device
-                </button>
-            </div>
-
             {/* Add Device Modal */}
             <dialog id="addDeviceModal" className="modal">
-                <div className="modal-box w-11/12 max-w-5xl">
-                    <div className="flex justify-between items-center mb-4">
+                <div className="modal-box w-11/12 max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
                         <h3 className="font-bold text-lg">Add Device to Management</h3>
                         <form method="dialog">
-                            <button className="btn btn-sm btn-circle btn-ghost">✕</button>
+                            <button className="btn btn-ghost btn-sm btn-circle" aria-label="Close">
+                                <HiXMark className="w-4 h-4" />
+                            </button>
                         </form>
                     </div>
                     
-                    {/* Search and Filter Bar for All Devices */}
-                    <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                        <div className="flex-1">
-                            <input
-                                ref={allDevicesSearchRef}
-                                type="text"
-                                placeholder="Search by name, MAC, hostname, or OUI..."
-                                className="input input-bordered w-full"
-                                onChange={handleAllDevicesSearch}
-                            />
+                    {/* Search and Filter Bar */}
+                    <div className="flex-shrink-0 px-6 py-4 border-b border-base-200">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1 relative">
+                                <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 w-4 h-4" />
+                                <input
+                                    ref={allDevicesSearchRef}
+                                    type="text"
+                                    placeholder="Search by alias, hostname, vendor, IP, or MAC..."
+                                    className="input input-bordered input-sm w-full pl-9"
+                                    onChange={handleAllDevicesSearch}
+                                />
+                            </div>
+                            <div className="flex gap-2">
+                                <select 
+                                    ref={allDevicesSelectRef}
+                                    className="select select-bordered select-sm w-full sm:w-auto"
+                                    onChange={handleAllDevicesFilterChange}
+                                    value={allDevicesFilter}
+                                >
+                                    <option value="all">All Devices</option>
+                                    <option value="Not on Device List">Not on Device List</option>
+                                    <option value="Online Devices">Online</option>
+                                    <option value="Offline Devices">Offline</option>
+                                    <option value="Blocked Devices">Blocked</option>
+                                </select>
+                                <button 
+                                    className="btn btn-ghost btn-sm btn-square"
+                                    onClick={handleAllDevicesRefresh}
+                                    title="Refresh"
+                                >
+                                    <IoMdRefresh className="w-4 h-4" />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            <select 
-                                ref={allDevicesSelectRef}
-                                className="select select-bordered w-full sm:w-auto"
-                                onChange={handleAllDevicesFilterChange}
-                                value={allDevicesFilter}
-                            >
-                                <option value="all">All Devices</option>
-                                <option value="Not on Device List">Not on Device List</option>
-                                <option value="Online Devices">Online Devices</option>
-                                <option value="Offline Devices">Offline Devices</option>
-                                <option value="Blocked Devices">Blocked Devices</option>
-                            </select>
-                            <button 
-                                className="btn btn-outline"
-                                onClick={handleAllDevicesRefresh}
-                            >
-                                <IoMdRefresh className="w-4 h-4" />
-                            </button>
+                        <div className="text-xs text-base-content/40 mt-2">
+                            {filteredAllDevices.length} device{filteredAllDevices.length !== 1 ? 's' : ''} found
                         </div>
                     </div>
 
-                    {/* All Devices Grid */}
-                    <div className="max-h-96 overflow-y-auto">
+                    {/* Device List */}
+                    <div className="flex-1 overflow-y-auto px-6 py-4">
                         {allDevicesLoading ? (
-                            <div className="flex justify-center py-8">
-                                <span className="loading loading-spinner loading-md"></span>
+                            <div className="flex justify-center items-center h-full py-12">
+                                <span className="loading loading-spinner loading-lg text-primary"></span>
                             </div>
                         ) : filteredAllDevices.length === 0 ? (
-                            <div className="text-center py-8 text-gray-500">
-                                <p>No devices found matching your criteria.</p>
+                            <div className="flex flex-col items-center justify-center h-full py-12 text-base-content/40 gap-3">
+                                <HiMagnifyingGlass className="w-10 h-10" />
+                                <p className="text-sm">No devices found matching your criteria.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -387,12 +440,6 @@ export default function ModernDeviceGrid({
                                 ))}
                             </div>
                         )}
-                    </div>
-
-                    <div className="modal-action">
-                        <form method="dialog">
-                            <button className="btn">Close</button>
-                        </form>
                     </div>
                 </div>
                 <form method="dialog" className="modal-backdrop">

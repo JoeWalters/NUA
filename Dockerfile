@@ -1,5 +1,5 @@
-# Use the official Node.js image as the base image
-FROM node:18
+# Use the official Node.js image as the base image (Prisma 7.x requires Node >=20)
+FROM node:20-slim
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
@@ -52,6 +52,11 @@ RUN npx prisma generate --schema=./schema.prisma
 ENV NODE_ENV=development
 ENV AUTO_MIGRATE=true
 ENV PRISMA_CLI_QUERY_ENGINE_TYPE=binary
+
+# Install OpenSSL and utilities needed at runtime (Prisma query engine requires libssl)
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends openssl procps curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 # Go back to root
 WORKDIR /usr/src/app

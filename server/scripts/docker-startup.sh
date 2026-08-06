@@ -122,7 +122,21 @@ else
     
     # Check if there are pending migrations to apply
     if echo "$MIGRATION_STATUS_OUTPUT" | grep -q "pending"; then
-        log "� Pending migrations detected! Applying migrations..."
+        log "⚠️ Migration history mismatch detected!"
+        
+        # Extract auto-migrations from DB that aren't local and mark them as applied
+        AUTO_MIGRATIONS=$(echo "$MIGRATION_STATUS_OUTPUT" | grep -A 100 "from the database are not found locally" | grep "^2[0-9]" || true)
+        if [ -n "$AUTO_MIGRATIONS" ]; then
+            log "🔧 Syncing auto-migrations from database to local history..."
+            echo "$AUTO_MIGRATIONS" | while read -r MIG_NAME; do
+                if [ -n "$MIG_NAME" ]; then
+                    log "  Marking as applied: $MIG_NAME"
+                    npx prisma migrate resolve --applied "$MIG_NAME" --schema="$SCHEMA_PATH" 2>/dev/null || true
+                fi
+            done
+        fi
+        
+        # Now apply any truly pending migrations
         if ! timeout 120 npx prisma migrate deploy --schema="$SCHEMA_PATH"; then
             log "❌ Migration deployment failed"
             exit 1
@@ -167,14 +181,8 @@ else
     fi
 fi
 
-# Force regenerate Prisma client after all migration operations
-log "🔧 Regenerating Prisma client to ensure all models are loaded..."
-if ! timeout 60 npx prisma generate --schema="$SCHEMA_PATH"; then
-    log "⚠️ Prisma regeneration encountered an issue but continuing..."
-else
-    log "✅ Prisma client regenerated successfully"
-fi
-
+# Prisma client is already generated above during migration handling
+# No need to regenerate again
 log "🔧 Final system checks..."
 # Verify database connectivity
 log "🗄️ Testing database connection..."

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+// Removed: import { Link } from "react-router-dom";
 import { HiMiniPencilSquare, HiWifi, HiSignal } from "react-icons/hi2";
 import { 
     HiOutlineDesktopComputer, 
@@ -13,6 +13,7 @@ export default function ModernDeviceCard({
     onToggle, 
     onEdit, 
     onDelete, 
+    onScheduleClick, // Added prop
     timerCancelled, 
     timerHandler, 
     handleRenderToggle 
@@ -36,11 +37,11 @@ export default function ModernDeviceCard({
     // Get card border classes based on device status
     const getCardBorderClasses = (active, bonusTimeActive) => {
         let borderColor = '';
-        if (active && bonusTimeActive) borderColor = 'border-blue-500';
-        else if (active) borderColor = 'border-green-500';
-        else borderColor = 'border-red-500';
+        if (active && bonusTimeActive) borderColor = 'border-info';
+        else if (active) borderColor = 'border-success';
+        else borderColor = 'border-error';
         
-        return `border border-gray-200 dark:border-gray-700 relative ${borderColor}`;
+        return `border border-base-300 relative ${borderColor}`;
     };
 
     // Get accent border color for the left partial border
@@ -63,16 +64,16 @@ export default function ModernDeviceCard({
                 <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                         {/* Device Icon */}
-                        <div className="flex-shrink-0 p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                        <div className="flex-shrink-0 p-2 rounded-lg bg-base-200 text-base-content/70">
                             {getDeviceIcon(device)}
                         </div>
                         
                         {/* Device Info */}
                         <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                            <h3 className="text-lg font-semibold text-base-content truncate">
                                 {device?.name || device?.macAddress || 'Unknown Device'}
                             </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            <p className="text-sm text-base-content/60 truncate">
                                 {device?.macAddress}
                             </p>
                             {/* Reserve space for group badge so toggle/controls don't shift */}
@@ -113,6 +114,7 @@ export default function ModernDeviceCard({
                                         ? "toggle-success" 
                                         : "toggle-error"
                             }`}
+                            title={device?.active ? 'Click to block this device' : 'Click to allow this device'}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onToggle(device?.id);
@@ -120,8 +122,8 @@ export default function ModernDeviceCard({
                             checked={device?.active || false}
                             readOnly
                         />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                            {device?.active ? 'Block' : 'Allow'}
+                        <span className="text-sm text-base-content/70" title={device?.active ? 'This device is currently allowed' : 'This device is currently blocked'}>
+                            {device?.active ? 'Allowed' : 'Blocked'}
                         </span>
                     </div>
 
@@ -136,7 +138,7 @@ export default function ModernDeviceCard({
                         
                         <button
                             onClick={() => onEdit(device?.id)}
-                            className="btn btn-ghost btn-xs text-gray-500 hover:text-blue-600"
+                            className="btn btn-ghost btn-xs text-base-content/50 hover:text-primary"
                             title="Edit Device"
                         >
                             <HiMiniPencilSquare className="w-4 h-4" />
@@ -147,19 +149,19 @@ export default function ModernDeviceCard({
 
             {/* Expanded Content */}
             {isExpanded && (
-                <div className="px-6 pb-6 pt-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                <div className="px-6 pb-6 pt-2 border-t border-base-300 bg-base-200/50">
                     {/* Device Details Grid */}
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                         <div>
-                            <span className="text-gray-500 dark:text-gray-400">Name:</span>
-                            <p className="font-medium text-gray-900 dark:text-white mt-1 break-words">
+                            <span className="text-base-content/60">Name:</span>
+                            <p className="font-medium text-base-content mt-1 break-words">
                                 {device?.name || 'Not set'}
                             </p>
                         </div>
                         <div>
-                            <span className="text-gray-500 dark:text-gray-400">Status:</span>
+                            <span className="text-base-content/60">Status:</span>
                             <p className={`font-medium mt-1 ${
-                                device?.active ? 'text-green-600' : 'text-red-600'
+                                device?.active ? 'text-success' : 'text-error'
                             }`}>
                                 {device?.active ? 'Allowed' : 'Blocked'}
                             </p>
@@ -179,14 +181,12 @@ export default function ModernDeviceCard({
 
                     {/* Action Buttons */}
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <Link 
-                            to={`/admin/${device?.id}/scheduler`} 
-                            className="flex-1"
+                        <button 
+                            onClick={() => onScheduleClick(device?.id, device?.name)} 
+                            className="btn btn-outline btn-sm w-full flex-1"
                         >
-                            <button className="btn btn-outline btn-sm w-full">
-                                Schedule
-                            </button>
-                        </Link>
+                            Schedule
+                        </button>
                         
                         <button
                             onClick={() => onDelete(device?.id)}

@@ -43,6 +43,17 @@ jobs:
         echo "Branch: ${{ github.ref_name }}"
         echo "Version: $VERSION"
 
+    - name: Install root dependencies
+      run: npm ci
+
+    - name: Run ESLint on server code
+      run: cd server && npm ci && npx eslint .
+      id: lint
+
+    - name: Run smoke test on server
+      run: cd server && node --check app.js
+      id: smoke-test
+
     - name: Build and push the Docker image (master branch)
       if: github.ref_name == 'master'
       uses: docker/build-push-action@v5
