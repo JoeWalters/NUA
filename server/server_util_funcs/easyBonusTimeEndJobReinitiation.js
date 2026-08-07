@@ -70,7 +70,8 @@ async function easyBonusTimeEndJobReinitiation(deviceId, schedule, prisma, unifi
       }
     }
 
-    await unifi.blockClient(getMacAddressForDevice.macAddress);
+    // unifi may be null during boot-time re-arm before the controller connects
+    await unifi?.blockClient(getMacAddressForDevice.macAddress);
     await prisma.device.update({
       where: { id: deviceId },
       data: {

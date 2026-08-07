@@ -2603,6 +2603,7 @@ app.post('/deletebonustoggles', async (req, res) => { // stop timer and shutoff 
 
     res.sendStatus(200);
   } catch (error) {
+    res.status(500).json({ error: error.message });
     console.error(error);
   }
 });

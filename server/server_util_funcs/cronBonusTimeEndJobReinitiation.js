@@ -40,7 +40,8 @@ async function cronBonusTimeEndJobReinitiation(deviceId, schedule, prisma, unifi
       }
     }
 
-    const blockDevice = await unifi.blockClient(getMacAddressForDevice.macAddress);
+    // unifi may be null during boot-time re-arm before the controller connects
+    const blockDevice = await unifi?.blockClient(getMacAddressForDevice.macAddress);
     const updateDeviceStatus = await prisma.device.update({
       where: { id: deviceId },
       data: {
