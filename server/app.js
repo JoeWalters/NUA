@@ -25,7 +25,7 @@ const { startTimeout, endTimeout, timeoutMap } = require('./server_util_funcs/st
 const { stopBonusTime } = require('./server_util_funcs/stop_bonus_time/stopBonusTimeViaToggleOff');
 const { encrypt, decrypt, isEncryptionEnabled, generateAndSaveKey } = require('./server_util_funcs/credentialCrypto');
 const { version: appVersion } = require('./package.json');
-const { schedulerService } = require('./scheduler/service'); // Central scheduler service (Phase 3)
+const schedulerService = require('./scheduler/service'); // Central scheduler service (Phase 3)
 const { startBonusTime, deleteBonusToggles, restartPausedJobs: bonusRestartPausedJobs, clearBonusTimeExpiry, reArmDeviceBonusOnBoot } = require('./scheduler/bonusScheduler'); // Bonus time scheduler (Phase 5)
 const { startBonusRule, endBonusRule, reArmTrafficBonusOnBoot } = require('./scheduler/trafficBonusScheduler'); // Traffic rule bonus scheduler
 
