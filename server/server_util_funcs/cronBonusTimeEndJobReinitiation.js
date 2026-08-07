@@ -1,5 +1,7 @@
 
-async function cronBonusTimeEndJobReinitiation(deviceId, schedule, prisma, unifi, jobFunction, logger) {
+const schedule = require('node-schedule');
+
+async function cronBonusTimeEndJobReinitiation(deviceId, _schedule, prisma, unifi, jobFunction, logger) {
   try {
     const getCronBonusTogglesForDevice = await prisma.cronBonusToggles.findMany({ where: { deviceId: deviceId }});
 
