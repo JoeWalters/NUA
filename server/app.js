@@ -2467,7 +2467,7 @@ app.post('/addbonustime', async (req, res) => { // cron bonus time (Phase 5: use
         endTimeout(deviceId);
       };
 
-      const { timeoutMap } = startTimeout(deviceId, minutes, hours, restartCallback, originalTime);
+      startTimeout(deviceId, minutes, hours, restartCallback, originalTime);
       const t = timeoutMap.get(deviceId)?.time;
       const newTime = t - Date.now();
 
@@ -2476,6 +2476,7 @@ app.post('/addbonustime', async (req, res) => { // cron bonus time (Phase 5: use
       res.status(422).send({ message: 'Hours or minutes required for bonus time.' });
     }
   } catch (error) {
+    res.status(500).json({ error: error.message });
     console.error(error);
   }
 });

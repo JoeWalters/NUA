@@ -186,7 +186,7 @@ async function deleteBonusToggles(deviceId, unifi, prisma, jobFunction, schedule
     if (!oneTime) {
       // Recurring schedule - use schedulerService helper
       const rule = await schedulerService.buildRecurringRule({
-        dayOfWeek: days?.split('').map((day) => parseInt(day)) || [],
+        modifiedDaysOfTheWeek: days?.split('').map((day) => parseInt(day)) || [],
         hour: convertToMilitaryTime(ampm, parseInt(hour)),
         minute: parseInt(minute)
       });
