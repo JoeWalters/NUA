@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { MdMoreTime } from "react-icons/md";
-import { HiMiniClock } from "react-icons/hi2";
 
 export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, onStateChange }) {
     const bonusDialogRef = useRef();
@@ -8,6 +7,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
     const [hours, setHours] = useState(0);
     const [minutes, setMinutes] = useState(30);
     const [milliTime, setMilliTime] = useState(null);
+    const [showAdded, setShowAdded] = useState(false);
 
     const numsCheckArr = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
     const minutesArr = (function generateMinutes() {
@@ -81,20 +81,27 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
         return () => { isMounted = false; };
     }, [trafficRuleId]);
 
-    // Countdown ticker
+    // Countdown ticker — single stable interval; stops cleanly when time hits 0.
     useEffect(() => {
+        if (!milliTime || milliTime <= 0) return;
+
         const interval = setInterval(() => {
-            setMilliTime(prev => prev - 1000);
+            setMilliTime(prev => {
+                if (prev <= 1000) {
+                    // Time expired: clear and notify parent to refresh state
+                    setMilliTime(null);
+                    onStateChange?.();
+                    return 0;
+                }
+                return prev - 1000;
+            });
         }, 1000);
 
-        if (milliTime <= 0) {
-            setMilliTime(null);
-            clearInterval(interval);
-            onStateChange?.();
-            return;
-        }
         return () => clearInterval(interval);
-    }, [milliTime, bonusTimeActive]);
+        // onStateChange is intentionally omitted: parent re-renders are handled
+        // by the parent itself; including it would restart the interval needlessly.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [milliTime]);
 
     const handleAddTime = async () => {
         try {
@@ -112,8 +119,13 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                 setMilliTime(response.timer);
                 setHours(0);
                 setMinutes(30);
-                bonusDialogRef.current.close();
-                onStateChange?.();
+                // Brief visual confirmation, then close the modal
+                setShowAdded(true);
+                setTimeout(() => {
+                    setShowAdded(false);
+                    bonusDialogRef.current?.close();
+                    onStateChange?.();
+                }, 400);
             }
         } catch (error) {
             console.error(error);
@@ -150,12 +162,21 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
         <>
             <button
                 type="button"
-                className={`btn btn-xs gap-1 ${milliTime ? "btn-info" : "btn-outline"}`}
+                className={`btn btn-xs gap-1 ${milliTime ? "btn-info" : "btn-outline btn-info"}`}
                 onClick={() => bonusDialogRef.current.showModal()}
                 title={milliTime ? "Add more bonus time or stop" : "Give this rule bonus time"}
             >
-                {milliTime ? <HiMiniClock className="w-3.5 h-3.5" /> : <MdMoreTime className="w-3.5 h-3.5" />}
-                {milliTime ? formatTime(milliTime) : "Bonus"}
+                {milliTime ? (
+                    <>
+                        <MdMoreTime className="w-3.5 h-3.5" />
+                        <span className="tabular-nums font-semibold">{formatTime(milliTime)}</span>
+                    </>
+                ) : (
+                    <>
+                        <MdMoreTime className="w-3.5 h-3.5" />
+                        Bonus
+                    </>
+                )}
             </button>
 
             <dialog ref={bonusDialogRef} className="modal">
@@ -167,7 +188,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                             <div className="relative flex items-center max-w-[11rem]">
                                 <button type="button" id="decrementHours" onClick={handleHoursIncDec} className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-s-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-gray-900 dark:text-white z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
-                                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"/>
+                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 1h16"/>
                                     </svg>
                                 </button>
                                 <input type="text" id="bedrooms-input" onChange={handleInputHoursChange} className="bg-gray-50 border-x-0 border-gray-300 h-11 font-medium text-center text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full pb-6 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="" value={hours} required />
@@ -176,7 +197,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                                 </div>
                                 <button type="button" id="incrementHours" onClick={handleHoursIncDec} className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-e-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-gray-900 dark:text-white pointer-events-none z-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
-                                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"/>
+                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 1v16M1 9h16"/>
                                     </svg>
                                 </button>
                             </div>
@@ -185,7 +206,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                             <div className="relative flex items-center max-w-[11rem]">
                                 <button type="button" id="decrementMinutes" onClick={handleMinutesIncDec} className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-s-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-gray-900 dark:text-white z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
-                                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M1 1h16"/>
+                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 1h16"/>
                                     </svg>
                                 </button>
                                 <input type="text" id="bedrooms-input" onChange={handleInputMinutesChange} className="bg-gray-50 border-x-0 border-gray-300 h-11 font-medium text-center text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full pb-6 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="" value={minutes} required />
@@ -194,7 +215,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                                 </div>
                                 <button type="button" id="incrementMinutes" onClick={handleMinutesIncDec} className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-e-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-gray-900 dark:text-white pointer-events-none z-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
-                                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 1v16M1 9h16"/>
+                                        <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 1v16M1 9h16"/>
                                     </svg>
                                 </button>
                             </div>
@@ -217,6 +238,11 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                             <button className="btn">Close</button>
                         </form>
                     </div>
+                    {showAdded && (
+                        <div className="px-6 pb-4 text-center text-success font-semibold">
+                            ✓ Bonus time added!
+                        </div>
+                    )}
                 </div>
             </dialog>
         </>
