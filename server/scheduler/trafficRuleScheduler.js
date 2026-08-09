@@ -35,7 +35,9 @@ async function fetchUnifiRule(unifi, unifiId) {
  */
 async function setRuleEnabled(unifi, prisma, ruleId, enabled) {
   const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
-  if (!rule) return;
+  if (!rule) {
+    return;
+  }
 
   if (unifi) {
     const unifiPath = `/v2/api/site/default/trafficrules/${rule.unifiId}`;
@@ -186,7 +188,9 @@ async function toggleTrafficRuleSchedule(ruleId, unifi, prisma, toggleOn) {
  */
 async function deleteTrafficRuleSchedule(ruleId, unifi, prisma) {
   const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
-  if (!rule) return;
+  if (!rule) {
+    return;
+  }
 
   if (rule.scheduleJobName) {
     const job = schedule.scheduledJobs[rule.scheduleJobName];
@@ -220,7 +224,9 @@ async function reArmTrafficRuleSchedulesOnBoot(unifi, prisma) {
   });
 
   for (const rule of rules) {
-    if (!rule.scheduleType) continue;
+    if (!rule.scheduleType) {
+      continue;
+    }
 
     let job;
     if (rule.scheduleType === 'oneTime') {
