@@ -28,6 +28,7 @@ const { version: appVersion } = require('./package.json');
 const schedulerService = require('./scheduler/service'); // Central scheduler service (Phase 3)
 const { startBonusTime, deleteBonusToggles, restartPausedJobs: bonusRestartPausedJobs, clearBonusTimeExpiry, reArmDeviceBonusOnBoot } = require('./scheduler/bonusScheduler'); // Bonus time scheduler (Phase 5)
 const { startBonusRule, endBonusRule, reArmTrafficBonusOnBoot } = require('./scheduler/trafficBonusScheduler'); // Traffic rule bonus scheduler
+const { addTrafficRuleSchedule, toggleTrafficRuleSchedule, deleteTrafficRuleSchedule, reArmTrafficRuleSchedulesOnBoot } = require('./scheduler/trafficRuleScheduler'); // Traffic rule schedules
 
 const prisma = new PrismaClient();
 
@@ -2578,6 +2579,49 @@ app.post('/deletebonusrule', async (req, res) => { // cancel bonus time for a ru
   }
 });
 
+// =========================== Traffic rule schedules ===========================
+// A traffic rule schedule enables (allow) or disables (block) the rule at a
+// chosen time, mirroring the device EasySchedules system.
+
+app.post('/addtrafficruleschedule', async (req, res) => { // create schedule for a traffic rule
+  const { trafficRuleId, date, hour, minute, ampm, oneTime, modifiedDaysOfTheWeek, scheduleAction } = req.body;
+  try {
+    await addTrafficRuleSchedule(
+      parseInt(trafficRuleId),
+      { date, hour, minute, ampm, oneTime, modifiedDaysOfTheWeek, scheduleAction },
+      unifi,
+      prisma
+    );
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/toggletrafficruleschedule', async (req, res) => { // enable/disable an existing schedule
+  const { trafficRuleId, toggleOn } = req.body;
+  try {
+    await toggleTrafficRuleSchedule(parseInt(trafficRuleId), unifi, prisma, toggleOn === true);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/deletetrafficruleschedule', async (req, res) => { // remove a schedule entirely
+  const { trafficRuleId } = req.body;
+  try {
+    await deleteTrafficRuleSchedule(parseInt(trafficRuleId), unifi, prisma);
+    res.sendStatus(200);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 
 app.post('/deletebonustoggles', async (req, res) => { // stop timer and shutoff device (Phase 5: uses bonusScheduler)
   const { deviceId, cancelTimer } = req.body; // deviceId is the timerId
@@ -3162,6 +3206,8 @@ const PORT = process.env.PORT || customPORT; // portSettings.js
     console.log(`[boot] Device bonus timers re-armed: ${deviceResult.rearmed}, expired: ${deviceResult.expired}`);
     const ruleResult = await reArmTrafficBonusOnBoot(unifi, prisma);
     console.log(`[boot] Traffic rule bonus timers re-armed: ${ruleResult.rearmed}, expired: ${ruleResult.expired}`);
+    const schedResult = await reArmTrafficRuleSchedulesOnBoot(unifi, prisma);
+    console.log(`[boot] Traffic rule schedules re-armed: ${schedResult.rearmed}`);
   } catch (error) {
     console.error('[boot] Failed to restore bonus timers:', error);
   }
