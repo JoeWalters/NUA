@@ -10,16 +10,21 @@
 const { cronBonusTimeEndJobReinitiation } = require('../server_util_funcs/cronBonusTimeEndJobReinitiation');
 const { easyBonusTimeEndJobReinitiation } = require('../server_util_funcs/easyBonusTimeEndJobReinitiation');
 const { convertToMilitaryTime } = require('../server_util_funcs/convert_to_military_time');
+const { minutesHoursToMilli } = require('../server_util_funcs/minutesHoursToMilli');
+const { startTimeout, endTimeout, startTimeoutFromExpiry } = require('../server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
 
 /**
  * Start bonus time for a device
  * Pauses all active schedules and creates bonus toggle records to restore them later
  */
-async function startBonusTime(deviceId, hours, minutes, unifi, prisma, schedulerService) {
+async function startBonusTime(deviceId, hours, minutes, unifi, prisma, schedulerService, originalTime=null) {
   // Enable bonus time on device
+  // originalTime (ms remaining) lets additional time extend from the current expiry
+  const extraMs = originalTime ? Math.max(originalTime, 0) : 0;
+  const expiresAt = new Date(Date.now() + extraMs + minutesHoursToMilli(minutes, hours));
   await prisma.device.update({
     where: { id: deviceId },
-    data: { bonusTimeActive: true }
+    data: { bonusTimeActive: true, bonusTimeExpiresAt: expiresAt }
   });
 
   const getMacAddressForDevice = await prisma.device.findUnique({ 
@@ -133,7 +138,7 @@ async function restartPausedJobs(deviceId, unifi, prisma, jobFunction, scheduler
     // Disable bonus time on device
     await prisma.device.update({
       where: { id: deviceId },
-      data: { bonusTimeActive: false }
+      data: { bonusTimeActive: false, bonusTimeExpiresAt: null }
     });
   } catch (error) {
     console.error('Error in restartPausedJobs:', error);
@@ -181,7 +186,7 @@ async function deleteBonusToggles(deviceId, unifi, prisma, jobFunction, schedule
     if (!oneTime) {
       // Recurring schedule - use schedulerService helper
       const rule = await schedulerService.buildRecurringRule({
-        dayOfWeek: days?.split('').map((day) => parseInt(day)) || [],
+        modifiedDaysOfTheWeek: days?.split('').map((day) => parseInt(day)) || [],
         hour: convertToMilitaryTime(ampm, parseInt(hour)),
         minute: parseInt(minute)
       });
@@ -230,8 +235,55 @@ async function deleteBonusToggles(deviceId, unifi, prisma, jobFunction, schedule
   return { restoredCronCount: getCronBonusTogglesToDelete.length, restoredEasyCount: getEasyBonusTogglesToDelete.length };
 }
 
+/**
+ * Clear the persisted bonus-time expiry for a device.
+ * Called when bonus time is stopped via cancel/block paths.
+ */
+async function clearBonusTimeExpiry(deviceId, prisma) {
+  await prisma.device.update({
+    where: { id: deviceId },
+    data: { bonusTimeActive: false, bonusTimeExpiresAt: null }
+  });
+}
+
+/**
+ * Boot-time restore for device bonus time. Re-arms timers for devices whose
+ * expiry is still in the future; immediately ends bonus time (restarting paused
+ * schedules) for devices whose expiry already passed while the container was down.
+ */
+async function reArmDeviceBonusOnBoot(unifi, prisma, jobFunction, schedulerService) {
+  let rearmed = 0;
+  let expired = 0;
+
+  const devices = await prisma.device.findMany({
+    where: { bonusTimeExpiresAt: { not: null } }
+  });
+
+  for (const device of devices) {
+    const expiresAt = new Date(device.bonusTimeExpiresAt).getTime();
+    const remaining = expiresAt - Date.now();
+
+    if (remaining > 0) {
+      // Still in bonus time — re-arm the timer keyed by deviceId
+      startTimeoutFromExpiry(device.id, expiresAt, async () => {
+        await restartPausedJobs(device.id, unifi, prisma, jobFunction, schedulerService);
+        endTimeout(device.id);
+      });
+      rearmed++;
+    } else {
+      // Bonus time already elapsed while down — restore schedules now
+      await restartPausedJobs(device.id, unifi, prisma, jobFunction, schedulerService);
+      expired++;
+    }
+  }
+
+  return { rearmed, expired };
+}
+
 module.exports = {
   startBonusTime,
   restartPausedJobs,
-  deleteBonusToggles
+  deleteBonusToggles,
+  clearBonusTimeExpiry,
+  reArmDeviceBonusOnBoot
 };

@@ -25,8 +25,9 @@ const { startTimeout, endTimeout, timeoutMap } = require('./server_util_funcs/st
 const { stopBonusTime } = require('./server_util_funcs/stop_bonus_time/stopBonusTimeViaToggleOff');
 const { encrypt, decrypt, isEncryptionEnabled, generateAndSaveKey } = require('./server_util_funcs/credentialCrypto');
 const { version: appVersion } = require('./package.json');
-const { schedulerService } = require('./scheduler/service'); // Central scheduler service (Phase 3)
-const { startBonusTime, deleteBonusToggles, restartPausedJobs: bonusRestartPausedJobs } = require('./scheduler/bonusScheduler'); // Bonus time scheduler (Phase 5)
+const schedulerService = require('./scheduler/service'); // Central scheduler service (Phase 3)
+const { startBonusTime, deleteBonusToggles, restartPausedJobs: bonusRestartPausedJobs, clearBonusTimeExpiry, reArmDeviceBonusOnBoot } = require('./scheduler/bonusScheduler'); // Bonus time scheduler (Phase 5)
+const { startBonusRule, endBonusRule, reArmTrafficBonusOnBoot } = require('./scheduler/trafficBonusScheduler'); // Traffic rule bonus scheduler
 
 const prisma = new PrismaClient();
 
@@ -2452,11 +2453,13 @@ app.post('/getallworking', async (req, res) => {
 
 app.post('/addbonustime', async (req, res) => { // cron bonus time (Phase 5: uses bonusScheduler)
   try {
-    const { hours, minutes, deviceId } = req.body;
+    const { hours, minutes, deviceId, isAdditionalTime } = req.body;
 
     if (hours || minutes) {
       // Start bonus time — pauses all active schedules and creates toggle records
-      await startBonusTime(deviceId, hours, minutes, unifi, prisma, schedulerService);
+      const currentExpiry = timeoutMap.get(deviceId)?.time;
+      const originalTime = isAdditionalTime && currentExpiry ? Math.max(currentExpiry - Date.now(), 0) : null;
+      await startBonusTime(deviceId, hours, minutes, unifi, prisma, schedulerService, originalTime);
 
       // Set up timeout callback to restart paused jobs after bonus time ends
       const restartCallback = async () => {
@@ -2464,7 +2467,7 @@ app.post('/addbonustime', async (req, res) => { // cron bonus time (Phase 5: use
         endTimeout(deviceId);
       };
 
-      const { timeoutMap } = startTimeout(deviceId, minutes, hours, restartCallback);
+      startTimeout(deviceId, minutes, hours, restartCallback, originalTime);
       const t = timeoutMap.get(deviceId)?.time;
       const newTime = t - Date.now();
 
@@ -2473,6 +2476,7 @@ app.post('/addbonustime', async (req, res) => { // cron bonus time (Phase 5: use
       res.status(422).send({ message: 'Hours or minutes required for bonus time.' });
     }
   } catch (error) {
+    res.status(500).json({ error: error.message });
     console.error(error);
   }
 });
@@ -2485,8 +2489,90 @@ app.post('/getbonustimesmap', async (req, res) => {
       const newTime = t - Date.now();
       res.status(200).json({ timer: newTime  });
     } else {
-      res.status(204).json({ msg: 'No timer information for this device.' });
+      // Restart-safe fallback: read the persisted expiry timestamp
+      const device = await prisma.device.findUnique({
+        where: { id: deviceId }
+      });
+      const expiresAt = device?.bonusTimeExpiresAt;
+      if (expiresAt) {
+        const remaining = new Date(expiresAt).getTime() - Date.now();
+        if (remaining > 0) {
+          res.status(200).json({ timer: remaining });
+        } else {
+          res.status(204).json({ msg: 'No timer information for this device.' });
+        }
+      } else {
+        res.status(204).json({ msg: 'No timer information for this device.' });
+      }
     }
+  } catch (error) {
+    console.error(error);
+  }
+});
+
+app.post('/addbonusrule', async (req, res) => { // bonus time for a traffic rule
+  try {
+    const { hours, minutes, trafficRuleId, isAdditionalTime } = req.body;
+
+    if (hours || minutes) {
+      const currentExpiry = timeoutMap.get(`rule-${trafficRuleId}`)?.time;
+      const originalTime = isAdditionalTime && currentExpiry ? Math.max(currentExpiry - Date.now(), 0) : null;
+      const expiresAt = await startBonusRule(trafficRuleId, hours, minutes, unifi, prisma, originalTime);
+
+      const restartCallback = async () => {
+        await endBonusRule(trafficRuleId, unifi, prisma);
+        endTimeout(`rule-${trafficRuleId}`);
+      };
+      startTimeout(`rule-${trafficRuleId}`, minutes, hours, restartCallback, originalTime);
+
+      const remaining = expiresAt.getTime() - Date.now();
+      res.status(200).json({ msg: 'Confirmed', timer: remaining, timerId: `rule-${trafficRuleId}` });
+    } else {
+      res.status(422).send({ message: 'Hours or minutes required for bonus time.' });
+    }
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+    console.error(error);
+  }
+});
+
+app.post('/getbonusrulesmap', async (req, res) => {
+  try {
+    const { trafficRuleId } = req.body;
+    const t = timeoutMap.get(`rule-${trafficRuleId}`)?.time;
+    if (t) {
+      const newTime = t - Date.now();
+      res.status(200).json({ timer: newTime });
+    } else {
+      // Restart-safe fallback: read the persisted expiry timestamp
+      const rule = await prisma.trafficRules.findUnique({
+        where: { id: trafficRuleId }
+      });
+      const expiresAt = rule?.bonusTimeExpiresAt;
+      if (expiresAt) {
+        const remaining = new Date(expiresAt).getTime() - Date.now();
+        if (remaining > 0) {
+          res.status(200).json({ timer: remaining });
+        } else {
+          res.status(204).json({ msg: 'No timer information for this rule.' });
+        }
+      } else {
+        res.status(204).json({ msg: 'No timer information for this rule.' });
+      }
+    }
+  } catch (error) {
+    console.error(error);
+  }
+});
+
+app.post('/deletebonusrule', async (req, res) => { // cancel bonus time for a rule immediately
+  const { trafficRuleId, cancelTimer } = req.body;
+  try {
+    if (cancelTimer) {
+      endTimeout(`rule-${trafficRuleId}`);
+    }
+    await endBonusRule(trafficRuleId, unifi, prisma);
+    res.sendStatus(200);
   } catch (error) {
     console.error(error);
   }
@@ -2507,16 +2593,17 @@ app.post('/deletebonustoggles', async (req, res) => { // stop timer and shutoff 
 
     const confirmBlocked = await unifi?.blockClient(getMacAddressForDevice.macAddress);
     console.log(`${getMacAddressForDevice.macAddress} has been blocked: ${confirmBlocked}`);
+    await clearBonusTimeExpiry(deviceId, prisma);
     await prisma.device.update({
       where: { id: deviceId },
       data: {
-        active: false,
-        bonusTimeActive: false
+        active: false
       }
     });
 
     res.sendStatus(200);
   } catch (error) {
+    res.status(500).json({ error: error.message });
     console.error(error);
   }
 });
@@ -3067,6 +3154,19 @@ app.get('**', async (req, res) => {
 });
 
 const PORT = process.env.PORT || customPORT; // portSettings.js
+
+// Restore bonus-time timers that survived a container restart
+(async () => {
+  try {
+    const deviceResult = await reArmDeviceBonusOnBoot(unifi, prisma, jobFunction, schedulerService);
+    console.log(`[boot] Device bonus timers re-armed: ${deviceResult.rearmed}, expired: ${deviceResult.expired}`);
+    const ruleResult = await reArmTrafficBonusOnBoot(unifi, prisma);
+    console.log(`[boot] Traffic rule bonus timers re-armed: ${ruleResult.rearmed}, expired: ${ruleResult.expired}`);
+  } catch (error) {
+    console.error('[boot] Failed to restore bonus timers:', error);
+  }
+})();
+
 app.listen(PORT, () => {
   console.log(`Server listening on ${PORT}....`);
 });

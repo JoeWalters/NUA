@@ -1,9 +1,10 @@
 const { convertToMilitaryTime } = require('./convert_to_military_time');
 const { dateFromDateString } = require('./ez_sched_utils/dateFromDateString');
+const schedule = require('node-schedule');
 
 
 
-async function easyBonusTimeEndJobReinitiation(deviceId, schedule, prisma, unifi, jobFunction, logger) {
+async function easyBonusTimeEndJobReinitiation(deviceId, _schedule, prisma, unifi, jobFunction, logger) {
   try {
     const getEasyBonusTogglesForDevice = await prisma.easyBonusToggles.findMany({ where: { deviceId: deviceId }});
 
@@ -70,7 +71,8 @@ async function easyBonusTimeEndJobReinitiation(deviceId, schedule, prisma, unifi
       }
     }
 
-    await unifi.blockClient(getMacAddressForDevice.macAddress);
+    // unifi may be null during boot-time re-arm before the controller connects
+    await unifi?.blockClient(getMacAddressForDevice.macAddress);
     await prisma.device.update({
       where: { id: deviceId },
       data: {

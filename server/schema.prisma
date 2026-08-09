@@ -26,6 +26,7 @@ model Device {
   macAddress              String
   active                  Boolean
   bonusTimeActive         Boolean  @default(false)
+  bonusTimeExpiresAt      DateTime?
   createdAt               DateTime @default(now())
   crons                   Cron[]
   easySchedules           EasySchedule[]
@@ -79,6 +80,7 @@ model TrafficRules {
   description             String
   enabled                 Boolean
   blockAllow              String
+  bonusTimeExpiresAt      DateTime?
 }
 
 model AppCatIds {
