@@ -492,8 +492,7 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, onStateChange, loading
                             />
                             <RuleScheduleButton
                                 trafficRuleId={data?.trafficRule.id}
-                                scheduleEnabled={data?.trafficRule.scheduleEnabled || false}
-                                scheduleType={data?.trafficRule.scheduleType}
+                                scheduleData={data?.trafficRule}
                                 onStateChange={onStateChange}
                             />
                         </div>

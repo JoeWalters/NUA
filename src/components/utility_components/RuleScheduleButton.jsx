@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { MdSchedule } from "react-icons/md";
+import { GoTrash } from "react-icons/go";
 import TimeClock from "../TimeClock/TimeClock";
 import { dateIsInPast } from "../utility_functions/date_in_past_checker";
 import { convertSelectedDateForComparison } from "../utility_functions/convertSelectedDate";
+import { convertDigitsToDOW } from "../utility_functions/convertDigitsToDOTW";
 
-export default function RuleScheduleButton({ trafficRuleId, scheduleEnabled, scheduleType, onStateChange }) {
+function formatMinutes(min) {
+    const m = min ?? 0;
+    return m.toString().length === 1 ? "0" + m : m;
+}
+
+export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStateChange }) {
     const scheduleDialogRef = useRef();
     const badDateModalRef = useRef();
     const oneTimeScheduleRef = useRef();
@@ -26,7 +33,10 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleEnabled, sch
             sat: undefined,
         },
     });
-    const [changed, setChanged] = useState(false);
+
+    const scheduleEnabled = scheduleData?.scheduleEnabled || false;
+    const scheduleType = scheduleData?.scheduleType;
+    const scheduleActionText = scheduleData?.scheduleAction || 'allow';
 
     const d1 = useRef();
     const d2 = useRef();
@@ -209,52 +219,125 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleEnabled, sch
         }
     };
 
-    const scheduleLabel = scheduleEnabled
-        ? (scheduleType === 'recurring' ? 'Recurring' : 'One-time')
-        : 'Schedule';
+    // Build a human-readable description of the currently saved schedule
+    const currentScheduleDescription = () => {
+        if (!scheduleEnabled || !scheduleType) return null;
+        const hour = scheduleData?.scheduleHour ?? 0;
+        const minute = scheduleData?.scheduleMinute ?? 0;
+        const time = `${hour}:${formatMinutes(minute)}`;
+
+        if (scheduleType === 'recurring') {
+            const days = scheduleData?.scheduleDays;
+            let dow = null;
+            if (days) {
+                dow = convertDigitsToDOW(days);
+            }
+            const dayText = dow && dow.length < 7
+                ? dow.map((day, i) => day + (i === dow.length - 1 ? '' : ',')).join('')
+                : 'All';
+            return { time, extra: dayText };
+        }
+        // one-time
+        return { time, extra: scheduleData?.scheduleDate || '' };
+    };
+
+    const savedSchedule = currentScheduleDescription();
 
     return (
         <>
             <button
                 type="button"
-                className={`btn btn-xs gap-1 ${scheduleEnabled ? "btn-warning" : "btn-outline btn-warning"}`}
+                className={`btn btn-xs gap-0 ${scheduleEnabled ? "btn-warning" : "btn-outline btn-warning"}`}
                 onClick={() => scheduleDialogRef.current.showModal()}
                 title={scheduleEnabled ? "Edit schedule" : "Schedule this rule"}
             >
                 <MdSchedule className="w-3.5 h-3.5" />
-                {scheduleLabel}
             </button>
 
             <dialog ref={scheduleDialogRef} className="modal">
-                <div className="modal-box">
-                    <h3 className="font-bold text-lg">Schedule Traffic Rule</h3>
-
-                    <div className="flex items-center justify-center">
-                        <div className="join m-4 bg-base-200 border-8 border-base-200 rounded-lg">
-                            <input
-                                type="radio"
-                                data-recur="recur"
-                                ref={recurringScheduleRef}
-                                onClick={handlePickedSchedule}
-                                onChange={handlePickedSchedule}
-                                name="radio-2"
-                                className="btn join-item"
-                                checked={!oneTimeSchedule}
-                                aria-label="Recurring"
-                            />
-                            <input
-                                type="radio"
-                                data-onetime="onetime"
-                                ref={oneTimeScheduleRef}
-                                onClick={handlePickedSchedule}
-                                onChange={handlePickedSchedule}
-                                name="radio-2"
-                                className="btn join-item"
-                                checked={oneTimeSchedule}
-                                aria-label="One Time"
-                            />
-                        </div>
+                <div className="modal-box max-w-2xl w-full">
+                    {/* Header */}
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold text-base-content">Schedule Traffic Rule</h3>
+                        <form method="dialog">
+                            <button className="btn btn-sm btn-circle btn-ghost" aria-label="Close schedule modal">
+                                ✕
+                            </button>
+                        </form>
                     </div>
+
+                    {/* Existing Schedule */}
+                    <div className="bg-base-200 rounded-xl p-5 mb-5">
+                        <h4 className="text-base font-semibold mb-3 text-base-content">Existing Schedule</h4>
+                        {savedSchedule ? (
+                            <table className="table table-zebra w-full rounded-lg">
+                                <thead>
+                                    <tr className="font-bold" align="center">
+                                        <th>Time</th>
+                                        <th>Action</th>
+                                        <th>Off/On</th>
+                                        <th>Delete</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr align="center">
+                                        <td className="uppercase w-1/4 text-xs sm:text-sm">
+                                            <div>{savedSchedule.time}</div>
+                                            <div className="text-base-content/60">{savedSchedule.extra}</div>
+                                        </td>
+                                        <td className={`uppercase ${scheduleActionText === 'block' ? 'text-red-500' : 'text-green-500'}`}>
+                                            {scheduleActionText}
+                                        </td>
+                                        <td>
+                                            <input
+                                                type="checkbox"
+                                                className="toggle toggle-success"
+                                                checked={scheduleEnabled}
+                                                onClick={() => handleToggleSchedule(!scheduleEnabled)}
+                                                aria-label="Toggle schedule on/off"
+                                            />
+                                        </td>
+                                        <td className="w-3 h-3">
+                                            <div className="w-fit hover:cursor-pointer" onClick={handleDeleteSchedule} title="Delete schedule">
+                                                <GoTrash className="flex items-center justify-center w-6 h-6 pointer-events-none" />
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        ) : (
+                            <div className="mx-auto text-center text-base-content/60">There is no schedule to display...</div>
+                        )}
+                    </div>
+
+                    {/* New Schedule Form */}
+                    <div className="border-t border-base-300 pt-4">
+                        <div className="flex items-center justify-center">
+                            <div className="join m-4 bg-base-200 border-8 border-base-200 rounded-lg">
+                                <input
+                                    type="radio"
+                                    data-recur="recur"
+                                    ref={recurringScheduleRef}
+                                    onClick={handlePickedSchedule}
+                                    onChange={handlePickedSchedule}
+                                    name="radio-2"
+                                    className="btn join-item"
+                                    checked={!oneTimeSchedule}
+                                    aria-label="Recurring"
+                                />
+                                <input
+                                    type="radio"
+                                    data-onetime="onetime"
+                                    ref={oneTimeScheduleRef}
+                                    onClick={handlePickedSchedule}
+                                    onChange={handlePickedSchedule}
+                                    name="radio-2"
+                                    className="btn join-item"
+                                    checked={oneTimeSchedule}
+                                    aria-label="One Time"
+                                />
+                            </div>
+                        </div>
 
                     <div className="divider">Action</div>
 
@@ -370,37 +453,17 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleEnabled, sch
 
                             <div className="divider"></div>
 
-                            <div className="flex flex-col gap-2">
-                                {scheduleEnabled && (
-                                    <div className="flex gap-2">
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline btn-sm flex-1"
-                                            onClick={() => handleToggleSchedule(!scheduleEnabled)}
-                                        >
-                                            {scheduleEnabled ? 'Disable Schedule' : 'Enable Schedule'}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="btn btn-error btn-outline btn-sm flex-1"
-                                            onClick={handleDeleteSchedule}
-                                        >
-                                            Delete Schedule
-                                        </button>
-                                    </div>
-                                )}
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        className="btn btn-primary btn-sm flex-1"
-                                        onClick={handleSubmit}
-                                    >
-                                        {submitBtnLoading ? <span className="loading loading-spinner w-6 h-6 text-success"></span> : 'Save Schedule'}
-                                    </button>
-                                    <form method="dialog">
-                                        <button className="btn btn-sm">Close</button>
-                                    </form>
-                                </div>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    className="btn btn-primary btn-sm flex-1"
+                                    onClick={handleSubmit}
+                                >
+                                    {submitBtnLoading ? <span className="loading loading-spinner w-6 h-6 text-success"></span> : 'Save Schedule'}
+                                </button>
+                                <form method="dialog">
+                                    <button className="btn btn-sm">Close</button>
+                                </form>
                             </div>
 
                             {invalidscheduleMessage.error && (
@@ -409,6 +472,7 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleEnabled, sch
                                 </div>
                             )}
                         </div>
+                    </div>
                     </div>
                 </div>
             </dialog>
