@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { HiMiniPencilSquare } from "react-icons/hi2";
+import { MdSchedule } from "react-icons/md";
 import DeviceSkeleton from "./skeletons/DevicesSkeleton";
 import LoadingDialog from "./utility_components/LoadingDialog";
 import BonusTimeButton from "./utility_components/BonusTimeButton";
@@ -263,10 +264,11 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
                                                         </div>
                                                         <div>
                                                             <div 
-                                                                className="btn btn-block bg-base-300 hover:bg-base-content hover:text-base-100 my-2"
+                                                                className="btn btn-xs gap-0 btn-outline btn-warning my-2"
                                                                 onClick={() => openSchedulerModal(device?.id, device?.name)}
+                                                                title="Schedule this device"
                                                             >
-                                                                Schedule
+                                                                <MdSchedule className="w-3.5 h-3.5" />
                                                             </div>
                                                         </div>
                                                         <div
