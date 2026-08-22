@@ -37,6 +37,7 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
       res.sendStatus(200);
     } catch (error) {
       console.error(error);
+      res.status(500).json({ error: 'Internal server error.', details: error.message });
     }
   });
 
@@ -84,6 +85,7 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
       res.json(updateEZToggle);
     } catch (error) {
       console.error(error);
+      res.status(500).json({ error: 'Internal server error.', details: error.message });
     }
   });
 
@@ -101,9 +103,8 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
       jobToCancel?.cancel();
       res.json({ message: 'Data Deleted Succesfully.', dataDeleted: deleteEZSchedule });
     } catch (error) {
-      if (error) {
-        throw error;
-      }
+      console.error(error);
+      res.status(500).json({ error: 'Internal server error.', details: error.message });
     }
   });
 }

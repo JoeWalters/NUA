@@ -29,6 +29,8 @@ const schedulerService = require('./scheduler/service'); // Central scheduler se
 const { startBonusTime, deleteBonusToggles, restartPausedJobs: bonusRestartPausedJobs, clearBonusTimeExpiry, reArmDeviceBonusOnBoot } = require('./scheduler/bonusScheduler'); // Bonus time scheduler (Phase 5)
 const { startBonusRule, endBonusRule, reArmTrafficBonusOnBoot } = require('./scheduler/trafficBonusScheduler'); // Traffic rule bonus scheduler
 const { addTrafficRuleSchedule, toggleTrafficRuleSchedule, deleteTrafficRuleSchedule, reArmTrafficRuleSchedulesOnBoot } = require('./scheduler/trafficRuleScheduler'); // Traffic rule schedules
+const asyncHandler = require('./server_util_funcs/asyncHandler');
+const auth = require('./server_util_funcs/auth');
 
 const prisma = new PrismaClient();
 
@@ -41,6 +43,35 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(PROJECT_ROOT, 'dist')));
 consoleReader(schedule);
+
+// ---- Error handling & optional authentication (route registration layer) ----
+// Express 4 does not catch rejected promises from async handlers, which leaves
+// client requests hanging with no response. Wrap every registered handler in
+// asyncHandler so rejections flow to the global error middleware below.
+// When auth is enabled (NUA_AUTH_ENABLED=true), also inject requireAuth in front
+// of every non-public route. Public routes (login/logout/auth-status/health and
+// the SPA fallback) stay reachable so the login page can always be served.
+const _appGet = app.get.bind(app);
+const _appPost = app.post.bind(app);
+const _appPut = app.put.bind(app);
+const _appDelete = app.delete.bind(app);
+
+function registerWithAuth(method, path, handlers) {
+  const wrapped = handlers.map((h) => asyncHandler(h));
+  const protectedRoute = auth.isEnabled() && !auth.PUBLIC_PATHS.has(path);
+  return protectedRoute ? [auth.requireAuth, ...wrapped] : wrapped;
+}
+
+app.get = (p, ...handlers) => handlers.length ? _appGet(p, ...registerWithAuth('get', p, handlers)) : _appGet(p);
+app.post = (p, ...handlers) => handlers.length ? _appPost(p, ...registerWithAuth('post', p, handlers)) : _appPost(p);
+app.put = (p, ...handlers) => handlers.length ? _appPut(p, ...registerWithAuth('put', p, handlers)) : _appPut(p);
+app.delete = (p, ...handlers) => handlers.length ? _appDelete(p, ...registerWithAuth('delete', p, handlers)) : _appDelete(p);
+
+// ---- Auth routes ----
+app.post('/login', auth.login);
+app.post('/logout', auth.logout);
+app.get('/auth-status', auth.status);
+
 
 // Rate limiters (Fix 11)
 const settingsLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many requests, please try again later.' } });
@@ -723,7 +754,7 @@ app.get('/pingmacaddresses', async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-    // res.sendStatus(500).json({ error: "Internal Server Error." });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -764,10 +795,8 @@ app.post('/addmacaddresses', async (req, res) => {
       res.send({ newMacAddress });
     }
   } catch (error) {
-    if (error) {
-      throw error;
-    }
-    res.send({ message: 'There was an error.'});
+    console.error('Error adding device:', error);
+    res.status(500).json({ error: 'There was an error adding the device.', details: error.message });
   }
 
   // try {
@@ -855,9 +884,8 @@ app.post('/getspecificdevice', async (req, res) => { // fetch individual device 
     });
     res.json(deviceInfo);
   } catch (error) {
-    if (error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -1091,6 +1119,7 @@ app.put('/updatedevicedata', async (req, res) => { // Devices.jsx device edit
     res.json(updatedDeviceData);
   } catch (error) {
     console.error(error);
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1215,9 +1244,8 @@ app.get('/checkjobreinitiation', async (req, res) => {
       updatedCronJobs
     });
   } catch (error) {
-    if (error) {
-      console.error(error);
-    }
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1271,6 +1299,7 @@ app.post('/addschedule', async (req, res) => { // adds cron data specific front 
     }
   } catch (error) {
     console.error(error);
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1290,9 +1319,8 @@ app.delete('/deletecron', async (req, res) => {
     res.json({ message: 'Data Deleted Succesfully.', dataDeleted: deleteCron });
 
   } catch (error) {
-    if (error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -1363,9 +1391,8 @@ app.post('/getscheduledata', async (req, res) => { // fetches cron data specific
     // }
     // console.log('jobs ', scheduledJobs[cronData[0].jobName] === undefined);
   } catch (error) {
-    if (error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -1407,9 +1434,8 @@ app.post('/savesitesettings', async (req, res) => {
     });
     res.json({ siteCredentials });
   } catch (error) {
-    if(error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -1438,9 +1464,8 @@ app.put('/updatesitesettings', async (req, res) => {
     });
     res.json({ message: 'Credentials successfully saved!' });
   } catch (error) {
-    if(error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -1468,9 +1493,8 @@ app.get('/checkforsettings', async (req, res) => {
       res.sendStatus(404);
     }
   } catch (error) {
-    if (error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -1895,9 +1919,8 @@ app.get('/getcurrenttheme', async (req, res) => {
     // console.log('theme: ', theme);
     res.json(theme);
   } catch (error) {
-    if (error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -1911,9 +1934,8 @@ app.put('/updatetheme', async (req, res) => {
     });
     res.json(updateTheme);
   } catch (error) {
-    if (error) {
-      throw error;
-    }
+    console.error(error);
+    res.status(500).json({ error: "Internal server error.", details: error.message });
   }
 });
 
@@ -3195,6 +3217,17 @@ app.delete('/deletetestids', async (req, res) => {
 //~~~~~~refresh redirect~~~~~~
 app.get('**', async (req, res) => {
   res.sendFile(path.join(PROJECT_ROOT, 'dist', 'index.html'));
+});
+
+// ---- Global error-handling middleware ----
+// Catches errors forwarded by asyncHandler (rejected promises in route
+// handlers). Sends a 500 JSON response instead of leaving the request hanging.
+app.use((err, req, res, next) => {
+  console.error('Unhandled route error:', err?.message || err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).json({ error: 'Internal server error.', details: err?.message });
 });
 
 const PORT = process.env.PORT || customPORT; // portSettings.js
