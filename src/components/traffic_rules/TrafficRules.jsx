@@ -6,6 +6,7 @@ import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
 import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
 import CreateRuleModal from "./CreateRuleModal";
 import RuleBonusTimeButton from "../utility_components/RuleBonusTimeButton";
+import RuleScheduleButton from "../utility_components/RuleScheduleButton";
 import {
     HiShieldCheck,
     HiPlus,
@@ -487,6 +488,11 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, onStateChange, loading
                             <RuleBonusTimeButton
                                 trafficRuleId={data?.trafficRule.id}
                                 bonusTimeActive={bonusTimeActive}
+                                onStateChange={onStateChange}
+                            />
+                            <RuleScheduleButton
+                                trafficRuleId={data?.trafficRule.id}
+                                scheduleData={data?.trafficRule}
                                 onStateChange={onStateChange}
                             />
                         </div>

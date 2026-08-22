@@ -176,32 +176,15 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
         }
     }
 
-    const formatTime = (ms) => {
-        const h = Math.floor((ms / (1000*60*60)) % 24);
-        const m = Math.floor((ms / (1000*60)) % 60);
-        const s = Math.floor(ms / 1000 % 60);
-        return `${h} : ${m} : ${s}`;
-    }
-
     return (
         <>
             <button
                 type="button"
-                className={`btn btn-xs gap-1 w-full ${milliTime ? "btn-info" : "btn-outline btn-info"}`}
+                className={`btn btn-xs gap-0 ${milliTime ? "btn-info" : "btn-outline btn-info"}`}
                 onClick={() => bonusDialogRef.current.showModal()}
                 title={milliTime ? "Add more bonus time or stop" : "Give this device bonus time"}
             >
-                {milliTime ? (
-                    <>
-                        <MdMoreTime className="w-3.5 h-3.5" />
-                        <span className="tabular-nums font-semibold">{formatTime(milliTime)}</span>
-                    </>
-                ) : (
-                    <>
-                        <MdMoreTime className="w-3.5 h-3.5" />
-                        Bonus
-                    </>
-                )}
+                <MdMoreTime className="w-3.5 h-3.5" />
             </button>
 
             <dialog ref={bonusDialogRef} className="modal">

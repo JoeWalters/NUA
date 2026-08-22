@@ -162,21 +162,11 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
         <>
             <button
                 type="button"
-                className={`btn btn-xs gap-1 ${milliTime ? "btn-info" : "btn-outline btn-info"}`}
+                className={`btn btn-xs gap-0 ${milliTime ? "btn-info" : "btn-outline btn-info"}`}
                 onClick={() => bonusDialogRef.current.showModal()}
                 title={milliTime ? "Add more bonus time or stop" : "Give this rule bonus time"}
             >
-                {milliTime ? (
-                    <>
-                        <MdMoreTime className="w-3.5 h-3.5" />
-                        <span className="tabular-nums font-semibold">{formatTime(milliTime)}</span>
-                    </>
-                ) : (
-                    <>
-                        <MdMoreTime className="w-3.5 h-3.5" />
-                        Bonus
-                    </>
-                )}
+                <MdMoreTime className="w-3.5 h-3.5" />
             </button>
 
             <dialog ref={bonusDialogRef} className="modal">

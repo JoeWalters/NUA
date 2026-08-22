@@ -1,6 +1,7 @@
 import { useState } from "react";
 // Removed: import { Link } from "react-router-dom";
 import { HiMiniPencilSquare, HiWifi, HiSignal } from "react-icons/hi2";
+import { MdSchedule } from "react-icons/md";
 import { 
     HiOutlineDesktopComputer, 
     HiOutlineDeviceMobile, 
@@ -125,6 +126,21 @@ export default function ModernDeviceCard({
                         <span className="text-sm text-base-content/70" title={device?.active ? 'This device is currently allowed' : 'This device is currently blocked'}>
                             {device?.active ? 'Allowed' : 'Blocked'}
                         </span>
+
+                        <BonusTimeButton
+                            deviceId={device?.id}
+                            timerCancelled={timerCancelled}
+                            timerHandler={timerHandler}
+                            bonusTimeActive={device?.bonusTimeActive}
+                            handleRenderToggle={handleRenderToggle}
+                        />
+                        <button
+                            onClick={() => onScheduleClick(device?.id, device?.name)}
+                            className="btn btn-xs gap-0 btn-outline btn-warning"
+                            title="Schedule this device"
+                        >
+                            <MdSchedule className="w-3.5 h-3.5" />
+                        </button>
                     </div>
 
                     {/* Action Buttons */}
@@ -168,26 +184,8 @@ export default function ModernDeviceCard({
                         </div>
                     </div>
 
-                    {/* Bonus Time Section */}
-                    <div className="mb-4">
-                        <BonusTimeButton
-                            deviceId={device?.id}
-                            timerCancelled={timerCancelled}
-                            timerHandler={timerHandler}
-                            bonusTimeActive={device?.bonusTimeActive}
-                            handleRenderToggle={handleRenderToggle}
-                        />
-                    </div>
-
-                    {/* Action Buttons */}
+                    {/* Delete */}
                     <div className="flex flex-col sm:flex-row gap-2">
-                        <button 
-                            onClick={() => onScheduleClick(device?.id, device?.name)} 
-                            className="btn btn-outline btn-sm w-full flex-1"
-                        >
-                            Schedule
-                        </button>
-                        
                         <button
                             onClick={() => onDelete(device?.id)}
                             className="btn btn-error btn-outline btn-sm flex-1"
