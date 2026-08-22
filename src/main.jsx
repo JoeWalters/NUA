@@ -2,16 +2,12 @@ import React from 'react';
 import App from './App.jsx';
 import './index.css';
 import AdminConsole from './components/AdminConsole.jsx';
-import Login from './components/Login.jsx';
-import Devices from './components/Devices.jsx';
 import TrafficRules from './components/traffic_rules/TrafficRules.jsx';
 import ManageApp from './components/manage_app_page/ManageApp.jsx';
 import SeeAllApps from './components/see_all_apps/SeeAllApps.jsx'
 import BlockedDevices from './components/blocked_device/BlockedDevices.jsx';
 import AllDevices from './components/all_devices/AllDevices.jsx';
 import NotFound from './components/NotFound.jsx';
-import CronManager from './components/CronManager.jsx';
-import EasySched from './components/EasySched.jsx';
 import { createRoot } from 'react-dom/client';
 import {
   BrowserRouter, Routes, Route
