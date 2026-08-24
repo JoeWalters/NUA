@@ -221,6 +221,6 @@ log "✅ Database connection verified"
 
 log "🚀 All checks passed! Starting NUA application..."
 log "📱 Application will be available on port 4323"
-log "🔄 Starting with: npm run start"
+log "🔄 Starting with: node app.js"
 
-exec npm run start
+exec node app.js

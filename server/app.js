@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const Unifi = require('node-unifi');
@@ -69,7 +70,10 @@ app.use(cors({
     return cb(null, allowedOrigins.includes(origin));
   }
 }));
-app.use(express.json());
+// Security headers (CSP, X-Content-Type-Options, frame protection, etc.)
+app.use(helmet());
+// Explicit JSON body limit (default is 100kb; traffic-rule payloads can exceed it)
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(PROJECT_ROOT, 'dist')));
 consoleReader(schedule);
 

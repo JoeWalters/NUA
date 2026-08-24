@@ -2,12 +2,12 @@
 import { useEffect, useRef, useState } from "react";
 import { GoLock, GoUnlock } from "react-icons/go";
 import Confirmation from "./confirmations/Confirmation";
+import PropTypes from 'prop-types';
 
 
 export default function SiteSettings({ isOpen, onClose })
 {
     const [data, setData] = useState({});
-    const [message, setMessage] = useState("");
     const [locked, setlocked] = useState(false);
     const [dataExists, setDataExists] = useState(Boolean);
     const [preExistingData, setPreExistingData] = useState({});
@@ -18,7 +18,6 @@ export default function SiteSettings({ isOpen, onClose })
     const [clicked, setClicked] = useState(false);
     const [rangeValue, setRangeValue] = useState(60000);
     const [refreshRateFromDB, setRefreshRateFromDB] = useState(null);
-    const [selectDefaultPage, setSelectDefaultPage] = useState("");
     const hostnameRef = useRef();
     const usernameRef = useRef();
     const passwordRef = useRef();
@@ -48,27 +47,6 @@ export default function SiteSettings({ isOpen, onClose })
             });
 
             // console.log(data);
-        }
-    }
-    const handleSelect = e => {
-        setSelectDefaultPage(e.target.value);
-    }
-    const handleUpdateGeneralSettings = async () => {
-        try {
-            const updateGeneralSettings = await fetch('/updategeneralsettings', {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    "Content-Type" : "application/json"
-                },
-                body: JSON.stringify({ selectDefaultPage: selectDefaultPage })
-            });
-            if (updateGeneralSettings.ok) {
-                console.log('confirmed');
-            }
-            // updateGeneralSettings();
-        } catch (error) {
-            console.error(error)
         }
     }
 
@@ -106,8 +84,6 @@ export default function SiteSettings({ isOpen, onClose })
                 body: dataExists ? JSON.stringify(preExistingData) : JSON.stringify(data)
             });
             if (submitSiteSettings.ok) {
-                const response = await submitSiteSettings.json();
-                // console.log('Front end success.', response);
                 setlocked(true);
                 hostnameRef.current.disabled = true;
                 usernameRef.current.disabled = true;
@@ -276,12 +252,6 @@ export default function SiteSettings({ isOpen, onClose })
             setDebugStatus({ error: error.message });
             setShowDebugStatus(true);
         }
-    }
-    
-    const handleRange = e => {
-
-        setRangeValue(e.target.value);
-        // console.log(e.target.value);
     }
     return (
         <>
@@ -587,3 +557,8 @@ export default function SiteSettings({ isOpen, onClose })
         </>
     )
 }
+
+SiteSettings.propTypes = {
+    isOpen: PropTypes.bool,
+    onClose: PropTypes.func,
+};
