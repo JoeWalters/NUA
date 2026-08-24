@@ -31,15 +31,44 @@ const { startBonusRule, endBonusRule, reArmTrafficBonusOnBoot } = require('./sch
 const { addTrafficRuleSchedule, toggleTrafficRuleSchedule, deleteTrafficRuleSchedule, reArmTrafficRuleSchedulesOnBoot } = require('./scheduler/trafficRuleScheduler'); // Traffic rule schedules
 const asyncHandler = require('./server_util_funcs/asyncHandler');
 const auth = require('./server_util_funcs/auth');
+const { isDiagnosticsEnabled } = require('./server_util_funcs/diagnostics');
 
 const prisma = new PrismaClient();
+
+// Send a 500 response. The raw error message is only exposed when diagnostics
+// are enabled (Settings modal); otherwise a generic message is returned and the
+// full error is logged server-side only.
+async function sendError(res, error, message = 'Internal server error.') {
+  console.error(error);
+  try {
+    const diag = await isDiagnosticsEnabled(prisma);
+    return res.status(500).json(diag
+      ? { error: message, details: error && error.message }
+      : { error: message });
+  } catch (e) {
+    return res.status(500).json({ error: message });
+  }
+}
 
 // Resolved project root directory (avoids fragile string slicing of process.cwd())
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 
 // create server & add middleware
 const app = express();
-app.use(cors());
+
+// Restrict cross-origin access. Same-origin requests (no Origin header, i.e.
+// the app's own frontend served from this Express server) are always allowed.
+// Cross-origin requests are blocked unless explicitly allowed via
+// NUA_CORS_ORIGIN (comma-separated list of allowed origins).
+const allowedOrigins = (process.env.NUA_CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin) {
+      return cb(null, true);
+    }
+    return cb(null, allowedOrigins.includes(origin));
+  }
+}));
 app.use(express.json());
 app.use(express.static(path.join(PROJECT_ROOT, 'dist')));
 consoleReader(schedule);
@@ -66,6 +95,10 @@ app.get = (p, ...handlers) => handlers.length ? _appGet(p, ...registerWithAuth('
 app.post = (p, ...handlers) => handlers.length ? _appPost(p, ...registerWithAuth('post', p, handlers)) : _appPost(p);
 app.put = (p, ...handlers) => handlers.length ? _appPut(p, ...registerWithAuth('put', p, handlers)) : _appPut(p);
 app.delete = (p, ...handlers) => handlers.length ? _appDelete(p, ...registerWithAuth('delete', p, handlers)) : _appDelete(p);
+
+// Rate-limit the login endpoint (brute-force protection).
+const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: 'Too many login attempts, please try again later.' } });
+app.use('/login', loginLimiter);
 
 // ---- Auth routes ----
 app.post('/login', auth.login);
@@ -716,10 +749,11 @@ app.get('/getmacaddresses', async (req, res) => {
   } catch (error) {
     console.error('error in /getmacaddresses: \t', error);
     handleLoginError(error);
+    const diag = await isDiagnosticsEnabled(prisma);
     return res.status(401).json({
       success: false,
       error: 'Failed to fetch device state. Please verify site settings.',
-      details: error?.message || 'Unknown error'
+      ...(diag ? { details: error?.message || 'Unknown error' } : {})
     });
   }
 });
@@ -754,7 +788,7 @@ app.get('/pingmacaddresses', async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -796,7 +830,7 @@ app.post('/addmacaddresses', async (req, res) => {
     }
   } catch (error) {
     console.error('Error adding device:', error);
-    res.status(500).json({ error: 'There was an error adding the device.', details: error.message });
+    await sendError(res, error, 'There was an error adding the device.');
   }
 
   // try {
@@ -885,7 +919,7 @@ app.post('/getspecificdevice', async (req, res) => { // fetch individual device 
     res.json(deviceInfo);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -933,11 +967,12 @@ app.put('/updatemacaddressstatus', async (req, res) => { // toggler
       }
     } catch (unifiError) {
       console.error('UniFi operation failed:', unifiError);
+      const diag = await isDiagnosticsEnabled(prisma);
       return res.status(500).json({ 
         error: 'UniFi operation failed', 
-        details: unifiError.message,
         success: false,
-        currentStatus: active
+        currentStatus: active,
+        ...(diag ? { details: unifiError.message } : {})
       });
     }
 
@@ -977,10 +1012,11 @@ app.put('/updatemacaddressstatus', async (req, res) => { // toggler
         
   } catch (error) {
     console.error('Toggle operation failed:', error);
+    const diag = await isDiagnosticsEnabled(prisma);
     res.status(500).json({ 
       error: 'Internal server error',
       success: false,
-      details: error.message
+      ...(diag ? { details: error.message } : {})
     });
   }
 });
@@ -1080,7 +1116,9 @@ app.post('/unblockmac', async (req, res) => {
     return res.status(400).json({ error: 'Invalid MAC address format.' });
   }
   console.log(mac);
-  console.log(req.body);
+  if (await isDiagnosticsEnabled(prisma)) {
+    console.log(req.body);
+  }
   try {
     await unblockSingle(mac);
     if (prismaDeviceId !== null) {
@@ -1119,7 +1157,7 @@ app.put('/updatedevicedata', async (req, res) => { // Devices.jsx device edit
     res.json(updatedDeviceData);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -1245,14 +1283,16 @@ app.get('/checkjobreinitiation', async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
 // ~~~~~~~~~crons~~~~~~~~~~~
 app.post('/addschedule', async (req, res) => { // adds cron data specific front end device && cron validator
   const { id, crontype, croninput, toggleCron, jobName } = req.body;
-  serverLogger(JSON.stringify(req.body), 'nua.log');
+  if (await isDiagnosticsEnabled(prisma)) {
+    serverLogger(JSON.stringify(req.body), 'nua.log');
+  }
   try {
     const deviceToSchedule = await prisma.device.findUnique({
       where: {
@@ -1299,7 +1339,7 @@ app.post('/addschedule', async (req, res) => { // adds cron data specific front 
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -1320,7 +1360,7 @@ app.delete('/deletecron', async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -1392,7 +1432,7 @@ app.post('/getscheduledata', async (req, res) => { // fetches cron data specific
     // console.log('jobs ', scheduledJobs[cronData[0].jobName] === undefined);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -1400,8 +1440,10 @@ app.post('/getscheduledata', async (req, res) => { // fetches cron data specific
 
 // ~~~~~~
 app.post('/savesitesettings', async (req, res) => {
-  const { username, password, hostname, port, sslverify, refreshRate } = req.body;
-  console.log(req.body);
+  const { username, password, hostname, port, sslverify, refreshRate, diagnosticsEnabled } = req.body;
+  if (await isDiagnosticsEnabled(prisma)) {
+    console.log(req.body);
+  }
 
   red(sslverify, 'teal');
   let sslBool;
@@ -1421,6 +1463,7 @@ app.post('/savesitesettings', async (req, res) => {
         port: parseInt(port),
         sslverify: sslBool,
         refreshRate: parseInt(refreshRate),
+        diagnosticsEnabled: !!diagnosticsEnabled,
         initialSetup: false
       },
       create: {
@@ -1429,18 +1472,19 @@ app.post('/savesitesettings', async (req, res) => {
         hostname,
         port: parseInt(port),
         sslverify: sslBool,
-        refreshRate: parseInt(refreshRate)
+        refreshRate: parseInt(refreshRate),
+        diagnosticsEnabled: !!diagnosticsEnabled
       }
     });
     res.json({ siteCredentials });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
 app.put('/updatesitesettings', async (req, res) => {
-  const { username, password, hostname, port, sslverify, id, refreshRate } = req.body;
+  const { username, password, hostname, port, sslverify, id, refreshRate, diagnosticsEnabled } = req.body;
   let sslBool;
   if (sslverify === 'false') {
     sslBool = false;
@@ -1459,13 +1503,14 @@ app.put('/updatesitesettings', async (req, res) => {
         hostname: hostname,
         port: parseInt(port),
         sslverify: sslBool,
-        refreshRate: parseInt(refreshRate)
+        refreshRate: parseInt(refreshRate),
+        diagnosticsEnabled: !!diagnosticsEnabled
       }
     });
     res.json({ message: 'Credentials successfully saved!' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -1486,15 +1531,23 @@ app.post('/updategeneralsettings', async (req, res) => {
 app.get('/checkforsettings', async (req, res) => {
   try {
     const checkForSettings = await prisma.credentials.findUnique({ where: { id: 1 }});
-    console.log('checkForSettings \t', checkForSettings);
     if (checkForSettings) {
-      res.json(checkForSettings);
+      const diag = await isDiagnosticsEnabled(prisma);
+      if (diag) {
+        // Diagnostics on: expose the full row (including password) for debugging.
+        console.log('checkForSettings \t', checkForSettings);
+        res.json(checkForSettings);
+      } else {
+        // Default: return a sanitized view (never expose the password).
+        const { password, ...safe } = checkForSettings;
+        res.json(safe);
+      }
     } else {
       res.sendStatus(404);
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -1524,7 +1577,7 @@ app.post('/enable-encryption', async (req, res) => {
     res.json({ success: true, message: 'Encryption enabled. Credentials are now encrypted at rest.' });
   } catch (error) {
     console.error('Failed to enable encryption:', error);
-    res.status(500).json({ error: 'Failed to enable encryption.', details: error.message });
+    await sendError(res, error, 'Failed to enable encryption.');
   }
 });
 
@@ -1565,7 +1618,7 @@ app.get('/testconnection', async (req, res) => {
         }
       } catch (unifiError) {
         console.error('❌ Failed to establish UniFi connection:', unifiError);
-        res.status(500).json({ error: 'Failed to establish UniFi connection', details: unifiError.message });
+        await sendError(res, error, 'Failed to establish UniFi connection');
       }
     } else {
       console.log('❌ Test credentials returned:', testCredentials);
@@ -1603,7 +1656,7 @@ app.get('/debug-status', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    await sendError(res, error);
   }
 });
 
@@ -1646,7 +1699,8 @@ app.post('/reinitialize-connection', async (req, res) => {
     }
   } catch (error) {
     console.error('❌ Reinitialize connection error:', error);
-    res.status(500).json({ error: error.message, connected: false });
+    const diag = await isDiagnosticsEnabled(prisma);
+    res.status(500).json(diag ? { error: error.message, connected: false } : { error: 'UniFi connection failed', connected: false });
   }
 });
 
@@ -1685,7 +1739,8 @@ app.post('/connect-unifi', async (req, res) => {
     }
   } catch (error) {
     console.error('❌ Manual UniFi connection error:', error);
-    res.status(500).json({ error: error.message, connected: false });
+    const diag = await isDiagnosticsEnabled(prisma);
+    res.status(500).json(diag ? { error: error.message, connected: false } : { error: 'UniFi connection failed', connected: false });
   }
 });
 
@@ -1920,7 +1975,7 @@ app.get('/getcurrenttheme', async (req, res) => {
     res.json(theme);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -1935,7 +1990,7 @@ app.put('/updatetheme', async (req, res) => {
     res.json(updateTheme);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error.', details: error.message });
+    await sendError(res, error, 'Internal server error.');
   }
 });
 
@@ -2499,7 +2554,7 @@ app.post('/addbonustime', async (req, res) => { // cron bonus time (Phase 5: use
       res.status(422).send({ message: 'Hours or minutes required for bonus time.' });
     }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    await sendError(res, error);
     console.error(error);
   }
 });
@@ -2554,7 +2609,8 @@ app.post('/addbonusrule', async (req, res) => { // bonus time for a traffic rule
       res.status(422).send({ message: 'Hours or minutes required for bonus time.' });
     }
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    const diag = await isDiagnosticsEnabled(prisma);
+    res.status(400).json(diag ? { error: error.message } : { error: 'Invalid request.' });
     console.error(error);
   }
 });
@@ -2617,7 +2673,7 @@ app.post('/addtrafficruleschedule', async (req, res) => { // create schedule for
     res.sendStatus(200);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    await sendError(res, error);
   }
 });
 
@@ -2628,7 +2684,7 @@ app.put('/toggletrafficruleschedule', async (req, res) => { // enable/disable an
     res.sendStatus(200);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    await sendError(res, error);
   }
 });
 
@@ -2639,7 +2695,7 @@ app.delete('/deletetrafficruleschedule', async (req, res) => { // remove a sched
     res.sendStatus(200);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message });
+    await sendError(res, error);
   }
 });
 
@@ -2669,7 +2725,7 @@ app.post('/deletebonustoggles', async (req, res) => { // stop timer and shutoff 
 
     res.sendStatus(200);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    await sendError(res, error);
     console.error(error);
   }
 });
@@ -2728,7 +2784,7 @@ app.get('/api/device-groups', async (req, res) => {
   } catch (error) {
     console.error('❌ Error fetching device groups:', error.message);
     console.error('📋 Full error:', error);
-    res.status(500).json({ error: 'Failed to fetch device groups', details: error.message });
+    await sendError(res, error, 'Failed to fetch device groups');
   }
 });
 
@@ -3222,12 +3278,20 @@ app.get('**', async (req, res) => {
 // ---- Global error-handling middleware ----
 // Catches errors forwarded by asyncHandler (rejected promises in route
 // handlers). Sends a 500 JSON response instead of leaving the request hanging.
-app.use((err, req, res, next) => {
+app.use(async (err, req, res, next) => {
   console.error('Unhandled route error:', err?.message || err);
   if (res.headersSent) {
     return next(err);
   }
-  res.status(500).json({ error: 'Internal server error.', details: err?.message });
+  let diag = false;
+  try {
+    diag = await isDiagnosticsEnabled(prisma);
+  } catch (e) {
+    diag = false;
+  }
+  res.status(500).json(diag
+    ? { error: 'Internal server error.', details: err?.message }
+    : { error: 'Internal server error.' });
 });
 
 const PORT = process.env.PORT || customPORT; // portSettings.js

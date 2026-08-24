@@ -18,6 +18,7 @@ model Credentials {
   refreshRate             Int?
   defaultPage             String?
   initialSetup            Boolean?
+  diagnosticsEnabled      Boolean?  @default(false)
 }
 
 model Device {

@@ -34,16 +34,17 @@ export default function SiteSettings({ isOpen, onClose })
             setRefreshRateFromDB(null);
             setRangeValue(e.target.value);
         }
+        const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
         if (dataExists) {
             setPreExistingData({
                 ...preExistingData,
-                [e.target.name]: e.target.value
+                [e.target.name]: value
             });
             // console.log(preExistingData);
         } else {
             setData({
                 ...data,
-                [e.target.name]: e.target.value
+                [e.target.name]: value
             });
 
             // console.log(data);
@@ -479,6 +480,30 @@ export default function SiteSettings({ isOpen, onClose })
                                 Your credentials are encrypted at rest. Back up <code>config/encryption.key</code> — it is required to start the server.
                             </p>
                         )}
+                    </div>
+                </div>
+
+                {/* Diagnostics (off by default) */}
+                <div className="flex w-full mt-2">
+                    <div className="flex flex-col items-center justify-center w-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 p-4 gap-4">
+                        <div className="text-2xl font-bold">Diagnostics</div>
+                        <div className="divider mt-0"></div>
+                        <p className="text-sm text-center opacity-70 max-w-xs">
+                            When enabled, the server exposes full credential details via <code>/checkforsettings</code>,
+                            logs request bodies that may contain credentials, and includes raw error messages in error
+                            responses. Keep off unless you are debugging.
+                        </p>
+                        <label className="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                name="diagnosticsEnabled"
+                                className="toggle toggle-warning"
+                                checked={dataExists ? !!preExistingData?.diagnosticsEnabled : !!data?.diagnosticsEnabled}
+                                disabled={dataExists && locked && !clicked}
+                                onChange={handleInput}
+                            />
+                            <span>Enable diagnostics</span>
+                        </label>
                     </div>
                 </div>
 
