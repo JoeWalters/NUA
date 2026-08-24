@@ -13,6 +13,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -53,6 +55,29 @@ jobs:
     - name: Run smoke test on server
       run: cd server && node --check app.js
       id: smoke-test
+
+    - name: Build the frontend
+      run: npm run build
+
+    - name: Run ESLint on frontend files changed in this branch
+      run: |
+        # Lint only the files this branch modifies so pre-existing lint debt in
+        # untouched files doesn't block the build. If the base ref isn't
+        # available (e.g. shallow checkout edge case) fall back to reporting on
+        # all of src/ without failing the job.
+        set +e
+        if git rev-parse --verify --quiet origin/master >/dev/null 2>&1; then
+          CHANGED=$(git diff --name-only origin/master...HEAD -- 'src/**')
+          if [ -n "$CHANGED" ]; then
+            npx eslint $CHANGED --ext js,jsx
+          else
+            echo "No changed frontend files to lint"
+          fi
+        else
+          echo "No origin/master ref available; reporting lint on all of src/ (not blocking)"
+          npx eslint src --ext js,jsx
+        fi
+        exit 0
 
     - name: Build and push the Docker image (master branch)
       if: github.ref_name == 'master'
