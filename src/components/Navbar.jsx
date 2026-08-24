@@ -2,8 +2,9 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { HiCog6Tooth } from "react-icons/hi2";
 import NuaSvg from "../images/nua.svg";
+import PropTypes from 'prop-types';
 
-export default function Navbar({ themeValue, callBackChanged, onSettingsClick }) {
+export default function Navbar({ themeValue, callBackChanged, onSettingsClick, onLogout, showLogout }) {
   const [connected, setConnected] = useState(null);
 
   useEffect(() => {
@@ -93,7 +94,25 @@ export default function Navbar({ themeValue, callBackChanged, onSettingsClick })
         >
           <HiCog6Tooth className="w-5 h-5" />
         </button>
+
+        {showLogout && (
+          <button
+            className="btn btn-ghost btn-sm"
+            title="Log out"
+            onClick={onLogout}
+          >
+            Log out
+          </button>
+        )}
       </div>
     </div>
   );
 }
+
+Navbar.propTypes = {
+  themeValue: PropTypes.string,
+  callBackChanged: PropTypes.func,
+  onSettingsClick: PropTypes.func,
+  onLogout: PropTypes.func,
+  showLogout: PropTypes.bool,
+};
