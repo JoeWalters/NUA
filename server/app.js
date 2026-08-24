@@ -885,7 +885,7 @@ app.post('/getspecificdevice', async (req, res) => { // fetch individual device 
     res.json(deviceInfo);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1320,7 +1320,7 @@ app.delete('/deletecron', async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1392,7 +1392,7 @@ app.post('/getscheduledata', async (req, res) => { // fetches cron data specific
     // console.log('jobs ', scheduledJobs[cronData[0].jobName] === undefined);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1435,7 +1435,7 @@ app.post('/savesitesettings', async (req, res) => {
     res.json({ siteCredentials });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1465,7 +1465,7 @@ app.put('/updatesitesettings', async (req, res) => {
     res.json({ message: 'Credentials successfully saved!' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1494,7 +1494,7 @@ app.get('/checkforsettings', async (req, res) => {
     }
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1920,7 +1920,7 @@ app.get('/getcurrenttheme', async (req, res) => {
     res.json(theme);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 
@@ -1935,7 +1935,7 @@ app.put('/updatetheme', async (req, res) => {
     res.json(updateTheme);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal server error.", details: error.message });
+    res.status(500).json({ error: 'Internal server error.', details: error.message });
   }
 });
 

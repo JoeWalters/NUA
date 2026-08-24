@@ -53,7 +53,9 @@ function newToken() {
 function pruneExpired() {
   const now = Date.now();
   for (const [token, s] of sessions) {
-    if (s.expiresAt <= now) sessions.delete(token);
+    if (s.expiresAt <= now) {
+      sessions.delete(token);
+    }
   }
 }
 
@@ -80,18 +82,26 @@ function tokenFromRequest(req) {
   const cookie = req.headers.cookie;
   if (cookie) {
     const m = cookie.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
-    if (m) return m[1];
+    if (m) {
+      return m[1];
+    }
   }
   const auth = req.headers.authorization;
-  if (auth && auth.startsWith('Bearer ')) return auth.slice(7);
+  if (auth && auth.startsWith('Bearer ')) {
+    return auth.slice(7);
+  }
   return null;
 }
 
 function authenticate(req) {
   const token = tokenFromRequest(req);
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
   const s = sessions.get(token);
-  if (!s) return null;
+  if (!s) {
+    return null;
+  }
   if (s.expiresAt <= Date.now()) {
     sessions.delete(token);
     return null;
@@ -105,13 +115,17 @@ function authenticate(req) {
  * except for the public paths (login/logout/auth-status/health).
  */
 function requireAuth(req, res, next) {
-  if (!isEnabled()) return next();
+  if (!isEnabled()) {
+    return next();
+  }
   const session = authenticate(req);
   if (session) {
     req.authUser = session.username;
     return next();
   }
-  if (PUBLIC_PATHS.has(req.path)) return next();
+  if (PUBLIC_PATHS.has(req.path)) {
+    return next();
+  }
   return res.status(401).json({ error: 'Authentication required.' });
 }
 
@@ -147,7 +161,9 @@ function login(req, res) {
 /** POST /logout — invalidates the current session. */
 function logout(req, res) {
   const token = tokenFromRequest(req);
-  if (token) sessions.delete(token);
+  if (token) {
+    sessions.delete(token);
+  }
   res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`);
   return res.json({ success: true });
 }
