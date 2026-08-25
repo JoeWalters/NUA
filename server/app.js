@@ -2272,6 +2272,59 @@ app.post('/addappstrafficrule', async (req, res) => {
   }
 });
 
+// Create a UniFi speed-limit traffic rule (bandwidth cap on target clients).
+// Body: { speedLimitObject, dbObject } — speedLimitObject is the UniFi payload
+// (with bandwidth_limit.enabled = true), dbObject carries description/action/
+// enabled plus the device selection used to mirror the rule in the local DB.
+app.post('/addspeedlimittrafficrule', async (req, res) => {
+  if (!unifi) {
+    return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
+  }
+  const { speedLimitObject, dbObject } = req.body;
+  const { description, action, enabled, devices } = dbObject;
+
+  try {
+    const path = '/v2/api/site/default/trafficrules';
+    const result = await unifi.customApiRequest(path, 'POST', speedLimitObject);
+
+    const setTrafficRuleEntry = await prisma.trafficRules.create({
+      data: {
+        unifiId: result._id,
+        description: description,
+        enabled: enabled,
+        blockAllow: action,
+      },
+    });
+
+    for (const device of devices) {
+      await prisma.trafficRuleDevices.create({
+        data: {
+          deviceName: device.name,
+          deviceId: device.id,
+          macAddress: device.macAddress,
+          trafficRules: {
+            connect: { id: setTrafficRuleEntry.id },
+          },
+        },
+      });
+      await prisma.targetDevice.create({
+        data: {
+          client_mac: device.macAddress,
+          type: 'CLIENT',
+          trafficRules: {
+            connect: { id: setTrafficRuleEntry.id },
+          },
+        },
+      });
+    }
+
+    res.status(200).json({ success: true, result: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error?.response?.data });
+    console.error(error);
+  }
+});
+
 app.put('/updatecategorytrafficrule', async (req, res) => {
   if (!unifi) {
     return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });

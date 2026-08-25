@@ -5,6 +5,7 @@ import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
 import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
 import CreateRuleModal from "./CreateRuleModal";
 import EditRuleModal from "./EditRuleModal";
+import SpeedLimitModal from "./SpeedLimitModal";
 import RuleBonusTimeButton from "../utility_components/RuleBonusTimeButton";
 import RuleScheduleButton from "../utility_components/RuleScheduleButton";
 import {
@@ -14,6 +15,7 @@ import {
     HiTrash,
     HiCpuChip,
     HiPencil,
+    HiBolt,
     HiDevicePhoneMobile,
 } from "react-icons/hi2";
 
@@ -36,6 +38,7 @@ export default function TrafficRules({ embedded = false })
     const importDialogRef = useRef();
     const createRuleDialogRef = useRef();
     const editRuleDialogRef = useRef();
+    const speedLimitDialogRef = useRef();
     const [editingRule, setEditingRule] = useState(null);
     const [editingRawRule, setEditingRawRule] = useState(null);
     const [editingCategoryName, setEditingCategoryName] = useState("");
@@ -327,6 +330,13 @@ export default function TrafficRules({ embedded = false })
                                 <HiPlus className="w-4 h-4" />
                                 New Rule
                             </button>
+                            <button
+                                className="btn btn-sm btn-outline btn-primary gap-1"
+                                onClick={() => speedLimitDialogRef.current.showModal()}
+                            >
+                                <HiBolt className="w-4 h-4" />
+                                Speed Limit
+                            </button>
                         </div>
                     </div>
 
@@ -357,6 +367,8 @@ export default function TrafficRules({ embedded = false })
             )}
 
             <CreateRuleModal dialogRef={createRuleDialogRef} onSuccess={reRender} />
+
+            <SpeedLimitModal dialogRef={speedLimitDialogRef} onSuccess={reRender} />
 
              <EditRuleModal
                 dialogRef={editRuleDialogRef}
