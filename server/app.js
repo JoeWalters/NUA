@@ -2285,21 +2285,29 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
   const { description, enabled, devices } = req.body;
 
   try {
-    // Map each selected MAC to its current IP on the controller.
-    const clients = await unifi.getAllUsers();
+    // Build a MAC -> IP map from the live client list (online, current IPs) plus
+    // the all-users list (last-known IPs, so offline devices are still covered).
     const clientByMac = {};
-    for (const client of clients) {
-      if (client.mac && client.ip) {
-        clientByMac[client.mac.toLowerCase()] = client.ip;
+    const addClients = (list) => {
+      for (const client of list) {
+        if (client.mac && client.ip) {
+          clientByMac[client.mac.toLowerCase()] = client.ip;
+        }
       }
-    }
+    };
+    addClients(await unifi.getClientDevices());
+    addClients(await unifi.getAllUsers());
 
-    const noIpDevices = devices.filter((d) => !clientByMac[d.macAddress.toLowerCase()]);
-    if (noIpDevices.length) {
+    // Target every selected device we have an IP for; skip the rest (e.g. a
+    // device never seen online) rather than failing the whole rule.
+    const targeted = devices.filter((d) => clientByMac[d.macAddress.toLowerCase()]);
+    const skipped = devices.filter((d) => !clientByMac[d.macAddress.toLowerCase()]);
+
+    if (!targeted.length) {
       return res.status(400).json({
         success: false,
         error: {
-          message: `Cannot apply a speed limit to ${noIpDevices.map((d) => d.name || d.macAddress).join(', ')} — device is offline or has no IP.`,
+          message: `No selected device has a known IP on the controller yet — try again after the device connects.`,
         },
       });
     }
@@ -2322,7 +2330,7 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       network_ids: [],
       regions: [],
       schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
-      target_devices: devices.map((d) => ({
+      target_devices: targeted.map((d) => ({
         ip_address: clientByMac[d.macAddress.toLowerCase()],
         type: 'IP',
       })),
@@ -2344,7 +2352,7 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       },
     });
 
-    for (const device of devices) {
+    for (const device of targeted) {
       await prisma.trafficRuleDevices.create({
         data: {
           deviceName: device.name,
@@ -2366,7 +2374,7 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       });
     }
 
-    res.status(200).json({ success: true, result: result });
+    res.status(200).json({ success: true, result: result, skipped: skipped });
   } catch (error) {
     res.status(500).json({ success: false, error: error?.response?.data });
     console.error(error);

@@ -20,12 +20,14 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
     const [loading, setLoading] = useState(false);
     const [unifiSubmissionError, setUnifiSubmissionError] = useState({});
     const [submissionError, setSubmissionError] = useState({});
+    const [skippedDevices, setSkippedDevices] = useState([]);
 
     const descriptionRef = useRef();
     const downloadRef = useRef();
     const uploadRef = useRef();
     const unifiErrorDialogRef = useRef();
     const errorDialogRef = useRef();
+    const skippedDialogRef = useRef();
 
     const handleClose = () => {
         if (dialogRef.current) dialogRef.current.close();
@@ -126,6 +128,10 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                 return;
             }
             handleClose();
+            if (data.skipped && data.skipped.length) {
+                setSkippedDevices(data.skipped.map((d) => d.name || d.macAddress));
+                if (skippedDialogRef.current) skippedDialogRef.current.showModal();
+            }
             onSuccess && onSuccess();
         } catch (error) {
             setUnifiSubmissionError({ message: error.message || "Something went wrong." });
@@ -299,6 +305,28 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                     <p>{submissionError.message || "Please fix the highlighted fields."}</p>
                     <div className="modal-action">
                         <button className="btn btn-ghost" onClick={() => errorDialogRef.current?.close()}>
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </dialog>
+
+            {/* Skipped-devices warning dialog */}
+            <dialog ref={skippedDialogRef} className="modal">
+                <div className="modal-box bg-base-100 rounded-2xl">
+                    <h3 className="font-bold text-lg mb-2">Some devices were skipped</h3>
+                    <p className="mb-2">
+                        The speed limit was created, but these devices have no known IP on the
+                        controller yet and could not be targeted:
+                    </p>
+                    <ul className="list-disc list-inside text-sm opacity-80 mb-2">
+                        {skippedDevices.map((name) => <li key={name}>{name}</li>)}
+                    </ul>
+                    <p className="text-sm opacity-70">
+                        Recreate the rule after these devices have connected.
+                    </p>
+                    <div className="modal-action">
+                        <button className="btn btn-ghost" onClick={() => skippedDialogRef.current?.close()}>
                             Close
                         </button>
                     </div>
