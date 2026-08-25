@@ -6,10 +6,6 @@ import {
     HiXMark,
     HiDevicePhoneMobile,
 } from "react-icons/hi2";
-import {
-    speedLimitDeviceObject,
-    dbSpeedLimitDeviceObject,
-} from "../see_all_apps/app_objects";
 
 // Create a UniFi speed-limit traffic rule: pick target devices and set a
 // download/upload cap. The rule is pushed to the UniFi controller and mirrored
@@ -104,24 +100,7 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
         const downloadKbps = download * 1000;
         const uploadKbps = upload * 1000;
 
-        const selectedDevices = deviceSelection;
-
-        const unifiObject = JSON.parse(JSON.stringify(speedLimitDeviceObject));
-        unifiObject.description = description.trim();
-        unifiObject.enabled = enabled;
-        unifiObject.bandwidth_limit.enabled = true;
-        unifiObject.bandwidth_limit.download_limit_kbps = downloadKbps;
-        unifiObject.bandwidth_limit.upload_limit_kbps = uploadKbps;
-        unifiObject.target_devices = selectedDevices.map((device) => ({
-            client_mac: device.macAddress,
-            type: "CLIENT",
-        }));
-
-        const dbObject = JSON.parse(JSON.stringify(dbSpeedLimitDeviceObject));
-        dbObject.description = description.trim();
-        dbObject.enabled = enabled;
-        dbObject.action = unifiObject.action;
-        dbObject.devices = selectedDevices.map((device) => ({
+        const selectedDevices = deviceSelection.map((device) => ({
             id: device.id,
             name: device.name,
             macAddress: device.macAddress,
@@ -132,7 +111,13 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
             const res = await fetch("/addspeedlimittrafficrule", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ speedLimitObject: unifiObject, dbObject }),
+                body: JSON.stringify({
+                    description: description.trim(),
+                    enabled,
+                    downloadKbps,
+                    uploadKbps,
+                    devices: selectedDevices,
+                }),
             });
             const data = await res.json();
             if (!res.ok || !data.success) {

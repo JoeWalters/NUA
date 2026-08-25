@@ -2273,17 +2273,65 @@ app.post('/addappstrafficrule', async (req, res) => {
 });
 
 // Create a UniFi speed-limit traffic rule (bandwidth cap on target clients).
-// Body: { speedLimitObject, dbObject } — speedLimitObject is the UniFi payload
-// (with bandwidth_limit.enabled = true), dbObject carries description/action/
-// enabled plus the device selection used to mirror the rule in the local DB.
+// Body: { description, enabled, devices } — devices is the selected list with
+// { id, name, macAddress }. The UniFi speed-limit payload is built here because
+// this controller's traffic-rule schema has no CLIENT matching target: specific
+// clients are targeted by their IP (matching_target = 'IP'), so we map each
+// selected device's MAC to its current IP from the controller.
 app.post('/addspeedlimittrafficrule', async (req, res) => {
   if (!unifi) {
     return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
   }
-  const { speedLimitObject, dbObject } = req.body;
-  const { description, action, enabled, devices } = dbObject;
+  const { description, enabled, devices } = req.body;
 
   try {
+    // Map each selected MAC to its current IP on the controller.
+    const clients = await unifi.getAllUsers();
+    const clientByMac = {};
+    for (const client of clients) {
+      if (client.mac && client.ip) {
+        clientByMac[client.mac.toLowerCase()] = client.ip;
+      }
+    }
+
+    const noIpDevices = devices.filter((d) => !clientByMac[d.macAddress.toLowerCase()]);
+    if (noIpDevices.length) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: `Cannot apply a speed limit to ${noIpDevices.map((d) => d.name || d.macAddress).join(', ')} — device is offline or has no IP.`,
+        },
+      });
+    }
+
+    const speedLimitObject = {
+      action: 'ALLOW',
+      app_category_ids: [],
+      app_ids: [],
+      bandwidth_limit: {
+        download_limit_kbps: 1024,
+        enabled: true,
+        upload_limit_kbps: 1024,
+      },
+      description: description || 'Speed limit rule',
+      domains: [],
+      enabled: enabled,
+      ip_addresses: [],
+      ip_ranges: [],
+      matching_target: 'IP',
+      network_ids: [],
+      regions: [],
+      schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
+      target_devices: devices.map((d) => ({
+        ip_address: clientByMac[d.macAddress.toLowerCase()],
+        type: 'IP',
+      })),
+    };
+
+    // Set the requested limits (Mbps already converted to kbps by the client).
+    speedLimitObject.bandwidth_limit.download_limit_kbps = req.body.downloadKbps;
+    speedLimitObject.bandwidth_limit.upload_limit_kbps = req.body.uploadKbps;
+
     const path = '/v2/api/site/default/trafficrules';
     const result = await unifi.customApiRequest(path, 'POST', speedLimitObject);
 
@@ -2292,7 +2340,7 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
         unifiId: result._id,
         description: description,
         enabled: enabled,
-        blockAllow: action,
+        blockAllow: 'ALLOW',
       },
     });
 
