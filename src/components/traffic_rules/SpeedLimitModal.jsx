@@ -58,19 +58,28 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
 
     const handleSelectDevice = (e) => {
         if (e.target.checked) {
-            setDeviceSelection((prev) => [...prev, e.target.value]);
+            const matched = devices.filter(
+                (d) => d.id === parseInt(e.target.dataset.deviceid)
+            );
+            setDeviceSelection((prev) => [...new Set([...prev, ...matched])]);
         } else {
-            setDeviceSelection((prev) => prev.filter((id) => id !== e.target.value));
+            setDeviceSelection((prev) =>
+                prev.filter((d) => d.id !== parseInt(e.target.dataset.deviceid))
+            );
         }
     };
 
     const handleSelectAllDevices = (e) => {
         if (e.target.checked) {
-            setDeviceSelection(devices.map((device) => device.id));
+            setDeviceSelection(devices);
         } else {
             setDeviceSelection([]);
         }
     };
+
+    // Keep only digits and a single decimal point so letters can never be typed.
+    const sanitizeNumeric = (v) =>
+        v.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -95,7 +104,7 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
         const downloadKbps = download * 1000;
         const uploadKbps = upload * 1000;
 
-        const selectedDevices = devices.filter((device) => deviceSelection.includes(device.id));
+        const selectedDevices = deviceSelection;
 
         const unifiObject = JSON.parse(JSON.stringify(speedLimitDeviceObject));
         unifiObject.description = description.trim();
@@ -178,11 +187,10 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                             </label>
                             <input
                                 ref={downloadRef}
-                                type="number"
-                                min="0"
-                                step="0.1"
+                                type="text"
+                                inputMode="decimal"
                                 value={downloadMbps}
-                                onChange={(e) => setDownloadMbps(e.target.value)}
+                                onChange={(e) => setDownloadMbps(sanitizeNumeric(e.target.value))}
                                 placeholder="e.g. 50"
                                 className="input input-bordered w-full"
                             />
@@ -193,11 +201,10 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                             </label>
                             <input
                                 ref={uploadRef}
-                                type="number"
-                                min="0"
-                                step="0.1"
+                                type="text"
+                                inputMode="decimal"
                                 value={uploadMbps}
-                                onChange={(e) => setUploadMbps(e.target.value)}
+                                onChange={(e) => setUploadMbps(sanitizeNumeric(e.target.value))}
                                 placeholder="e.g. 25"
                                 className="input input-bordered w-full"
                             />
@@ -238,22 +245,31 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                             {devices.length === 0 && (
                                 <p className="text-sm opacity-60">No devices available.</p>
                             )}
-                            {devices.map((device) => (
-                                <label
-                                    key={device.id}
-                                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-base-200 cursor-pointer"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        value={device.id}
-                                        checked={deviceSelection.includes(device.id)}
-                                        onChange={handleSelectDevice}
-                                        className="checkbox checkbox-sm"
-                                    />
-                                    <HiDevicePhoneMobile className="w-4 h-4 opacity-60" />
-                                    <span className="text-sm">{device.name || device.macAddress}</span>
-                                </label>
-                            ))}
+                            {devices.map((device) => {
+                                const isSelected = deviceSelection.some(
+                                    (d) => d.id === device.id
+                                );
+                                return (
+                                    <label
+                                        key={device.id}
+                                        className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors ${
+                                            isSelected
+                                                ? "bg-accent/10 border border-accent"
+                                                : "hover:bg-base-200 border border-transparent"
+                                        }`}
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            className="checkbox checkbox-sm"
+                                            data-deviceid={device.id}
+                                            onChange={handleSelectDevice}
+                                            checked={isSelected}
+                                        />
+                                        <HiDevicePhoneMobile className="w-4 h-4 opacity-60" />
+                                        <span className="text-sm">{device.name || device.macAddress}</span>
+                                    </label>
+                                );
+                            })}
                         </div>
                     </div>
 
