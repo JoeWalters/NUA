@@ -2322,6 +2322,69 @@ app.put('/updatetrafficruletoggle', async (req, res) => {
   }
 });
 
+// Edit an existing traffic rule: update the UniFi controller rule plus its
+// locally tracked description, action (block/allow) and target device set.
+// Body:
+//   { trafficRuleId, unifiRule, description, action,
+//     targetDevices: [{ client_mac, type }], dbDevices: [{ id, name, macAddress }] }.
+app.put('/updatetrafficrule', async (req, res) => {
+  if (!unifi) {
+    return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
+  }
+  const { trafficRuleId, unifiRule, description, action, targetDevices = [], dbDevices = [] } = req.body;
+
+  if (!trafficRuleId || !unifiRule || !unifiRule._id) {
+    return res.status(400).json({ error: 'Missing trafficRuleId or unifiRule' });
+  }
+
+  try {
+    const path = `/v2/api/site/default/trafficrules/${unifiRule._id}`;
+    const result = await unifi.customApiRequest(path, 'PUT', unifiRule);
+
+    const idToUse = parseInt(trafficRuleId);
+
+    const updateTrafficRule = await prisma.trafficRules.update({
+      where: { id: idToUse },
+      data: {
+        description: description,
+        blockAllow: action,
+      },
+    });
+    console.log('updated traffic rule 	', updateTrafficRule);
+
+    // Replace the target device association rows with the new selection.
+    await prisma.trafficRuleDevices.deleteMany({ where: { trafficRulesId: idToUse } });
+    await prisma.targetDevice.deleteMany({ where: { trafficRulesId: idToUse } });
+
+    for (const device of dbDevices) {
+      await prisma.trafficRuleDevices.create({
+        data: {
+          deviceName: device.name,
+          deviceId: device.id,
+          macAddress: device.macAddress,
+          trafficRules: {
+            connect: { id: idToUse },
+          },
+        },
+      });
+      await prisma.targetDevice.create({
+        data: {
+          client_mac: device.macAddress,
+          type: 'CLIENT',
+          trafficRules: {
+            connect: { id: idToUse },
+          },
+        },
+      });
+    }
+
+    res.status(200).json({ success: true, result: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error?.response?.data || error });
+    console.error(error);
+  }
+});
+
 app.delete('/deletecustomapi', async (req, res) => { // deletes unifi rule, not db (yet)
   if (!unifi) {
     return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
