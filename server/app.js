@@ -2276,7 +2276,8 @@ app.post('/addappstrafficrule', async (req, res) => {
 // Body: { description, enabled, devices } — devices is the selected list with
 // { id, name, macAddress }. The UniFi speed-limit payload is built here because
 // this controller's traffic-rule schema has no CLIENT matching target: specific
-// clients are targeted by their IP (matching_target = 'IP'), so we map each
+// clients are targeted by their IP via matching_target = 'CLIENT' (the UniFi
+// enum for this field only accepts ALL_CLIENTS/CLIENT/NETWORK), so we map each
 // selected device's MAC to its current IP from the controller.
 app.post('/addspeedlimittrafficrule', async (req, res) => {
   if (!unifi) {
@@ -2326,13 +2327,13 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       enabled: enabled,
       ip_addresses: [],
       ip_ranges: [],
-      matching_target: 'IP',
+      matching_target: 'CLIENT',
       network_ids: [],
       regions: [],
       schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
       target_devices: targeted.map((d) => ({
-        ip_address: clientByMac[d.macAddress.toLowerCase()],
-        type: 'IP',
+        client_mac: d.macAddress,
+        type: 'CLIENT',
       })),
     };
 
