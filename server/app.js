@@ -2307,7 +2307,7 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: {
-          message: `No selected device has a known IP on the controller yet — try again after the device connects.`,
+          message: 'No selected device has a known IP on the controller yet — try again after the device connects.',
         },
       });
     }
