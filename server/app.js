@@ -2332,8 +2332,8 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       regions: [],
       schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
       target_devices: targeted.map((d) => ({
-        client_mac: d.macAddress,
-        type: 'CLIENT',
+        ip_address: clientByMac[d.macAddress.toLowerCase()],
+        type: 'IP',
       })),
     };
 
