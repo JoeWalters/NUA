@@ -17,6 +17,11 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
     const ruleMeta = rule?.trafficRule || {};
     const [description, setDescription] = useState(ruleMeta.description || "");
     const [blockAllow, setBlockAllow] = useState(ruleMeta.blockAllow || "BLOCK");
+    // Speed-limit rules carry bandwidth_limit.enabled; bandwidth limiting is only
+    // supported on ALLOW rules, so their action must stay ALLOW.
+    const isSpeedLimit = !!(rawRule?.bandwidth_limit?.enabled);
+    const [downloadMbps, setDownloadMbps] = useState("");
+    const [uploadMbps, setUploadMbps] = useState("");
     const [devices, setDevices] = useState([]);
     const [deviceSelection, setDeviceSelection] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -58,6 +63,17 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
         getDevices();
     }, [rule]);
 
+    // Seed the speed-limit fields from the rule and pin the action to ALLOW.
+    useEffect(() => {
+        if (isSpeedLimit) {
+            setBlockAllow("ALLOW");
+            const dl = rawRule?.bandwidth_limit?.download_limit_kbps;
+            const ul = rawRule?.bandwidth_limit?.upload_limit_kbps;
+            setDownloadMbps(dl ? String(dl / 1000) : "");
+            setUploadMbps(ul ? String(ul / 1000) : "");
+        }
+    }, [isSpeedLimit, rawRule]);
+
     const handleSelectDevice = (e) => {
         if (e.target.checked) {
             const matched = devices.filter(
@@ -84,7 +100,19 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
 
         const unifiRule = JSON.parse(JSON.stringify(rawRule));
         unifiRule.description = description;
-        unifiRule.action = blockAllow;
+        // Bandwidth limiting is unsupported on blocking rules, so a speed-limit
+        // rule's action is pinned to ALLOW.
+        unifiRule.action = isSpeedLimit ? "ALLOW" : blockAllow;
+        if (isSpeedLimit && unifiRule.bandwidth_limit) {
+            const dl = Number(downloadMbps);
+            const ul = Number(uploadMbps);
+            if (downloadMbps !== "" && Number.isFinite(dl)) {
+                unifiRule.bandwidth_limit.download_limit_kbps = dl * 1000;
+            }
+            if (uploadMbps !== "" && Number.isFinite(ul)) {
+                unifiRule.bandwidth_limit.upload_limit_kbps = ul * 1000;
+            }
+        }
         // Only replace the target devices when the user actually selected some.
         // If nothing is selected (e.g. the rule's device isn't in NUA's local
         // device list yet), keep the existing target_devices so the UniFi PUT
@@ -106,7 +134,7 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                     trafficRuleId: ruleMeta.id,
                     unifiRule,
                     description,
-                    action: blockAllow,
+                    action: isSpeedLimit ? "ALLOW" : blockAllow,
                     targetDevices: unifiRule.target_devices,
                     dbDevices: deviceSelection.map((d) => ({
                         id: d.id,
@@ -239,13 +267,14 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                                         </button>
                                         <button
                                             type="button"
+                                            disabled={isSpeedLimit}
                                             className={`relative flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
                                                 blockAllow === "BLOCK"
                                                     ? "bg-error text-error-content shadow-sm"
                                                     : "text-base-content/60 hover:text-base-content hover:bg-base-300"
-                                            }`}
+                                            } ${isSpeedLimit ? "opacity-40 cursor-not-allowed" : ""}`}
                                             onClick={() =>
-                                                setBlockAllow("BLOCK")
+                                                !isSpeedLimit && setBlockAllow("BLOCK")
                                             }
                                         >
                                             <HiXMark className="w-4 h-4" />
@@ -253,6 +282,45 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Speed limit (only for bandwidth-limit rules) */}
+                                {isSpeedLimit && (
+                                    <div className="flex flex-col gap-2">
+                                        <label className="text-sm font-semibold">
+                                            Speed limit (Mbps)
+                                        </label>
+                                        <p className="text-sm text-base-content/60 italic">
+                                            Bandwidth limiting is only supported on Allow
+                                            rules, so a speed limit stays on Allow.
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                className="input input-bordered w-full"
+                                                placeholder="Download Mbps"
+                                                value={downloadMbps}
+                                                onChange={(e) =>
+                                                    setDownloadMbps(
+                                                        e.target.value.replace(/[^0-9.]/g, "")
+                                                    )
+                                                }
+                                            />
+                                            <input
+                                                type="text"
+                                                inputMode="decimal"
+                                                className="input input-bordered w-full"
+                                                placeholder="Upload Mbps"
+                                                value={uploadMbps}
+                                                onChange={(e) =>
+                                                    setUploadMbps(
+                                                        e.target.value.replace(/[^0-9.]/g, "")
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Devices */}
                                 <div className="flex flex-col gap-2">
