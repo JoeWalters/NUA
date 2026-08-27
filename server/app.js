@@ -2325,16 +2325,15 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       description: description || 'Speed limit rule',
       domains: [],
       enabled: enabled,
-      ip_addresses: [],
+      // With matching_target 'IP', UniFi expects the targeted IPs in this
+      // top-level ip_addresses array (target_devices is not used for IP matching).
+      ip_addresses: targeted.map((d) => clientByMac[d.macAddress.toLowerCase()]),
       ip_ranges: [],
       matching_target: 'IP',
       network_ids: [],
       regions: [],
       schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
-      target_devices: targeted.map((d) => ({
-        ip_address: clientByMac[d.macAddress.toLowerCase()],
-        type: 'CLIENT',
-      })),
+      target_devices: [],
     };
 
     // Set the requested limits (Mbps already converted to kbps by the client).
