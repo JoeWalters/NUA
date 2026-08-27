@@ -8,6 +8,8 @@ This software only works with [UniFi Cloud Gateways](https://ui.com/us/en/cloud-
 * ✨ **Intuitive Web Interface**: Enjoy a simple and easy-to-use web interface that streamlines the device management process.
 * 🔒 **Device Blocking**: Take control of your network by blocking specific devices, ensuring a distraction-free environment or enforcing necessary restrictions.
 * 🔒 **App Blocking**: Block specific apps and websites.
+* 🚦 **Traffic Rules**: Create, edit, and import UniFi traffic rules (block/allow apps, categories, and domains) directly from the web UI, with the rules mirrored in the local database.
+* ⚡ **Speed Limits**: Set per-device download/upload bandwidth caps via UniFi speed-limit traffic rules — ideal for throttling bandwidth-heavy devices like consoles or streaming boxes.
 * ⌚ **Cron Scheduler**: Leverage the built-in cron scheduler to automate device management tasks. Schedule device blocking for specific time slots, creating a structured environment.
 * 👨‍👩‍👧‍👦 **Parental Controls**: Use NUA as a robust parental control tool. Set device time limits or enforce restrictions until chores are completed, promoting a healthy balance of technology usage.
 
