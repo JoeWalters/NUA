@@ -2039,11 +2039,20 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
     const path = '/v2/api/site/default/trafficrules';
     const result = await withUnifiRetry(() => unifi.customApiRequest(path, 'GET'));
 
-    // TEMP DEBUG: reveal the exact ip_addresses object shape from a real rule.
-    const ruleWithIps = Array.isArray(result) ? result.find(r => r.ip_addresses?.length) : null;
-    if (ruleWithIps) {
-      console.log('DEBUG rule ip_addresses \t', JSON.stringify(ruleWithIps.ip_addresses));
-      console.log('DEBUG rule target_devices \t', JSON.stringify(ruleWithIps.target_devices));
+    // TEMP DEBUG: dump a real rule so we can mirror UniFi's exact shape.
+    const sampleRule = Array.isArray(result)
+      ? result.find(r => r.bandwidth_limit?.enabled) || result[0]
+      : null;
+    if (sampleRule) {
+      console.log('DEBUG full rule \t', JSON.stringify({
+        matching_target: sampleRule.matching_target,
+        ip_addresses: sampleRule.ip_addresses,
+        ip_ranges: sampleRule.ip_ranges,
+        target_devices: sampleRule.target_devices,
+        network_ids: sampleRule.network_ids,
+        bandwidth_limit: sampleRule.bandwidth_limit,
+        action: sampleRule.action,
+      }));
     }
 
     const fetchTrafficRules = await prisma?.trafficRules?.findMany();
