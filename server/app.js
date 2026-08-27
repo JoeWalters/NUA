@@ -2367,6 +2367,26 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
     speedLimitObject.bandwidth_limit.upload_limit_kbps = req.body.uploadKbps;
 
     const path = '/v2/api/site/default/trafficrules';
+
+    // TEMP DEBUG: fetch a real rule so we can mirror UniFi's exact speed-limit shape.
+    const existingRules = await unifi.customApiRequest(path, 'GET');
+    const sampleRule = Array.isArray(existingRules)
+      ? existingRules.find(r => r.bandwidth_limit?.enabled) || existingRules[0]
+      : null;
+    if (sampleRule) {
+      console.log('DEBUG full rule \t', JSON.stringify({
+        matching_target: sampleRule.matching_target,
+        ip_addresses: sampleRule.ip_addresses,
+        ip_ranges: sampleRule.ip_ranges,
+        target_devices: sampleRule.target_devices,
+        network_ids: sampleRule.network_ids,
+        bandwidth_limit: sampleRule.bandwidth_limit,
+        action: sampleRule.action,
+      }));
+    } else {
+      console.log('DEBUG no rules found');
+    }
+
     const result = await unifi.customApiRequest(path, 'POST', speedLimitObject);
 
     const setTrafficRuleEntry = await prisma.trafficRules.create({
