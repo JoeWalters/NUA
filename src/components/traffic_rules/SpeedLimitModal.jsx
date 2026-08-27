@@ -12,8 +12,9 @@ import {
 // in the local DB via POST /addspeedlimittrafficrule.
 export default function SpeedLimitModal({ dialogRef, onSuccess }) {
     const [description, setDescription] = useState("");
-    const [downloadMbps, setDownloadMbps] = useState("");
-    const [uploadMbps, setUploadMbps] = useState("");
+    // Sensible defaults so the form can be submitted without typing values.
+    const [downloadMbps, setDownloadMbps] = useState("100");
+    const [uploadMbps, setUploadMbps] = useState("50");
     const [enabled, setEnabled] = useState(true);
     const [devices, setDevices] = useState([]);
     const [deviceSelection, setDeviceSelection] = useState([]);
@@ -33,8 +34,8 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
         if (dialogRef.current) dialogRef.current.close();
         // Reset on close so the form is blank next time it is opened.
         setDescription("");
-        setDownloadMbps("");
-        setUploadMbps("");
+        setDownloadMbps("100");
+        setUploadMbps("50");
         setEnabled(true);
         setDeviceSelection([]);
     };
@@ -182,7 +183,7 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                                 inputMode="decimal"
                                 value={downloadMbps}
                                 onChange={(e) => setDownloadMbps(sanitizeNumeric(e.target.value))}
-                                placeholder="e.g. 50"
+                                placeholder="e.g. 100"
                                 className="input input-bordered w-full"
                             />
                         </div>
@@ -196,7 +197,7 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                                 inputMode="decimal"
                                 value={uploadMbps}
                                 onChange={(e) => setUploadMbps(sanitizeNumeric(e.target.value))}
-                                placeholder="e.g. 25"
+                                placeholder="e.g. 50"
                                 className="input input-bordered w-full"
                             />
                         </div>

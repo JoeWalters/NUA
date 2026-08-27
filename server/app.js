@@ -2327,13 +2327,13 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       enabled: enabled,
       ip_addresses: [],
       ip_ranges: [],
-      matching_target: 'CLIENT',
+      matching_target: 'IP',
       network_ids: [],
       regions: [],
       schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
       target_devices: targeted.map((d) => ({
         ip_address: clientByMac[d.macAddress.toLowerCase()],
-        type: 'IP',
+        type: 'CLIENT',
       })),
     };
 
