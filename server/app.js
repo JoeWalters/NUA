@@ -2341,23 +2341,18 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       description: description || 'Speed limit rule',
       domains: [],
       enabled: enabled,
-      // With matching_target 'IP', UniFi expects the targeted IPs in this
-      // top-level ip_addresses array. Each entry is an object with the fields
-      // ip_or_subnet (the IP) and ip_version (an enum: 0=IPv4, 1=IPv6) — UniFi
-      // uses snake_case JSON keys here — and target_devices must be non-empty,
-      // so we also list each client there.
-      ip_addresses: targeted.map((d) => ({
-        ip_or_subnet: clientByMac[d.macAddress.toLowerCase()],
-        ip_version: 0,
-      })),
+      // Bandwidth limiting is unsupported when matching by local IP, so a
+      // per-client speed limit is represented as matching_target 'APP' with the
+      // client(s) listed in target_devices ({ client_mac, type: 'CLIENT' }) —
+      // mirrored from a real working rule on the controller.
+      ip_addresses: [],
       ip_ranges: [],
-      matching_target: 'IP',
+      matching_target: 'APP',
       network_ids: [],
       regions: [],
       schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
       target_devices: targeted.map((d) => ({
         client_mac: d.macAddress,
-        ip_address: clientByMac[d.macAddress.toLowerCase()],
         type: 'CLIENT',
       })),
     };
