@@ -2039,6 +2039,13 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
     const path = '/v2/api/site/default/trafficrules';
     const result = await withUnifiRetry(() => unifi.customApiRequest(path, 'GET'));
 
+    // TEMP DEBUG: reveal the exact ip_addresses object shape from a real rule.
+    const ruleWithIps = Array.isArray(result) ? result.find(r => r.ip_addresses?.length) : null;
+    if (ruleWithIps) {
+      console.log('DEBUG rule ip_addresses \t', JSON.stringify(ruleWithIps.ip_addresses));
+      console.log('DEBUG rule target_devices \t', JSON.stringify(ruleWithIps.target_devices));
+    }
+
     const fetchTrafficRules = await prisma?.trafficRules?.findMany();
     const fetchAppCatIds = await prisma?.appCatIds?.findMany();
     const fetchAppIds = await prisma?.appIds?.findMany();
@@ -2327,7 +2334,11 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       enabled: enabled,
       // With matching_target 'IP', UniFi expects the targeted IPs in this
       // top-level ip_addresses array (target_devices is not used for IP matching).
-      ip_addresses: targeted.map((d) => clientByMac[d.macAddress.toLowerCase()]),
+      // Each entry is an object ({ value, version }), not a bare string.
+      ip_addresses: targeted.map((d) => ({
+        value: clientByMac[d.macAddress.toLowerCase()],
+        version: 4,
+      })),
       ip_ranges: [],
       matching_target: 'IP',
       network_ids: [],
