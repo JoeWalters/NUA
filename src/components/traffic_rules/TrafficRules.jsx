@@ -44,7 +44,12 @@ export default function TrafficRules({ embedded = false })
     const [editingCategoryName, setEditingCategoryName] = useState("");
 
     function checkForImportRules(dbData, unifiData) {
-        const filterOutInternetMatchingTarget = unifiData.filter((rule) => rule.matching_target !== "INTERNET");
+        // Exclude plain site-wide INTERNET rules, but keep per-client speed-limit
+        // rules (which have bandwidth_limit.enabled and use INTERNET as their
+        // destination) so they show up as importable.
+        const filterOutInternetMatchingTarget = unifiData.filter((rule) =>
+            rule.matching_target !== "INTERNET" || rule.bandwidth_limit?.enabled
+        );
         if (dbData !== null) {
             const importData = filterOutInternetMatchingTarget.filter(unifiData =>
                 dbData.some(dbIds => dbIds.trafficRule.unifiId !== unifiData._id));
