@@ -225,18 +225,20 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                                     )}
                                 </div>
 
-                                {/* Description */}
+                                {/* Description (relabelled as Rule name for speed limits) */}
                                 <div className="flex flex-col gap-2">
                                     <label
                                         htmlFor="edit-description"
                                         className="text-sm font-semibold"
                                     >
-                                        Description
+                                        {isSpeedLimit ? "Rule name" : "Description"}
                                     </label>
                                     <input
                                         id="edit-description"
                                         className="input input-bordered w-full"
-                                        placeholder="e.g. Block YouTube on Xbox"
+                                        placeholder={isSpeedLimit
+                                            ? "e.g. Cap Xbox at 50 Mbps"
+                                            : "e.g. Block YouTube on Xbox"}
                                         ref={descriptionRef}
                                         value={description}
                                         onChange={(e) =>
@@ -245,7 +247,8 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                                     />
                                 </div>
 
-                                {/* Block / Allow */}
+                                {/* Block / Allow (hidden for speed-limit rules) */}
+                                {!isSpeedLimit && (
                                 <div className="flex flex-col gap-2">
                                     <label className="text-sm font-semibold">
                                         Action
@@ -282,6 +285,7 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                                         </button>
                                     </div>
                                 </div>
+                                )}
 
                                 {/* Speed limit (only for bandwidth-limit rules) */}
                                 {isSpeedLimit && (
