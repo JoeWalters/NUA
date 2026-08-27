@@ -2341,13 +2341,15 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       description: description || 'Speed limit rule',
       domains: [],
       enabled: enabled,
-      // Bandwidth limiting is unsupported when matching by local IP, so a
-      // per-client speed limit is represented as matching_target 'APP' with the
-      // client(s) listed in target_devices ({ client_mac, type: 'CLIENT' }) —
-      // mirrored from a real working rule on the controller.
+      // matching_target is the rule's DESTINATION (App/Domain/IP/Region/
+      // Internet/Local network). This modal only picks source clients + bandwidth
+      // with no destination selector, so default to 'INTERNET' — it needs no
+      // app_ids (avoids MissingApplication) and no local IP (avoids the
+      // bandwidth-limiting-on-local-IP rejection). Clients are the source, listed
+      // in target_devices ({ client_mac, type: 'CLIENT' }) like a real rule.
       ip_addresses: [],
       ip_ranges: [],
-      matching_target: 'APP',
+      matching_target: 'INTERNET',
       network_ids: [],
       regions: [],
       schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
