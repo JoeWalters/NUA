@@ -2586,6 +2586,43 @@ app.post('/importexistingunifirules', async (req, res) => {
   try {
     if (categoryClones.length) {
       console.log('categoryClones \t', categoryClones);
+      // Persist category-based rules (INTERNET, APP_CATEGORY) — previously these
+      // were only logged and never written to the DB, so imported speed-limit
+      // rules never appeared in the Traffic Rules list.
+      for (const catClone of categoryClones) {
+        const trafficRuleEntry = await prisma.trafficRules.create({
+          data: {
+            unifiId: catClone._id,
+            description: catClone.description,
+            enabled: catClone.enabled,
+            blockAllow: catClone.action
+          }
+        });
+        if (catClone.app_category_ids?.length) {
+          for (const appCatNameId of catClone.app_category_ids) {
+            await prisma.appCatIds.create({
+              data: {
+                app_cat_id: appCatNameId.app_cat_id,
+                app_cat_name: appCatNameId.app_cat_name,
+                trafficRules: {
+                  connect: { id: trafficRuleEntry.id }
+                }
+              }
+            });
+          }
+        }
+        for (const catCloneTargetDevice of catClone.target_devices || []) {
+          await prisma.targetDevice.create({
+            data: {
+              client_mac: catCloneTargetDevice.client_mac ? catCloneTargetDevice.client_mac : 'Not a client device',
+              type: catCloneTargetDevice.type,
+              trafficRules: {
+                connect: { id: trafficRuleEntry.id }
+              }
+            }
+          });
+        }
+      }
     }
     if (appClones.length) {
       console.log('appClones \t', appClones);
