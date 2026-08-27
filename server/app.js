@@ -2504,30 +2504,35 @@ app.put('/updatetrafficrule', async (req, res) => {
     });
     console.log('updated traffic rule 	', updateTrafficRule);
 
-    // Replace the target device association rows with the new selection.
-    await prisma.trafficRuleDevices.deleteMany({ where: { trafficRulesId: idToUse } });
-    await prisma.targetDevice.deleteMany({ where: { trafficRulesId: idToUse } });
+    // Replace the target device association rows with the new selection. When
+    // the user didn't select any devices (e.g. the rule's device isn't in NUA's
+    // local device list yet), keep the existing associations intact so the
+    // rule still references its real target device.
+    if (dbDevices.length) {
+      await prisma.trafficRuleDevices.deleteMany({ where: { trafficRulesId: idToUse } });
+      await prisma.targetDevice.deleteMany({ where: { trafficRulesId: idToUse } });
 
-    for (const device of dbDevices) {
-      await prisma.trafficRuleDevices.create({
-        data: {
-          deviceName: device.name,
-          deviceId: device.id,
-          macAddress: device.macAddress,
-          trafficRules: {
-            connect: { id: idToUse },
+      for (const device of dbDevices) {
+        await prisma.trafficRuleDevices.create({
+          data: {
+            deviceName: device.name,
+            deviceId: device.id,
+            macAddress: device.macAddress,
+            trafficRules: {
+              connect: { id: idToUse },
+            },
           },
-        },
-      });
-      await prisma.targetDevice.create({
-        data: {
-          client_mac: device.macAddress,
-          type: 'CLIENT',
-          trafficRules: {
-            connect: { id: idToUse },
+        });
+        await prisma.targetDevice.create({
+          data: {
+            client_mac: device.macAddress,
+            type: 'CLIENT',
+            trafficRules: {
+              connect: { id: idToUse },
+            },
           },
-        },
-      });
+        });
+      }
     }
 
     res.status(200).json({ success: true, result: result });

@@ -85,10 +85,16 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
         const unifiRule = JSON.parse(JSON.stringify(rawRule));
         unifiRule.description = description;
         unifiRule.action = blockAllow;
-        unifiRule.target_devices = deviceSelection.map((d) => ({
-            client_mac: d.macAddress,
-            type: "CLIENT",
-        }));
+        // Only replace the target devices when the user actually selected some.
+        // If nothing is selected (e.g. the rule's device isn't in NUA's local
+        // device list yet), keep the existing target_devices so the UniFi PUT
+        // isn't sent with an empty (rejected) targetDevices array.
+        if (deviceSelection.length) {
+            unifiRule.target_devices = deviceSelection.map((d) => ({
+                client_mac: d.macAddress,
+                type: "CLIENT",
+            }));
+        }
 
         setLoading(true);
         try {
