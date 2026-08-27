@@ -2334,11 +2334,12 @@ app.post('/addspeedlimittrafficrule', async (req, res) => {
       enabled: enabled,
       // With matching_target 'IP', UniFi expects the targeted IPs in this
       // top-level ip_addresses array. Each entry is an object with the fields
-      // ipOrSubnet (the IP) and ipVersion (4/6) — and target_devices must be
-      // non-empty, so we also list each client there.
+      // ip_or_subnet (the IP) and ip_version (4/6) — UniFi uses snake_case JSON
+      // keys here — and target_devices must be non-empty, so we also list each
+      // client there.
       ip_addresses: targeted.map((d) => ({
-        ipOrSubnet: clientByMac[d.macAddress.toLowerCase()],
-        ipVersion: 4,
+        ip_or_subnet: clientByMac[d.macAddress.toLowerCase()],
+        ip_version: 4,
       })),
       ip_ranges: [],
       matching_target: 'IP',
