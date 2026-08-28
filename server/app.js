@@ -84,6 +84,17 @@ app.use(helmet({
 }));
 // Explicit JSON body limit (default is 100kb; traffic-rule payloads can exceed it)
 app.use(express.json({ limit: '1mb' }));
+
+// Serve the SPA shell (index.html) with cache-busting headers. iOS mobile
+// browsers cache aggressively and can end up with a stale index.html that
+// references old hashed asset files, which produces a blank page. no-cache /
+// no-store forces the browser to revalidate the shell on every load so it
+// always requests the current asset hashes.
+app.get('/', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.sendFile(path.join(PROJECT_ROOT, 'dist', 'index.html'));
+});
+
 app.use(express.static(path.join(PROJECT_ROOT, 'dist')));
 consoleReader(schedule);
 
@@ -3541,8 +3552,18 @@ app.delete('/deletetestids', async (req, res) => {
 });
 
 
-//~~~~~~refresh redirect~~~~~~
-app.get('**', async (req, res) => {
+//~~~~~~refresh redirect (SPA fallback)~~~~~~
+app.get('**', (req, res) => {
+  // Never return index.html for missing static assets (e.g. a stale/missing
+  // /assets/*.js chunk on a mobile browser). The browser would try to parse
+  // HTML as a JS module and silently end up with a blank screen. Asset requests
+  // get a real 404 so the failure is surfaced clearly instead.
+  if (/\\.(?:js|css|json|map|png|jpe?g|gif|svg|webp|avif|otf|ttf|woff2?|ico)$/i.test(req.path)) {
+    return res.status(404).end();
+  }
+  // Client-side routes (e.g. /trafficrules/, /manageapp/:cat/:id) fall back to
+  // the SPA shell. Serve it uncached so browsers always pick up current assets.
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(PROJECT_ROOT, 'dist', 'index.html'));
 });
 
