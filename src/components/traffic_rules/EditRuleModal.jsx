@@ -200,7 +200,9 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
 
                         {!pageLoading && (
                             <>
-                                {/* Read-only scope summary */}
+                                {/* Read-only scope summary (hidden for speed-limit rules —
+                                    they have no apps/categories, so it just repeats the name) */}
+                                {!isSpeedLimit && (
                                 <div className="rounded-xl border border-base-300 bg-base-200 p-4 flex flex-col gap-2">
                                     <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider">
                                         Rule Scope
@@ -224,6 +226,7 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                                         </span>
                                     )}
                                 </div>
+                                )}
 
                                 {/* Description (relabelled as Rule name for speed limits) */}
                                 <div className="flex flex-col gap-2">
