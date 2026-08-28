@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 
 
-export default function useFetchAllDevices()
+// Fetches the full controller client list (/getalldevices), which can be large
+// and memory-hungry on low-memory browsers (iOS). `enabled` gates the fetch:
+//   - default true  -> fetched immediately (the dedicated /alldevices page needs it)
+//   - false         -> nothing is fetched until the consumer flips it on (the home
+//                      page only fetches when the Add Device modal is opened)
+export default function useFetchAllDevices(enabled = true)
 {
     const [clientDevices, setClientDevices] = useState([]);
     const [deviceList, setDeviceList] = useState([]);
@@ -26,6 +31,8 @@ export default function useFetchAllDevices()
     }
 
     useEffect(() => {
+        // Skip the expensive /getalldevices call until the consumer needs it.
+        if (!enabled) return;
         let isActive = true;
         const controller = new AbortController();
 
@@ -79,7 +86,7 @@ export default function useFetchAllDevices()
             isActive = false;
             controller.abort();
         };
-    }, [reRender])
+    }, [reRender, enabled])
 
     return { clientDevices, deviceList, loading, reFetch };
 }
