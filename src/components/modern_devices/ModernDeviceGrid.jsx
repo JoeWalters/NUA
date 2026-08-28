@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import PropTypes from 'prop-types';
 import { HiMagnifyingGlass, HiAdjustmentsHorizontal, HiPlus, HiXMark } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import ModernDeviceCard from "./ModernDeviceCard";
@@ -12,18 +13,15 @@ export default function ModernDeviceGrid({
     onToggle, 
     onEdit, 
     onDelete,
-    onScheduleClick, // ✅ Added to props destructuring
+    onScheduleClick,
     timerCancelled,
     timerHandler,
-    handleRenderToggle,
-    onBlockAll,
-    onUnblockAll
+    handleRenderToggle
 }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [groupFilter, setGroupFilter] = useState('all');
     const [showFilters, setShowFilters] = useState(true);
-    const [showSearch, setShowSearch] = useState(false);
     const [filteredDevices, setFilteredDevices] = useState(devices);
     
     // Add Device Modal state
@@ -35,8 +33,11 @@ export default function ModernDeviceGrid({
     const allDevicesSearchRef = useRef();
     const allDevicesSelectRef = useRef();
     
-    // Fetch all devices for the modal
-    const { clientDevices, deviceList, loading: allDevicesLoading, reFetch } = useFetchAllDevices();
+    // The all-devices list is only needed inside the Add Device modal, so fetch
+    // it lazily the first time that modal is opened instead of on page load.
+    // This keeps the large controller client list out of memory on first load.
+    const [addModalOpen, setAddModalOpen] = useState(false);
+    const { clientDevices, loading: allDevicesLoading, reFetch } = useFetchAllDevices(addModalOpen);
 
     // Compute unique groups from devices for the group filter dropdown
     const availableGroups = [...new Map(
@@ -123,7 +124,7 @@ export default function ModernDeviceGrid({
                 body: JSON.stringify(deviceToAdd)
             });
             if (response.ok) {
-                const returnData = await response.json();
+                await response.json();
                 reFetch();
                 handleRenderToggle(); // Refresh the main device list
             }
@@ -208,7 +209,7 @@ export default function ModernDeviceGrid({
                 </div>
                 <button
                     className="btn btn-sm btn-primary gap-1"
-                    onClick={() => document.getElementById('addDeviceModal').showModal()}
+                    onClick={() => { setAddModalOpen(true); document.getElementById('addDeviceModal').showModal(); }}
                 >
                     <HiPlus className="w-4 h-4" />
                     Add Device
@@ -449,3 +450,15 @@ export default function ModernDeviceGrid({
         </div>
     );
 }
+
+ModernDeviceGrid.propTypes = {
+    devices: PropTypes.array,
+    loading: PropTypes.bool,
+    onToggle: PropTypes.func,
+    onEdit: PropTypes.func,
+    onDelete: PropTypes.func,
+    onScheduleClick: PropTypes.func,
+    timerCancelled: PropTypes.bool,
+    timerHandler: PropTypes.func,
+    handleRenderToggle: PropTypes.func,
+};

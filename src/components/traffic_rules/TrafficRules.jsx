@@ -24,7 +24,11 @@ import {
 
 export default function TrafficRules({ embedded = false })
 {
-    const { existingDeviceList, allClientDeviceList } = useGetAllDevices();
+    // The full controller client list is only needed for "Import UniFi Rules",
+    // so fetch it lazily the first time the import modal is opened instead of on
+    // page load (keeps the large list out of memory until it's actually used).
+    const [importModalOpened, setImportModalOpened] = useState(false);
+    const { existingDeviceList, allClientDeviceList } = useGetAllDevices(importModalOpened);
     const [customAPIRules, setCustomAPIRules] = useState([]);
     const [unifiRuleObject, setUnifiRuleObject] = useState([]);
     const [importRuleChoices, setImportRuleChoices] = useState([]);
@@ -67,6 +71,7 @@ export default function TrafficRules({ embedded = false })
         return filteredDevices;
     }
     const handleImportModalOpen = () => {
+        setImportModalOpened(true);
         importDialogRef.current.showModal();
     }
     const openEditRule = (data, rawRule) => {
