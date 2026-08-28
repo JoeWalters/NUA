@@ -14,7 +14,7 @@ import {
     HiArrowDownTray,
     HiTrash,
     HiCpuChip,
-    HiPencil,
+    HiMiniPencilSquare,
     HiBolt,
     HiDevicePhoneMobile,
 } from "react-icons/hi2";
@@ -514,15 +514,6 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit, rawRule, onSta
 
                         <div className="flex items-center space-x-2">
                             <button
-                                className="btn btn-ghost btn-xs text-primary"
-                                onClick={() => onEdit(data, rawRule)}
-                                data-trafficruleid={data?.trafficRule?.id}
-                                title="Edit Rule"
-                            >
-                                 <HiPencil className="w-4 h-4" />
-                                Edit
-                            </button>
-                            <button
                                 className="btn btn-ghost btn-xs"
                                 onClick={() => setExpanded(prev => !prev)}
                                 aria-label="Expand rule details"
@@ -530,13 +521,12 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit, rawRule, onSta
                                 {expanded ? 'Less' : 'More'}
                             </button>
                             <button
-                                className="btn btn-ghost btn-xs text-base-content/50 hover:text-error"
-                                onClick={onDelete}
-                                data-trafficid={data?.trafficRule.unifiId}
-                                data-trafficruleid={data?.trafficRule.id}
-                                title="Delete Rule"
+                                className="btn btn-ghost btn-xs text-base-content/50 hover:text-primary"
+                                onClick={() => onEdit(data, rawRule)}
+                                data-trafficruleid={data?.trafficRule?.id}
+                                title="Edit Rule"
                             >
-                                <HiTrash className="w-4 h-4" />
+                                <HiMiniPencilSquare className="w-4 h-4" />
                             </button>
                         </div>
                     </div>
