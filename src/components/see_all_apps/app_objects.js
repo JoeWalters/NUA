@@ -68,6 +68,51 @@ export const dbCategoryDeviceObject = {
     // target_devices: [ { client_mac: 'd8:31:34:5f:01:12', type: 'CLIENT'} ]
 }
 
+// speed limit across device(s) — UniFi traffic rule that caps client bandwidth
+// (bandwidth_limit.enabled = true is what makes UniFi treat it as a speed limit)
+export const speedLimitDeviceObject = {
+    action: 'ALLOW',
+    app_category_ids: [],
+    app_ids: [],
+    bandwidth_limit: {
+      download_limit_kbps: 1024,
+      enabled: false,
+      upload_limit_kbps: 1024
+    },
+    description: '', // e.g. 'Cap Xbox at 50 Mbps'
+    domains: [],
+    enabled: true,
+    ip_addresses: [],
+    ip_ranges: [],
+    matching_target: 'CLIENT',
+    network_ids: [],
+    regions: [],
+    schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
+    target_devices: []
+    // target_devices: [ { client_mac: 'd8:31:34:5f:01:12', type: 'CLIENT'} ]
+}
+export const dbSpeedLimitDeviceObject = {
+    action: 'ALLOW',
+    app_category_ids: [],
+    app_ids: [],
+    bandwidth_limit: {
+      download_limit_kbps: 1024,
+      enabled: false,
+      upload_limit_kbps: 1024
+    },
+    description: '',
+    domains: [],
+    enabled: true,
+    ip_addresses: [],
+    ip_ranges: [],
+    matching_target: 'CLIENT',
+    network_ids: [],
+    regions: [],
+    schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
+    target_devices: [],
+    devices: [] // added for db
+}
+
 // block app across device(s)
 export const appDeviceObject = {
     action: 'BLOCK',

@@ -2039,6 +2039,22 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
     const path = '/v2/api/site/default/trafficrules';
     const result = await withUnifiRetry(() => unifi.customApiRequest(path, 'GET'));
 
+    // TEMP DEBUG: dump a real rule so we can mirror UniFi's exact shape.
+    const sampleRule = Array.isArray(result)
+      ? result.find(r => r.bandwidth_limit?.enabled) || result[0]
+      : null;
+    if (sampleRule) {
+      console.log('DEBUG full rule \t', JSON.stringify({
+        matching_target: sampleRule.matching_target,
+        ip_addresses: sampleRule.ip_addresses,
+        ip_ranges: sampleRule.ip_ranges,
+        target_devices: sampleRule.target_devices,
+        network_ids: sampleRule.network_ids,
+        bandwidth_limit: sampleRule.bandwidth_limit,
+        action: sampleRule.action,
+      }));
+    }
+
     const fetchTrafficRules = await prisma?.trafficRules?.findMany();
     const fetchAppCatIds = await prisma?.appCatIds?.findMany();
     const fetchAppIds = await prisma?.appIds?.findMany();
@@ -2272,6 +2288,142 @@ app.post('/addappstrafficrule', async (req, res) => {
   }
 });
 
+// Create a UniFi speed-limit traffic rule (bandwidth cap on target clients).
+// Body: { description, enabled, devices } — devices is the selected list with
+// { id, name, macAddress }. The UniFi speed-limit payload is built here because
+// this controller's traffic-rule schema has no CLIENT matching target: specific
+// clients are targeted by their IP via matching_target = 'CLIENT' (the UniFi
+// enum for this field only accepts ALL_CLIENTS/CLIENT/NETWORK), so we map each
+// selected device's MAC to its current IP from the controller.
+app.post('/addspeedlimittrafficrule', async (req, res) => {
+  if (!unifi) {
+    return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
+  }
+  const { description, enabled, devices } = req.body;
+
+  try {
+    // Build a MAC -> IP map from the live client list (online, current IPs) plus
+    // the all-users list (last-known IPs, so offline devices are still covered).
+    const clientByMac = {};
+    const addClients = (list) => {
+      for (const client of list) {
+        if (client.mac && client.ip) {
+          clientByMac[client.mac.toLowerCase()] = client.ip;
+        }
+      }
+    };
+    addClients(await unifi.getClientDevices());
+    addClients(await unifi.getAllUsers());
+
+    // Target every selected device we have an IP for; skip the rest (e.g. a
+    // device never seen online) rather than failing the whole rule.
+    const targeted = devices.filter((d) => clientByMac[d.macAddress.toLowerCase()]);
+    const skipped = devices.filter((d) => !clientByMac[d.macAddress.toLowerCase()]);
+
+    if (!targeted.length) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          message: 'No selected device has a known IP on the controller yet — try again after the device connects.',
+        },
+      });
+    }
+
+    const speedLimitObject = {
+      action: 'ALLOW',
+      app_category_ids: [],
+      app_ids: [],
+      bandwidth_limit: {
+        download_limit_kbps: 1024,
+        enabled: true,
+        upload_limit_kbps: 1024,
+      },
+      description: description || 'Speed limit rule',
+      domains: [],
+      enabled: enabled,
+      // matching_target is the rule's DESTINATION (App/Domain/IP/Region/
+      // Internet/Local network). This modal only picks source clients + bandwidth
+      // with no destination selector, so default to 'INTERNET' — it needs no
+      // app_ids (avoids MissingApplication) and no local IP (avoids the
+      // bandwidth-limiting-on-local-IP rejection). Clients are the source, listed
+      // in target_devices ({ client_mac, type: 'CLIENT' }) like a real rule.
+      ip_addresses: [],
+      ip_ranges: [],
+      matching_target: 'INTERNET',
+      network_ids: [],
+      regions: [],
+      schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
+      target_devices: targeted.map((d) => ({
+        client_mac: d.macAddress,
+        type: 'CLIENT',
+      })),
+    };
+
+    // Set the requested limits (Mbps already converted to kbps by the client).
+    speedLimitObject.bandwidth_limit.download_limit_kbps = req.body.downloadKbps;
+    speedLimitObject.bandwidth_limit.upload_limit_kbps = req.body.uploadKbps;
+
+    const path = '/v2/api/site/default/trafficrules';
+
+    // TEMP DEBUG: fetch a real rule so we can mirror UniFi's exact speed-limit shape.
+    const existingRules = await unifi.customApiRequest(path, 'GET');
+    const sampleRule = Array.isArray(existingRules)
+      ? existingRules.find(r => r.bandwidth_limit?.enabled) || existingRules[0]
+      : null;
+    if (sampleRule) {
+      console.log('DEBUG full rule \t', JSON.stringify({
+        matching_target: sampleRule.matching_target,
+        ip_addresses: sampleRule.ip_addresses,
+        ip_ranges: sampleRule.ip_ranges,
+        target_devices: sampleRule.target_devices,
+        network_ids: sampleRule.network_ids,
+        bandwidth_limit: sampleRule.bandwidth_limit,
+        action: sampleRule.action,
+      }));
+    } else {
+      console.log('DEBUG no rules found');
+    }
+
+    const result = await unifi.customApiRequest(path, 'POST', speedLimitObject);
+
+    const setTrafficRuleEntry = await prisma.trafficRules.create({
+      data: {
+        unifiId: result._id,
+        description: description,
+        enabled: enabled,
+        blockAllow: 'ALLOW',
+      },
+    });
+
+    for (const device of targeted) {
+      await prisma.trafficRuleDevices.create({
+        data: {
+          deviceName: device.name,
+          deviceId: device.id,
+          macAddress: device.macAddress,
+          trafficRules: {
+            connect: { id: setTrafficRuleEntry.id },
+          },
+        },
+      });
+      await prisma.targetDevice.create({
+        data: {
+          client_mac: device.macAddress,
+          type: 'CLIENT',
+          trafficRules: {
+            connect: { id: setTrafficRuleEntry.id },
+          },
+        },
+      });
+    }
+
+    res.status(200).json({ success: true, result: result, skipped: skipped });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error?.response?.data });
+    console.error(error);
+  }
+});
+
 app.put('/updatecategorytrafficrule', async (req, res) => {
   if (!unifi) {
     return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
@@ -2318,6 +2470,74 @@ app.put('/updatetrafficruletoggle', async (req, res) => {
     res.sendStatus(200);
   } catch (error) {
     res.status(400).json({ error: error });
+    console.error(error);
+  }
+});
+
+// Edit an existing traffic rule: update the UniFi controller rule plus its
+// locally tracked description, action (block/allow) and target device set.
+// Body:
+//   { trafficRuleId, unifiRule, description, action,
+//     targetDevices: [{ client_mac, type }], dbDevices: [{ id, name, macAddress }] }.
+app.put('/updatetrafficrule', async (req, res) => {
+  if (!unifi) {
+    return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
+  }
+  const { trafficRuleId, unifiRule, description, action, targetDevices = [], dbDevices = [] } = req.body;
+
+  if (!trafficRuleId || !unifiRule || !unifiRule._id) {
+    return res.status(400).json({ error: 'Missing trafficRuleId or unifiRule' });
+  }
+
+  try {
+    const path = `/v2/api/site/default/trafficrules/${unifiRule._id}`;
+    const result = await unifi.customApiRequest(path, 'PUT', unifiRule);
+
+    const idToUse = parseInt(trafficRuleId);
+
+    const updateTrafficRule = await prisma.trafficRules.update({
+      where: { id: idToUse },
+      data: {
+        description: description,
+        blockAllow: action,
+      },
+    });
+    console.log('updated traffic rule 	', updateTrafficRule);
+
+    // Replace the target device association rows with the new selection. When
+    // the user didn't select any devices (e.g. the rule's device isn't in NUA's
+    // local device list yet), keep the existing associations intact so the
+    // rule still references its real target device.
+    if (dbDevices.length) {
+      await prisma.trafficRuleDevices.deleteMany({ where: { trafficRulesId: idToUse } });
+      await prisma.targetDevice.deleteMany({ where: { trafficRulesId: idToUse } });
+
+      for (const device of dbDevices) {
+        await prisma.trafficRuleDevices.create({
+          data: {
+            deviceName: device.name,
+            deviceId: device.id,
+            macAddress: device.macAddress,
+            trafficRules: {
+              connect: { id: idToUse },
+            },
+          },
+        });
+        await prisma.targetDevice.create({
+          data: {
+            client_mac: device.macAddress,
+            type: 'CLIENT',
+            trafficRules: {
+              connect: { id: idToUse },
+            },
+          },
+        });
+      }
+    }
+
+    res.status(200).json({ success: true, result: result });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error?.response?.data || error });
     console.error(error);
   }
 });
@@ -2371,6 +2591,43 @@ app.post('/importexistingunifirules', async (req, res) => {
   try {
     if (categoryClones.length) {
       console.log('categoryClones \t', categoryClones);
+      // Persist category-based rules (INTERNET, APP_CATEGORY) — previously these
+      // were only logged and never written to the DB, so imported speed-limit
+      // rules never appeared in the Traffic Rules list.
+      for (const catClone of categoryClones) {
+        const trafficRuleEntry = await prisma.trafficRules.create({
+          data: {
+            unifiId: catClone._id,
+            description: catClone.description,
+            enabled: catClone.enabled,
+            blockAllow: catClone.action
+          }
+        });
+        if (catClone.app_category_ids?.length) {
+          for (const appCatNameId of catClone.app_category_ids) {
+            await prisma.appCatIds.create({
+              data: {
+                app_cat_id: appCatNameId.app_cat_id,
+                app_cat_name: appCatNameId.app_cat_name,
+                trafficRules: {
+                  connect: { id: trafficRuleEntry.id }
+                }
+              }
+            });
+          }
+        }
+        for (const catCloneTargetDevice of catClone.target_devices || []) {
+          await prisma.targetDevice.create({
+            data: {
+              client_mac: catCloneTargetDevice.client_mac ? catCloneTargetDevice.client_mac : 'Not a client device',
+              type: catCloneTargetDevice.type,
+              trafficRules: {
+                connect: { id: trafficRuleEntry.id }
+              }
+            }
+          });
+        }
+      }
     }
     if (appClones.length) {
       console.log('appClones \t', appClones);

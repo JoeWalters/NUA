@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { categoryDeviceObject, appDeviceObject } from "../see_all_apps/app_objects";
-import { allAppsList } from "../../traffic_rule_apps/unifi_match_list";
+import PropTypes from 'prop-types';
 import { importToDbConverter } from "../utility_functions/app_cat_utils";
 import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
 import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
 import CreateRuleModal from "./CreateRuleModal";
+import EditRuleModal from "./EditRuleModal";
+import SpeedLimitModal from "./SpeedLimitModal";
 import RuleBonusTimeButton from "../utility_components/RuleBonusTimeButton";
 import RuleScheduleButton from "../utility_components/RuleScheduleButton";
 import {
@@ -12,9 +13,9 @@ import {
     HiPlus,
     HiArrowDownTray,
     HiTrash,
-    HiChevronDown,
-    HiChevronUp,
     HiCpuChip,
+    HiMiniPencilSquare,
+    HiBolt,
     HiDevicePhoneMobile,
 } from "react-icons/hi2";
 
@@ -28,19 +29,27 @@ export default function TrafficRules({ embedded = false })
     const [unifiRuleObject, setUnifiRuleObject] = useState([]);
     const [importRuleChoices, setImportRuleChoices] = useState([]);
     const [importRuleSelection, setImportRuleSelection] = useState([]);
-    const [importDeviceSelection, setImportDeviceSelection] = useState([]);
     const [checked, setChecked] = useState(false);
-    const [checked2, setChecked2] = useState(false);
     const [render, setRender] = useState(false);
     const [importOption, setImportOption] = useState(false);
     const [loadingImportSubmission, setLoadingImportSubmission] = useState(false);
-    const [loadingUnmanageApp, setLoadingUnmanageApp] = useState(false);
+    const [loadingUnmanageApp] = useState(false);
     const [pageLoading, setPageLoading] = useState(true);
     const importDialogRef = useRef();
     const createRuleDialogRef = useRef();
+    const editRuleDialogRef = useRef();
+    const speedLimitDialogRef = useRef();
+    const [editingRule, setEditingRule] = useState(null);
+    const [editingRawRule, setEditingRawRule] = useState(null);
+    const [editingCategoryName, setEditingCategoryName] = useState("");
 
     function checkForImportRules(dbData, unifiData) {
-        const filterOutInternetMatchingTarget = unifiData.filter((rule) => rule.matching_target !== "INTERNET");
+        // Exclude plain site-wide INTERNET rules, but keep per-client speed-limit
+        // rules (which have bandwidth_limit.enabled and use INTERNET as their
+        // destination) so they show up as importable.
+        const filterOutInternetMatchingTarget = unifiData.filter((rule) =>
+            rule.matching_target !== "INTERNET" || rule.bandwidth_limit?.enabled
+        );
         if (dbData !== null) {
             const importData = filterOutInternetMatchingTarget.filter(unifiData =>
                 dbData.some(dbIds => dbIds.trafficRule.unifiId !== unifiData._id));
@@ -60,6 +69,15 @@ export default function TrafficRules({ embedded = false })
     const handleImportModalOpen = () => {
         importDialogRef.current.showModal();
     }
+    const openEditRule = (data, rawRule) => {
+        const match = (unifiRuleObject || []).find((r) =>
+            r._id === data?.trafficRule?.unifiId
+       );
+        setEditingRule(data);
+        setEditingRawRule(match || null);
+        setEditingCategoryName(match?.description || rawRule?.description || "");
+        editRuleDialogRef.current.showModal();
+       }
     const handleImportModalClose = () => {
         importDialogRef.current.close();
         const resetCheckedState = {};
@@ -133,6 +151,9 @@ export default function TrafficRules({ embedded = false })
     const reRender = () => {
         console.log('Component re-rendered.');
         setRender(prev => !prev);
+        setEditingRule(null);
+        setEditingRawRule(null);
+        setEditingCategoryName("");
     }
     const handleToggle = async e => {
         const checked = e.currentTarget.checked;
@@ -176,31 +197,6 @@ export default function TrafficRules({ embedded = false })
                 const res = await deleteTrafficRule.json();
                 console.log(res.result);
                 reRender();
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    }
-    const handleDeleteTestIds = async () => {
-        const untouchableIds = [ "6575d1891769d72344f9e1af", "65a9260d7d12773fe586ec4b", "65bda95338fb85531f321e7e" ];
-        const touchableIds = unifiRuleObject.filter(id => !untouchableIds.some(ids => ids === id._id));
-        // const touchableIds = touchableId.slice(0, 100);
-        const asda = ["65c59f2538fb85531f3569d6"];
-
-        // console.log('touchableIds \t', touchableIds);
-        try {
-            const deleteManyTestIds = await fetch('/deletetestids', {
-                method: "DELETE",
-                mode: "cors",
-                headers: {
-                    "Content-Type" : "application/json"
-                },
-                body: JSON.stringify({ asda })
-            });
-            if (deleteManyTestIds.ok) {
-                const { successArray } = await deleteManyTestIds.json();
-                // console.log('successArray: \t', successArray);
-                // console.log('successArray.length: \t', successArray.length);
             }
         } catch (error) {
             console.error(error);
@@ -339,6 +335,13 @@ export default function TrafficRules({ embedded = false })
                                 <HiPlus className="w-4 h-4" />
                                 New Rule
                             </button>
+                            <button
+                                className="btn btn-sm btn-outline btn-primary gap-1"
+                                onClick={() => speedLimitDialogRef.current.showModal()}
+                            >
+                                <HiBolt className="w-4 h-4" />
+                                Speed Limit
+                            </button>
                         </div>
                     </div>
 
@@ -352,6 +355,8 @@ export default function TrafficRules({ embedded = false })
                                     onToggle={handleToggle}
                                     onDelete={handleDeleteTrafficRule}
                                     onUnmanage={handleUnmanageApp}
+                                    onEdit={openEditRule}
+                                    rawRule={(unifiRuleObject || []).find((r) => r._id === data?.trafficRule?.unifiId) || null}
                                     onStateChange={reRender}
                                     loadingUnmanageApp={loadingUnmanageApp}
                                 />
@@ -367,6 +372,16 @@ export default function TrafficRules({ embedded = false })
             )}
 
             <CreateRuleModal dialogRef={createRuleDialogRef} onSuccess={reRender} />
+
+            <SpeedLimitModal dialogRef={speedLimitDialogRef} onSuccess={reRender} />
+
+             <EditRuleModal
+                dialogRef={editRuleDialogRef}
+                rule={editingRule}
+                rawRule={editingRawRule}
+                categoryName={editingCategoryName}
+                onSuccess={reRender}
+             />
 
             {/* Import modal */}
             <dialog ref={importDialogRef} className="modal">
@@ -418,7 +433,7 @@ export default function TrafficRules({ embedded = false })
     );
 }
 
-function RuleCard({ data, onToggle, onDelete, onUnmanage, onStateChange, loadingUnmanageApp }) {
+function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit, rawRule, onStateChange, loadingUnmanageApp }) {
     const [expanded, setExpanded] = useState(false);
     const enabled = data?.trafficRule.enabled;
     const bonusTimeActive = data?.trafficRule.bonusTimeActive || false;
@@ -506,13 +521,12 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, onStateChange, loading
                                 {expanded ? 'Less' : 'More'}
                             </button>
                             <button
-                                className="btn btn-ghost btn-xs text-base-content/50 hover:text-error"
-                                onClick={onDelete}
-                                data-trafficid={data?.trafficRule.unifiId}
-                                data-trafficruleid={data?.trafficRule.id}
-                                title="Delete Rule"
+                                className="btn btn-ghost btn-xs text-base-content/50 hover:text-primary"
+                                onClick={() => onEdit(data, rawRule)}
+                                data-trafficruleid={data?.trafficRule?.id}
+                                title="Edit Rule"
                             >
-                                <HiTrash className="w-4 h-4" />
+                                <HiMiniPencilSquare className="w-4 h-4" />
                             </button>
                         </div>
                     </div>
@@ -569,3 +583,27 @@ function RuleCard({ data, onToggle, onDelete, onUnmanage, onStateChange, loading
         </li>
     );
 }
+TrafficRules.propTypes = {
+    embedded: PropTypes.bool,
+};
+
+RuleCard.propTypes = {
+    data: PropTypes.shape({
+        trafficRule: PropTypes.shape({
+            enabled: PropTypes.bool,
+            bonusTimeActive: PropTypes.bool,
+            description: PropTypes.string,
+            unifiId: PropTypes.string,
+            id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+         }),
+        matchingAppIds: PropTypes.array,
+        matchingTargetDevices: PropTypes.array,
+     }),
+    onToggle: PropTypes.func,
+    onDelete: PropTypes.func,
+    onUnmanage: PropTypes.func,
+    onEdit: PropTypes.func,
+    rawRule: PropTypes.object,
+    onStateChange: PropTypes.func,
+    loadingUnmanageApp: PropTypes.bool,
+};
