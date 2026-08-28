@@ -15,7 +15,11 @@ import {
 // via PUT /updatetrafficrule.
 export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, onSuccess }) {
     const ruleMeta = rule?.trafficRule || {};
-    const [description, setDescription] = useState(ruleMeta.description || "");
+    // Seed the rule name from the DB first, then the UniFi rule's description
+    // (the authoritative name) so the field is never empty when editing.
+    const [description, setDescription] = useState(
+        ruleMeta.description || rawRule?.description || ""
+    );
     const [blockAllow, setBlockAllow] = useState(ruleMeta.blockAllow || "BLOCK");
     // Speed-limit rules carry bandwidth_limit.enabled; bandwidth limiting is only
     // supported on ALLOW rules, so their action must stay ALLOW.
@@ -72,7 +76,12 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
             setDownloadMbps(dl ? String(dl / 1000) : "");
             setUploadMbps(ul ? String(ul / 1000) : "");
         }
-    }, [isSpeedLimit, rawRule]);
+        // If the rule name wasn't seeded from the DB, populate it from the
+        // UniFi rule's description so the field shows the current name.
+        if (description === "" && rawRule?.description) {
+            setDescription(rawRule.description);
+        }
+    }, [isSpeedLimit, rawRule, description]);
 
     const handleSelectDevice = (e) => {
         if (e.target.checked) {
