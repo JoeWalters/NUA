@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { GoLock, GoUnlock } from "react-icons/go";
 import Confirmation from "./confirmations/Confirmation";
 import PropTypes from 'prop-types';
+import { isDebugEnabled, setDebugMode, debugLog } from "../utility_functions/debugMode";
 
 
 export default function SiteSettings({ isOpen, onClose })
@@ -113,7 +114,7 @@ export default function SiteSettings({ isOpen, onClose })
                     timerRef.current.disabled = true;
                     const dbData = await fetchSettings.json();
                     setPreExistingData(dbData);
-                    console.log('dbData.refreshRate \t', dbData.refreshRate);
+                    debugLog('dbData.refreshRate \t', dbData.refreshRate);
                     setRefreshRateFromDB(dbData.refreshRate)
 
                 } else if (!fetchSettings.ok) {
@@ -148,7 +149,7 @@ export default function SiteSettings({ isOpen, onClose })
     }
     const handleTest = async () => {
         setClicked(true)
-        console.log('clicked set to true', clicked);
+        debugLog('clicked set to true', clicked);
         try {
             const testConnection = await fetch('/testconnection');
             if (testConnection.ok) {
@@ -173,7 +174,7 @@ export default function SiteSettings({ isOpen, onClose })
 
                 } else if (!testConnection.ok) {
                     const errorMsg = await testConnection.json();
-                    console.log('error message from back end (/sitesettings)', errorMsg);
+                    debugLog('error message from back end (/sitesettings)', errorMsg);
 
                     // setShowConfirmation(true)
                     setTestMessage(`There was an error "${errorMsg.message}", please double check your username and password.`);
@@ -241,7 +242,7 @@ export default function SiteSettings({ isOpen, onClose })
                 const status = await response.json();
                 setDebugStatus(status);
                 setShowDebugStatus(true);
-                console.log('Debug Status:', status);
+                debugLog('Debug Status:', status);
             } else {
                 console.error('Failed to fetch debug status');
                 setDebugStatus({ error: 'Failed to fetch status' });
@@ -473,6 +474,15 @@ export default function SiteSettings({ isOpen, onClose })
                                 onChange={handleInput}
                             />
                             <span>Enable diagnostics</span>
+                        </label>
+                        <label className="flex items-center gap-3">
+                            <input
+                                type="checkbox"
+                                className="toggle toggle-info"
+                                checked={isDebugEnabled()}
+                                onChange={(e) => setDebugMode(e.target.checked)}
+                            />
+                            <span>Enable debug mode (client logging)</span>
                         </label>
                     </div>
                 </div>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { MdMoreTime } from "react-icons/md";
+import { debugLog } from "../../utility_functions/debugMode";
 
 export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler, handleRenderToggle, bonusTimeActive }) {
 
@@ -82,13 +83,13 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
                     });
                     if (retrieveTimes.status === 200) {
                         const res = await retrieveTimes.json();
-                        console.log('res\t', res);
+                        debugLog('res\t', res);
                         if (isMounted) {
                             const time = res.timer;
                             setMilliTime(time);
                         }
                     } else if (retrieveTimes.status === 204) {
-                        console.log("No bonus time data to be retrieved!");
+                        debugLog("No bonus time data to be retrieved!");
                     }
                 } catch (error) {
                     console.error(error);

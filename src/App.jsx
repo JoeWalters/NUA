@@ -11,8 +11,11 @@ export default function App() {
     const [themeValue, setThemeValue] = useState('');
     const [changed, setChanged] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [syncBannerOpen, setSyncBannerOpen] = useState(false);
     const [auth, setAuth] = useState({ enabled: false, authenticated: false });
     const location = useLocation();
+
+    const toggleSyncBanner = () => setSyncBannerOpen(prev => !prev);
 
     const callBackChanged = () => {
       setChanged(prev => !prev)
@@ -67,10 +70,10 @@ export default function App() {
 
   return (
     <>
-      <Navbar themeValue={themeValue} callBackChanged={callBackChanged} onSettingsClick={() => setSettingsOpen(true)} onLogout={handleLogout} showLogout={auth.enabled} />
+      <Navbar themeValue={themeValue} callBackChanged={callBackChanged} onSettingsClick={() => setSettingsOpen(true)} onLogout={handleLogout} showLogout={auth.enabled} onHealthToggle={toggleSyncBanner} />
       {location.pathname !== '/' && <BreadCrumbs />}
       <div key={location.pathname} className="page-enter flex items-center justify-center h-full w-full">
-        <Outlet context={{ openSettings: () => setSettingsOpen(true) }} />
+        <Outlet context={{ openSettings: () => setSettingsOpen(true), syncBannerOpen, onToggleSyncBanner: toggleSyncBanner }} />
       </div>
       <SiteSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </>

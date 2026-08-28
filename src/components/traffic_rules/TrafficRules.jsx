@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import PropTypes from 'prop-types';
 import { importToDbConverter } from "../utility_functions/app_cat_utils";
 import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
+import { debugLog } from "../../utility_functions/debugMode";
 import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
 import CreateRuleModal from "./CreateRuleModal";
 import EditRuleModal from "./EditRuleModal";
@@ -109,10 +110,10 @@ export default function TrafficRules({ embedded = false })
                 const noDuplicates = [...new Set(filteredOut)];
                 setImportRuleSelection([...noDuplicates])
             }
-            console.log('importRuleSelection \t', importRuleSelection);
+            debugLog('importRuleSelection \t', importRuleSelection);
     }
     const handleUnmanageApp = e => {
-        console.log(e.currentTarget.dataset.trafficruleid);
+        debugLog(e.currentTarget.dataset.trafficruleid);
         const dbId = e.currentTarget.dataset.trafficruleid;
         const unmanageApp = async () => {
             try {
@@ -125,7 +126,7 @@ export default function TrafficRules({ embedded = false })
                     body: JSON.stringify({ dbId })
                 });
                 if (submitUnmanageApp.ok) {
-                    console.log(`DB ID: ${dbId} unmanaged successfully!`);
+                    debugLog(`DB ID: ${dbId} unmanaged successfully!`);
                     reRender();
                 }
             } catch (error) {
@@ -154,7 +155,7 @@ export default function TrafficRules({ embedded = false })
     //         console.log('ImportDeviceSelection \t', importDeviceSelection);
     // }
     const reRender = () => {
-        console.log('Component re-rendered.');
+        debugLog('Component re-rendered.');
         setRender(prev => !prev);
         setEditingRule(null);
         setEditingRawRule(null);
@@ -198,9 +199,9 @@ export default function TrafficRules({ embedded = false })
                 body: JSON.stringify({ _id, trafficRuleId })
             });
             if (deleteTrafficRule.ok) {
-                console.log('Delete Successful.');
+                debugLog('Delete Successful.');
                 const res = await deleteTrafficRule.json();
-                console.log(res.result);
+                debugLog(res.result);
                 reRender();
             }
         } catch (error) {
@@ -212,12 +213,12 @@ export default function TrafficRules({ embedded = false })
 
         const importExists = checkForImportRules(customAPIRules, unifiRuleObject);
         if (importExists.length) {
-            console.log('importExists \t', importExists);
+            debugLog('importExists \t', importExists);
         }
         const { categoryClones, appClones } = importToDbConverter(importRuleSelection, allClientDeviceList, existingDeviceList);
         if (categoryClones || appClones) {
-            console.log('categoryClones \t', categoryClones);
-            console.log('appClones \t', appClones);
+            debugLog('categoryClones \t', categoryClones);
+            debugLog('appClones \t', appClones);
         }
         try {
             const importExistingRules = await fetch('/importexistingunifirules', {

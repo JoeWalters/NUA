@@ -5,8 +5,8 @@ import { MdSchedule } from "react-icons/md";
 import DeviceSkeleton from "./skeletons/DevicesSkeleton";
 import LoadingDialog from "./utility_components/LoadingDialog";
 import BonusTimeButton from "./utility_components/BonusTimeButton";
-import DisplayBonusTimer from "./utility_components/DisplayBonusTimer";
 import SchedulerModal from "./Scheduler/SchedulerModal.jsx";
+import { debugLog } from "./utility_functions/debugMode";
 
 export default function Devices({ macData, blockedUsers, handleRenderToggle, loadingMacData })
 {
@@ -37,8 +37,8 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
     const delay = t => new Promise(res => setTimeout(res, t));
 
     useEffect(() => {
-      console.log('useEffect in devices fired...')
-      console.log("Data from devices upon hopeful re-render:\t", macData)
+      debugLog('useEffect in devices fired...')
+      debugLog("Data from devices upon hopeful re-render:\t", macData)
     }, [macData])
 
 
@@ -60,7 +60,7 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
                 const result = await updateToggle.json();
                 
                 if (updateToggle.ok && result.success) {
-                    console.log('Toggle successful:', result);
+                    debugLog('Toggle successful:', result);
                     setLoading(false);
                     handleRenderToggle();
 
@@ -105,7 +105,7 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
             });
             if (blockAll.ok) {
                 const updatedData = await blockAll.json();
-                console.log('All Devices Blocked: ', updatedData);
+                debugLog('All Devices Blocked: ', updatedData);
                 handleRenderToggle();
             }
         } catch (error) {
@@ -125,7 +125,7 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
             });
             if (blockAll.ok) {
                 const updatedData = await blockAll.json();
-                console.log('All Devices Blocked response: ', updatedData);
+                debugLog('All Devices Blocked response: ', updatedData);
                 handleRenderToggle();
             }
         } catch (error) {
@@ -144,7 +144,7 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
             });
             if(submitForDeletion.ok) {
                 const confirmation = await submitForDeletion.json();
-                console.log(confirmation);
+                debugLog(confirmation);
                 handleRenderToggle();
             }
         } catch (error) {
@@ -184,7 +184,7 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
                 });
                 if (updates.ok) {
                     const response = updates.json();
-                    console.log(response);
+                    debugLog(response);
                     setLoading(false);
                     handleRenderToggle();
                     editRef.current.close();

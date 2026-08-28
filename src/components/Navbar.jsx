@@ -4,7 +4,7 @@ import { HiCog6Tooth } from "react-icons/hi2";
 import NuaSvg from "../images/nua.svg";
 import PropTypes from 'prop-types';
 
-export default function Navbar({ themeValue, callBackChanged, onSettingsClick, onLogout, showLogout }) {
+export default function Navbar({ themeValue, callBackChanged, onSettingsClick, onLogout, showLogout, onHealthToggle }) {
   const [connected, setConnected] = useState(null);
 
   useEffect(() => {
@@ -53,22 +53,22 @@ export default function Navbar({ themeValue, callBackChanged, onSettingsClick, o
 
       {/* Right: connection dot + theme toggle + settings gear */}
       <div className="flex items-center gap-3">
-        <div
-          className={`w-2.5 h-2.5 rounded-full transition-colors ${
-            connected === null
-              ? 'bg-base-content/30 animate-pulse'
-              : connected
-              ? 'bg-success'
-              : 'bg-error animate-pulse'
-          }`}
-          title={
-            connected === null
-              ? 'Checking UniFi connection…'
-              : connected
-              ? 'UniFi connected'
-              : 'UniFi disconnected'
-          }
-        />
+        <button
+          className="btn btn-ghost btn-sm btn-circle"
+          title="Device sync status — click for details"
+          aria-label="Device sync status"
+          onClick={onHealthToggle}
+        >
+          <div
+            className={`w-2.5 h-2.5 rounded-full transition-colors ${
+              connected === null
+                ? 'bg-base-content/30 animate-pulse'
+                : connected
+                ? 'bg-success'
+                : 'bg-error animate-pulse'
+            }`}
+          />
+        </button>
 
         <label className="swap swap-rotate">
           <input
@@ -115,4 +115,5 @@ Navbar.propTypes = {
   onSettingsClick: PropTypes.func,
   onLogout: PropTypes.func,
   showLogout: PropTypes.bool,
+  onHealthToggle: PropTypes.func,
 };

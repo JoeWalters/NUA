@@ -1,238 +1,50 @@
-import { useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useRef } from "react";
 import ModernDeviceGrid from "./modern_devices/ModernDeviceGrid";
 import LoadingDialog from "./utility_components/LoadingDialog";
 import DeviceGroupManager from "./DeviceGroupManager";
 import SchedulerModal from "./Scheduler/SchedulerModal.jsx";
+import { useDeviceActions } from "./custom_hooks/useDeviceActions";
 
 export default function ModernDevices({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
-    const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
-    const editRef = useRef();
-    const [updatedDeviceData, setUpdatedDeviceData] = useState(null);
-    const [toggleIsLoading, setToggleIsLoading] = useState(false);
-    const [timerCancelled, setTimerCancelled] = useState(false);
-    
-    // Scheduler modal state
-    const [schedulerOpen, setSchedulerOpen] = useState(false);
-    const [selectedDeviceForScheduler, setSelectedDeviceForScheduler] = useState(null);
-    
-    const toggleLoadingDialogRef = useRef();
-    const deleteConfirmRef = useRef();
-    const newDeviceNameRef = useRef();
-    const newMacAddressRef = useRef();
-    const [pendingDeleteId, setPendingDeleteId] = useState(null);
-    const [toastMessage, setToastMessage] = useState('');
+    // Tag management is opened on demand from the device filter bar; the group
+    // manager keeps its (heavy) modals mounted but renders nothing on the page.
+    const groupManagerRef = useRef();
 
-    function timerHandler(cancelled) {
-        setTimerCancelled(cancelled);
-    }
-
-    function handleToggleIsLoading() {
-        if (toggleIsLoading) {
-            toggleLoadingDialogRef.current.showModal();
-        } else if (!toggleIsLoading) {
-            toggleLoadingDialogRef.current.close();
-        }
-    }
-
-    const delay = t => new Promise(res => setTimeout(res, t));
-
-    const showToast = (msg) => {
-        setToastMessage(msg);
-        setTimeout(() => setToastMessage(''), 4000);
-    };
-
-    useEffect(() => {
-        console.log('useEffect in modern devices fired...');
-        console.log("Data from modern devices upon hopeful re-render:\t", macData);
-    }, [macData]);
-
-    const openSchedulerModal = (deviceId, deviceName) => {
-        setSelectedDeviceForScheduler({ id: deviceId, name: deviceName });
-        setSchedulerOpen(true);
-    };
-
-    const handleToggle = async (deviceId) => {
-        try {
-            setLoading(true);
-            setToggleIsLoading(true);
-            toggleLoadingDialogRef.current.showModal();
-            
-            const dataToUpdate = macData?.filter((data) => data?.id === parseInt(deviceId));
-            
-            const updateToggle = await fetch(`/updatemacaddressstatus`, {
-                method: "PUT",
-                mode: "cors",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(dataToUpdate[0])
-            });
-
-            const result = await updateToggle.json();
-            
-            if (updateToggle.ok && result.success) {
-                console.log('Toggle successful:', result);
-                setLoading(false);
-                handleRenderToggle();
-
-                delay(2000).then(() => {
-                    setToggleIsLoading(false);
-                    toggleLoadingDialogRef.current.close();
-                });
-            } else {
-                console.error('Toggle failed:', result.error || result.message);
-                setLoading(false);
-                showToast(`Operation failed: ${result.error || result.message || 'Unknown error'}`);
-                
-                delay(2000).then(() => {
-                    setToggleIsLoading(false);
-                    toggleLoadingDialogRef.current.close();
-                });
-            }
-        } catch (error) {
-            console.error('Toggle network error:', error);
-            setLoading(false);
-            showToast('Network error occurred. Please check your connection and try again.');
-
-            delay(2000).then(() => {
-                setToggleIsLoading(false);
-                toggleLoadingDialogRef.current.close();
-            });
-        }
-    };
-
-    const handleUnBlockAll = async () => {
-        try {
-            const data = { macData, blockedUsers };
-            const blockAll = await fetch('unblockallmacs', {
-                method: "PUT",
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            });
-            if (blockAll.ok) {
-                const updatedData = await blockAll.json();
-                console.log('All Devices Unblocked: ', updatedData);
-                handleRenderToggle();
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    const handleBlockAll = async () => {
-        try {
-            const data = { macData, blockedUsers };
-            const blockAll = await fetch('blockallmacs', {
-                method: "PUT",
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(data)
-            });
-            if (blockAll.ok) {
-                const updatedData = await blockAll.json();
-                console.log('All Devices Blocked response: ', updatedData);
-                handleRenderToggle();
-            }
-        } catch (error) {
-            console.error('Error blocking all devices:', error);
-        }
-    };
-
-    const handleDelete = (deviceId) => {
-        setPendingDeleteId(deviceId);
-        deleteConfirmRef.current.showModal();
-    };
-
-    const handleConfirmDelete = async () => {
-        deleteConfirmRef.current.close();
-        if (!pendingDeleteId) return;
-        const deviceId = pendingDeleteId;
-        setPendingDeleteId(null);
-        try {
-            const submitForDeletion = await fetch('/removedevice', {
-                method: "delete",
-                mode: "cors",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ id: deviceId })
-            });
-            if (submitForDeletion.ok) {
-                const confirmation = await submitForDeletion.json();
-                console.log(confirmation);
-                handleRenderToggle();
-            }
-        } catch (error) {
-            console.error('Error deleting device:', error);
-        }
-    };
-
-    const openEditDialog = (deviceId) => {
-        editRef.current.showModal();
-        const selectedDevice = macData?.filter(device => device.id === parseInt(deviceId));
-        setUpdatedDeviceData({
-            ...selectedDevice[0],
-            id: deviceId
-        });
-    };
-
-    const handleClose = () => {
-        editRef.current.close();
-        newDeviceNameRef.current.value = '';
-        newMacAddressRef.current.value = '';
-    };
-
-    const handleEditInput = e => {
-        setUpdatedDeviceData({
-            ...updatedDeviceData,
-            [e.target.name]: e.target.value
-        });
-    };
-
-    const handleSaveEdits = () => {
-        setLoading(true);
-        const updateEdits = async () => {
-            try {
-                const updates = await fetch('/updatedevicedata', {
-                    method: 'PUT',
-                    mode: 'cors',
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(updatedDeviceData)
-                });
-                if (updates.ok) {
-                    const response = updates.json();
-                    console.log(response);
-                    setLoading(false);
-                    handleRenderToggle();
-                    editRef.current.close();
-                    newDeviceNameRef.current.value = '';
-                    newMacAddressRef.current.value = '';
-                }
-            } catch (error) {
-                setLoading(false);
-                console.error(error);
-            }
-        };
-        updateEdits();
-    };
+    const {
+        loading,
+        updatedDeviceData,
+        timerCancelled,
+        toastMessage,
+        schedulerOpen,
+        selectedDeviceForScheduler,
+        editRef,
+        deleteConfirmRef,
+        toggleLoadingDialogRef,
+        newDeviceNameRef,
+        newMacAddressRef,
+        timerHandler,
+        openSchedulerModal,
+        closeScheduler,
+        handleToggle,
+        handleDelete,
+        handleConfirmDelete,
+        openEditDialog,
+        handleClose,
+        handleEditInput,
+        handleSaveEdits,
+        handleBlockAll,
+        handleUnBlockAll,
+    } = useDeviceActions({ macData, blockedUsers, onDataChange: handleRenderToggle });
 
     return (
         <div className="space-y-6">
-            {/* Tags Management */}
-            <DeviceGroupManager 
-                devices={macData} 
+            {/* Tags Management — no visible section; opened via the filter bar */}
+            <DeviceGroupManager
+                ref={groupManagerRef}
+                devices={macData}
                 onGroupsUpdate={handleRenderToggle}
             />
-            
+
             {/* Device Grid */}
             <ModernDeviceGrid
                 devices={macData}
@@ -246,13 +58,14 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 handleRenderToggle={handleRenderToggle}
                 onBlockAll={handleBlockAll}
                 onUnblockAll={handleUnBlockAll}
+                onManageTags={() => groupManagerRef.current?.openManager()}
             />
 
             {/* Edit Device Modal */}
             <dialog className="modal" ref={editRef}>
                 <div className="modal-box">
                     <h3 className="font-bold text-lg mb-4">Edit Device</h3>
-                    
+
                     <div className="space-y-4">
                         <div>
                             <label className="label">
@@ -268,7 +81,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                                 onChange={handleEditInput}
                             />
                         </div>
-                        
+
                         <div>
                             <label className="label">
                                 <span className="label-text">MAC Address</span>
@@ -286,13 +99,13 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                     </div>
 
                     <div className="modal-action">
-                        <button 
-                            className="btn btn-ghost" 
+                        <button
+                            className="btn btn-ghost"
                             onClick={handleClose}
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             className="btn btn-primary"
                             onClick={handleSaveEdits}
                             disabled={loading}
@@ -322,11 +135,11 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
             </dialog>
 
             {/* Scheduler Modal */}
-            <SchedulerModal 
+            <SchedulerModal
                 deviceId={selectedDeviceForScheduler?.id}
                 deviceName={selectedDeviceForScheduler?.name}
                 isOpen={schedulerOpen}
-                onClose={() => setSchedulerOpen(false)}
+                onClose={closeScheduler}
                 triggerRender={handleRenderToggle}
             />
 

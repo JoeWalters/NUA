@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { HiPlus } from 'react-icons/hi2';
+import { debugLog } from '../utility_functions/debugMode';
 
-export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
+const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, onGroupsUpdate }, ref) {
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedDevices, setSelectedDevices] = useState([]);
@@ -29,6 +30,15 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const groupModalRef = useRef();
     const assignModalRef = useRef();
     const scheduleModalRef = useRef();
+    const managerDialogRef = useRef();
+
+    useImperativeHandle(ref, () => ({
+        openManager: () => managerDialogRef.current?.showModal(),
+    }));
+
+    const closeManager = () => {
+        managerDialogRef.current?.close();
+    };
 
     // Common emoji options for groups
     const iconOptions = ['👤', '👥', '👨‍👩‍👧‍👦', '👦', '👧', '🏠', '💻', '📱', '🎮', '📺', '🔒', '⭐'];
@@ -41,21 +51,21 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     const fetchGroups = async () => {
         try {
             setLoading(true);
-            console.log('🔍 Fetching device groups...');
+            debugLog('Fetching device groups...');
             const response = await fetch('/api/device-groups');
-            console.log('📡 Response status:', response.status, response.statusText);
+            debugLog('Response status:', response.status, response.statusText);
             
             if (response.ok) {
                 const groupsData = await response.json();
-                console.log('✅ Groups fetched successfully:', groupsData);
+                debugLog('Groups fetched successfully:', groupsData);
                 setGroups([...groupsData].sort((a, b) => a.name.localeCompare(b.name)));
             } else {
                 const errorText = await response.text();
-                console.error('❌ Error fetching groups: HTTP', response.status, response.statusText);
-                console.error('📄 Response body:', errorText);
+                console.error('Error fetching groups: HTTP', response.status, response.statusText);
+                console.error('Response body:', errorText);
             }
         } catch (error) {
-            console.error('❌ Error fetching groups:', error);
+            console.error('Error fetching groups:', error);
         } finally {
             setLoading(false);
         }
@@ -348,22 +358,28 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
     };
 
     return (
-        <div className="w-full px-4 sm:px-6 lg:px-8 py-4">
-            {/* Tags Section */}
-            <div className="mb-1">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-base-content">Tags</h2>
-                    {groups.length > 0 && (
-                        <button
-                            className="btn btn-primary btn-sm gap-1"
-                            onClick={handleCreateGroup}
-                            disabled={loading}
-                        >
-                            <HiPlus className="w-4 h-4" /> Add Tag
-                        </button>
-                    )}
-                </div>
+        <>
+            {/* Tags Management modal — opened from the device filter bar */}
+            <dialog ref={managerDialogRef} className="modal">
+                <div className="modal-box w-11/12 max-w-3xl">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-bold text-base-content">Tags</h2>
+                        <div className="flex items-center gap-2">
+                            {groups.length > 0 && (
+                                <button
+                                    className="btn btn-primary btn-sm gap-1"
+                                    onClick={handleCreateGroup}
+                                    disabled={loading}
+                                >
+                                    <HiPlus className="w-4 h-4" /> Add Tag
+                                </button>
+                            )}
+                            <form method="dialog">
+                                <button className="btn btn-sm btn-circle btn-ghost" onClick={closeManager}>✕</button>
+                            </form>
+                        </div>
+                    </div>
 
                 {loading && groups.length === 0 ? (
                     <div className="flex justify-center py-6">
@@ -466,7 +482,11 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         ))}
                     </div>
                 )}
-            </div>
+                </div>
+                <form method="dialog" className="modal-backdrop">
+                    <button onClick={closeManager}>close</button>
+                </form>
+            </dialog>
 
             {/* Tag Creation/Edit Modal */}
             <dialog className="modal" ref={groupModalRef}>
@@ -864,6 +884,8 @@ export default function DeviceGroupManager({ devices, onGroupsUpdate }) {
                         <button onClick={handleCloseScheduleModal}>close</button>
                     </form>
                 </dialog>
-        </div>
+        </>
     );
-}
+});
+
+export default DeviceGroupManager;

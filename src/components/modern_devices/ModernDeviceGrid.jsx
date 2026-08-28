@@ -16,7 +16,8 @@ export default function ModernDeviceGrid({
     onScheduleClick,
     timerCancelled,
     timerHandler,
-    handleRenderToggle
+    handleRenderToggle,
+    onManageTags,
 }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -216,27 +217,20 @@ export default function ModernDeviceGrid({
                 </button>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
-                    <div className="text-2xl font-bold text-base-content">{counts.total}</div>
-                    <div className="text-sm text-base-content/60">Total Devices</div>
-                </div>
-                
-                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
-                    <div className="text-2xl font-bold text-success">{counts.allowed}</div>
-                    <div className="text-sm text-base-content/60">Allowed</div>
-                </div>
-                
-                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
-                    <div className="text-2xl font-bold text-error">{counts.blocked}</div>
-                    <div className="text-sm text-base-content/60">Blocked</div>
-                </div>
-                
-                <div className="bg-base-100 rounded-lg p-4 shadow-sm border border-base-300">
-                    <div className="text-2xl font-bold text-info">{counts.bonus}</div>
-                    <div className="text-sm text-base-content/60">Bonus Time</div>
-                </div>
+            {/* Compact status summary */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+                <span className="text-sm font-medium text-base-content">
+                    {counts.total} total
+                </span>
+                <span className="badge badge-success gap-1">
+                    {counts.allowed} allowed
+                </span>
+                <span className="badge badge-error gap-1">
+                    {counts.blocked} blocked
+                </span>
+                <span className="badge badge-info gap-1">
+                    {counts.bonus} bonus
+                </span>
             </div>
 
             {/* Search and Filter Bar - Compact */}
@@ -295,6 +289,14 @@ export default function ModernDeviceGrid({
                                         </option>
                                     ))}
                                 </select>
+
+                                <button
+                                    onClick={onManageTags}
+                                    className="btn btn-ghost btn-sm gap-1"
+                                    title="Manage tags"
+                                >
+                                    🏷️ Manage Tags
+                                </button>
                                 
                                 <button
                                     onClick={handleRefresh}
@@ -461,4 +463,5 @@ ModernDeviceGrid.propTypes = {
     timerCancelled: PropTypes.bool,
     timerHandler: PropTypes.func,
     handleRenderToggle: PropTypes.func,
+    onManageTags: PropTypes.func,
 };
