@@ -2070,17 +2070,22 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
     const fetchAppCatIds = await prisma?.appCatIds?.findMany();
     const fetchAppIds = await prisma?.appIds?.findMany();
     const fetchTargetDevices = await prisma?.targetDevice?.findMany();
+    const fetchRuleTags = await prisma?.trafficRuleTags?.findMany();
+    const fetchRuleTagDefs = await prisma?.ruleTag?.findMany();
 
     const joinedData = fetchTrafficRules?.map((trafficRule) => {
       const matchingFetchAppCatIds = fetchAppCatIds.find(appCatId => appCatId.trafficRulesId === trafficRule.id);
       const matchingAppIds = fetchAppIds.filter(appId => appId.trafficRulesId === trafficRule.id);
       const matchingTargetDevices = fetchTargetDevices.filter(targetDevice => targetDevice.trafficRulesId === trafficRule.id);
+      const ruleTagIds = (fetchRuleTags || []).filter(t => t.trafficRulesId === trafficRule.id).map(t => t.ruleTagId);
+      const ruleTags = (fetchRuleTagDefs || []).filter(tag => ruleTagIds.includes(tag.id));
 
       return {
         trafficRule,
         matchingFetchAppCatIds,
         matchingAppIds,
-        matchingTargetDevices
+        matchingTargetDevices,
+        ruleTags
       };
     });
     if (joinedData.length) {
@@ -3262,6 +3267,115 @@ app.post('/api/device-groups/:id/unblock', async (req, res) => {
   } catch (error) {
     console.error('Error unblocking group devices:', error);
     res.status(500).json({ error: 'Failed to unblock group devices' });
+  }
+});
+
+// ~~~~~~~ Traffic rule tags ~~~~~~~
+
+// List all rule tags
+app.get('/api/rule-tags', async (req, res) => {
+  try {
+    const tags = await prisma.ruleTag.findMany({
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(tags);
+  } catch (error) {
+    console.error('Error fetching rule tags:', error);
+    res.status(500).json({ error: 'Failed to fetch rule tags' });
+  }
+});
+
+// Create a rule tag
+app.post('/api/rule-tags', async (req, res) => {
+  try {
+    const { name, description, color, icon } = req.body;
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Tag name is required' });
+    }
+    const tag = await prisma.ruleTag.create({
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+        color: color || '#3B82F6',
+        icon: icon || '🏷️'
+      }
+    });
+    res.status(201).json(tag);
+  } catch (error) {
+    console.error('Error creating rule tag:', error);
+    res.status(500).json({ error: 'Failed to create rule tag' });
+  }
+});
+
+// Update a rule tag
+app.put('/api/rule-tags/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description, color, icon } = req.body;
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ error: 'Tag name is required' });
+    }
+    const tag = await prisma.ruleTag.update({
+      where: { id: parseInt(id) },
+      data: {
+        name: name.trim(),
+        description: description?.trim() || null,
+        color: color || '#3B82F6',
+        icon: icon || '🏷️',
+        updatedAt: new Date()
+      }
+    });
+    res.json(tag);
+  } catch (error) {
+    console.error('Error updating rule tag:', error);
+    if (error.code === 'P2025') {
+      res.status(404).json({ error: 'Rule tag not found' });
+    } else {
+      res.status(500).json({ error: 'Failed to update rule tag' });
+    }
+  }
+});
+
+// Delete a rule tag (unassign from all rules first)
+app.delete('/api/rule-tags/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await prisma.trafficRuleTags.deleteMany({
+      where: { ruleTagId: parseInt(id) }
+    });
+    await prisma.ruleTag.delete({ where: { id: parseInt(id) } });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting rule tag:', error);
+    if (error.code === 'P2025') {
+      res.status(404).json({ error: 'Rule tag not found' });
+    } else {
+      res.status(500).json({ error: 'Failed to delete rule tag' });
+    }
+  }
+});
+
+// Assign tags to a traffic rule (replaces the current tag set)
+app.put('/api/traffic-rules/:id/tags', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { tagIds } = req.body;
+    if (!Array.isArray(tagIds)) {
+      return res.status(400).json({ error: 'tagIds must be an array' });
+    }
+
+    const ruleId = parseInt(id);
+    await prisma.trafficRuleTags.deleteMany({ where: { trafficRulesId: ruleId } });
+
+    if (tagIds.length > 0) {
+      await prisma.trafficRuleTags.createMany({
+        data: tagIds.map(ruleTagId => ({ trafficRulesId: ruleId, ruleTagId: parseInt(ruleTagId) }))
+      });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error assigning rule tags:', error);
+    res.status(500).json({ error: 'Failed to assign rule tags' });
   }
 });
 

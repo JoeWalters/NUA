@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import ModernDevices from "./ModernDevices";
-import TrafficRules from "./traffic_rules/TrafficRules";
+import PolicyList from "./PolicyList";
 import { useOutletContext } from 'react-router-dom';
 import NuaSvg from "../images/nua.svg";
-import { HiOutlineDeviceTablet, HiOutlineShieldCheck, HiOutlineChevronUp } from 'react-icons/hi2';
+import { HiOutlineChevronUp } from 'react-icons/hi2';
 import { debugLog } from '../utility_functions/debugMode';
 
 
@@ -21,9 +20,6 @@ export default function AdminConsole()
     const initialized = useRef(false);
     const { openSettings, syncBannerOpen, onToggleSyncBanner } = useOutletContext() ?? {};
     const dialogRef = useRef();
-    const devicesSectionRef = useRef();
-    const rulesSectionRef = useRef();
-    const [activeTab, setActiveTab] = useState('devices');
     const [showScrollTop, setShowScrollTop] = useState(false);
     const scrollSentinelRef = useRef();
     const macRequestCounterRef = useRef(0);
@@ -45,35 +41,6 @@ export default function AdminConsole()
 
     const scrollToTop = useCallback(() => {
         document.scrollingElement?.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
-
-    // Scroll-spy: update active tab as user scrolls between sections
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            (entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        if (entry.target === devicesSectionRef.current) {
-                            setActiveTab('devices');
-                        } else if (entry.target === rulesSectionRef.current) {
-                            setActiveTab('rules');
-                        }
-                    }
-                });
-            },
-            { rootMargin: '-15% 0px -70% 0px', threshold: 0 }
-        );
-
-        const devicesEl = devicesSectionRef.current;
-        const rulesEl = rulesSectionRef.current;
-        if (devicesEl) observer.observe(devicesEl);
-        if (rulesEl) observer.observe(rulesEl);
-
-        return () => observer.disconnect();
-    }, []);
-
-    const scrollToSection = useCallback((sectionRef) => {
-        sectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, []);
 
     const handleProceed = () => {
@@ -190,34 +157,6 @@ export default function AdminConsole()
     return (
         <>
             <div className="w-full">
-                {/* Combined policy navigation */}
-                <div className="flex justify-center pt-4 pb-6">
-                    <div className="relative flex items-center gap-1 bg-base-200 rounded-xl p-1 shadow-inner">
-                        <button
-                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                                activeTab === 'devices'
-                                    ? 'bg-base-100 shadow-sm text-base-content'
-                                    : 'text-base-content/70 hover:text-base-content hover:bg-base-300'
-                            }`}
-                            onClick={() => scrollToSection(devicesSectionRef)}
-                        >
-                            <HiOutlineDeviceTablet className="w-4 h-4" />
-                            Devices
-                        </button>
-                        <button
-                            className={`relative flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                                activeTab === 'rules'
-                                    ? 'bg-base-100 shadow-sm text-base-content'
-                                    : 'text-base-content/70 hover:text-base-content hover:bg-base-300'
-                            }`}
-                            onClick={() => scrollToSection(rulesSectionRef)}
-                        >
-                            <HiOutlineShieldCheck className="w-4 h-4" />
-                            Traffic Rules
-                        </button>
-                    </div>
-                </div>
-
                 {/* Sentinel — when this scrolls out of view, the scroll-to-top button appears */}
                 <div ref={scrollSentinelRef} className="h-px" />
 
@@ -247,17 +186,13 @@ export default function AdminConsole()
                         </div>
                     )}
 
-                    <div ref={devicesSectionRef} id="devices-section" className="bg-base-100 rounded-2xl border border-base-300 shadow-sm overflow-hidden">
-                        <ModernDevices
+                    <div className="bg-base-100 rounded-2xl border border-base-300 shadow-sm overflow-hidden">
+                        <PolicyList
                             macData={macData && macData}
                             blockedUsers={blockedUsers}
                             handleRenderToggle={handleRenderToggle}
                             loadingMacData={loadingMacData}
                         />
-                    </div>
-
-                    <div ref={rulesSectionRef} id="rules-section" className="bg-base-100 rounded-2xl border border-base-300 shadow-sm overflow-hidden">
-                        <TrafficRules embedded={true} />
                     </div>
                 </div>
             </div>
