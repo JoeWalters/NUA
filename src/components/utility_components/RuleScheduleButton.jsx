@@ -21,9 +21,10 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
     const [scheduleAction, setScheduleAction] = useState('allow');
 
     // Speed-limit rules are enabled/disabled (not allowed/blocked), so label
-    // the schedule action as Enforced/Unenforced for them.
-    const allowLabel = isSpeedLimit ? 'Enforced' : 'Allow';
-    const blockLabel = isSpeedLimit ? 'Unenforced' : 'Block';
+    // the schedule action as Enforce/Disable for them (action-verb form,
+    // parallel to Allow/Block, and unambiguous about what clicking does).
+    const allowLabel = isSpeedLimit ? 'Enforce' : 'Allow';
+    const blockLabel = isSpeedLimit ? 'Disable' : 'Block';
     const [timeData, setTimeData] = useState(null);
     const [dayOfTheWeekSelected, setDayOfTheWeekSelected] = useState(false);
     const [invalidscheduleMessage, setInvalidscheduleMessage] = useState({});
@@ -292,7 +293,7 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
                                         </td>
                                         <td className={`uppercase ${scheduleActionText === 'block' ? 'text-red-500' : 'text-green-500'}`}>
                                             {isSpeedLimit
-                                                ? (scheduleActionText === 'allow' ? 'Enforced' : 'Unenforced')
+                                                ? (scheduleActionText === 'allow' ? 'Enforce' : 'Disable')
                                                 : scheduleActionText}
                                         </td>
                                         <td>
