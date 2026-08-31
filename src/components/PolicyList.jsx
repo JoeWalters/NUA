@@ -9,6 +9,7 @@ import ModernDeviceCard from "./modern_devices/ModernDeviceCard";
 import RuleCard from "./traffic_rules/RuleCard";
 import DeviceGroupManager from "./DeviceGroupManager";
 import RuleTagManager from "./RuleTagManager";
+import AddDeviceModal from "./AddDeviceModal";
 import DeviceModals from "./DeviceModals";
 import RuleModals from "./traffic_rules/RuleModals";
 import ModernDeviceSkeleton from "./skeletons/ModernDeviceSkeleton";
@@ -21,6 +22,7 @@ import { useTrafficRules } from "./custom_hooks/useTrafficRules";
 export default function PolicyList({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
     const groupManagerRef = useRef();
     const ruleTagManagerRef = useRef();
+    const addDeviceModalRef = useRef();
 
     // Rule data + actions
     const {
@@ -172,6 +174,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
             {/* Tag managers — mounted but opened on demand from the filter bar */}
             <DeviceGroupManager ref={groupManagerRef} devices={macData} onGroupsUpdate={handleRenderToggle} />
             <RuleTagManager ref={ruleTagManagerRef} rules={customAPIRules} onRulesChange={reRender} />
+            <AddDeviceModal ref={addDeviceModalRef} onAdded={handleRenderToggle} />
 
             {/* Section header */}
             <div className="flex items-center justify-between mb-4">
@@ -180,6 +183,12 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                     {total > 0 && <span className="badge badge-primary badge-sm ml-1">{total}</span>}
                 </div>
                 <div className="flex items-center gap-2">
+                    <button
+                        className="btn btn-sm btn-primary gap-1"
+                        onClick={() => addDeviceModalRef.current?.open()}
+                    >
+                        Add Device
+                    </button>
                     <button
                         className="btn btn-sm btn-primary gap-1"
                         onClick={() => createRuleDialogRef.current?.showModal()}
