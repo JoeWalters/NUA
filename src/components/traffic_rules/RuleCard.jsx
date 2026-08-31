@@ -23,6 +23,15 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
     const action = data?.trafficRule?.blockAllow || 'allow';
     const typeLabel = isSpeedLimit ? 'Speed Limit' : (action === 'block' ? 'Block' : 'Allow');
 
+    // UniFi stores speed limits in kbps; display them as Mbps on the card.
+    const formatLimit = (kbps) => {
+        if (kbps === null || kbps === undefined) return null;
+        const mbps = kbps / 1000;
+        return Number.isInteger(mbps) ? mbps : mbps.toFixed(1);
+    };
+    const dlMbps = formatLimit(rawRule?.bandwidth_limit?.download_limit_kbps);
+    const ulMbps = formatLimit(rawRule?.bandwidth_limit?.upload_limit_kbps);
+
     const getCardBorderClasses = (isEnabled) => {
         return `border border-base-300 relative ${isEnabled ? 'border-success' : 'border-error'}`;
     };
@@ -63,6 +72,11 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                                         {isSpeedLimit ? <HiBolt className="w-3 h-3" /> : <HiShieldCheck className="w-3 h-3" />}
                                         {typeLabel}
                                     </span>
+                                    {isSpeedLimit && (dlMbps || ulMbps) && (
+                                        <span className="badge badge-ghost badge-sm gap-1">
+                                            ↓ {dlMbps ?? '—'} / ↑ {ulMbps ?? '—'} Mbps
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="mt-1 min-h-6">
                                     <div className="flex items-center gap-2 text-xs text-base-content/60">
@@ -150,6 +164,19 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                 {/* Expanded detail section */}
                 {expanded && (
                     <div className="px-6 pb-6 pt-2 border-t border-base-300 bg-base-200/50 flex flex-col gap-4">
+                        {isSpeedLimit && (dlMbps || ulMbps) && (
+                            <div>
+                                <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">Speed Limit</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {dlMbps !== null && dlMbps !== undefined && (
+                                        <span className="badge badge-accent badge-sm">↓ {dlMbps} Mbps download</span>
+                                    )}
+                                    {ulMbps !== null && ulMbps !== undefined && (
+                                        <span className="badge badge-accent badge-sm">↑ {ulMbps} Mbps upload</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                         {data?.matchingAppIds?.length > 0 && (
                             <div>
                                 <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">Apps</p>
