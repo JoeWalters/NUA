@@ -8,12 +8,20 @@ import {
     HiCpuChip,
     HiMiniPencilSquare,
     HiDevicePhoneMobile,
+    HiBolt,
 } from "react-icons/hi2";
 
 export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit, rawRule, onStateChange, loadingUnmanageApp, ruleTags }) {
     const [expanded, setExpanded] = useState(false);
     const enabled = data?.trafficRule.enabled;
     const bonusTimeActive = data?.trafficRule.bonusTimeActive || false;
+
+    // Speed-limit rules are UniFi rules with bandwidth_limit enabled; give them
+    // a lightning icon + "Speed Limit" badge so all three rule types are
+    // visually distinct (block / allow / speed limit).
+    const isSpeedLimit = !!rawRule?.bandwidth_limit?.enabled;
+    const action = data?.trafficRule?.blockAllow || 'allow';
+    const typeLabel = isSpeedLimit ? 'Speed Limit' : (action === 'block' ? 'Block' : 'Allow');
 
     const getCardBorderClasses = (isEnabled) => {
         return `border border-base-300 relative ${isEnabled ? 'border-success' : 'border-error'}`;
@@ -38,13 +46,24 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                     <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                             <div className="flex-shrink-0 p-2 rounded-lg bg-base-200 text-base-content/70">
-                                <HiShieldCheck className="w-5 h-5" />
+                                {isSpeedLimit
+                                    ? <HiBolt className="w-5 h-5" />
+                                    : <HiShieldCheck className="w-5 h-5" />}
                             </div>
                             <div className="min-w-0 flex-1">
                                 <h3 className="text-lg font-semibold text-base-content truncate" title={data?.trafficRule.description}>
                                     {data?.trafficRule.description}
                                 </h3>
-                                <p className="text-sm text-base-content/60">Traffic Rule</p>
+                                <div className="mt-0.5 flex items-center gap-1.5">
+                                    <span
+                                        className={`badge badge-sm gap-1 ${
+                                            isSpeedLimit ? 'badge-accent' : action === 'block' ? 'badge-error' : 'badge-success'
+                                        }`}
+                                    >
+                                        {isSpeedLimit ? <HiBolt className="w-3 h-3" /> : <HiShieldCheck className="w-3 h-3" />}
+                                        {typeLabel}
+                                    </span>
+                                </div>
                                 <div className="mt-1 min-h-6">
                                     <div className="flex items-center gap-2 text-xs text-base-content/60">
                                         <span className="badge badge-ghost badge-sm gap-1">
@@ -104,6 +123,7 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                                 trafficRuleId={data?.trafficRule.id}
                                 scheduleData={data?.trafficRule}
                                 onStateChange={onStateChange}
+                                isSpeedLimit={isSpeedLimit}
                             />
                         </div>
 

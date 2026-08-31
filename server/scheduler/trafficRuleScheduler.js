@@ -56,11 +56,20 @@ async function setRuleEnabled(unifi, prisma, ruleId, enabled) {
 
 /**
  * The scheduled action: "allow" enables the rule, "block" disables it.
+ *
+ * One-time schedules clear themselves after firing (the job + persisted
+ * schedule columns are removed), so a one-time action doesn't repeat.
  */
 async function runTrafficRuleScheduleAction(action, unifi, prisma, ruleId) {
   const enabled = action === 'allow';
   await setRuleEnabled(unifi, prisma, ruleId, enabled);
   console.log(`[TrafficRuleSchedule] rule ${ruleId} ${enabled ? 'enabled' : 'disabled'} by schedule`);
+
+  const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
+  if (rule && rule.scheduleType === 'oneTime') {
+    await deleteTrafficRuleSchedule(ruleId, unifi, prisma);
+    console.log(`[TrafficRuleSchedule] rule ${ruleId} one-time schedule completed; cleared`);
+  }
 }
 
 /**
