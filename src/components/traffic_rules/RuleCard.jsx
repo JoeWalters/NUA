@@ -20,8 +20,13 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
     // a lightning icon + "Speed Limit" badge so all three rule types are
     // visually distinct (block / allow / speed limit).
     const isSpeedLimit = !!rawRule?.bandwidth_limit?.enabled;
-    const action = data?.trafficRule?.blockAllow || 'allow';
-    const typeLabel = isSpeedLimit ? 'Speed Limit' : (action === 'block' ? 'Block' : 'Allow');
+    // Prefer the UniFi rule's authoritative `action` field; fall back to the DB
+    // blockAllow so app-blocking rules don't show a misleading "Allow" badge.
+    const rawAction = rawRule?.action;
+    const action = rawAction === 'block' || rawAction === 'allow'
+        ? rawAction
+        : (data?.trafficRule?.blockAllow || 'allow');
+    const typeLabel = isSpeedLimit ? 'Speed limit' : (action === 'block' ? 'Block' : 'Allow');
 
     // UniFi stores speed limits in kbps; display them as Mbps on the card.
     const formatLimit = (kbps) => {

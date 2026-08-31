@@ -77,24 +77,23 @@ export default function ModernDeviceCard({
                             <p className="text-sm text-base-content/60 truncate">
                                 {device?.macAddress}
                             </p>
-                            {/* Reserve space for group badge so toggle/controls don't shift */}
+                            {/* Reserve space for type + group badge so toggle/controls don't shift */}
                             <div className="mt-1 min-h-6">
-                                {device?.deviceGroup ? (
-                                    <div className="flex items-center gap-1">
-                                        <span 
+                                <div className="flex items-center gap-1 flex-wrap">
+                                    <span className="badge badge-ghost badge-sm gap-1">Device</span>
+                                    {device?.deviceGroup ? (
+                                        <span
                                             className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
-                                            style={{ 
+                                            style={{
                                                 backgroundColor: device.deviceGroup.color + '20',
-                                                color: device.deviceGroup.color 
+                                                color: device.deviceGroup.color
                                             }}
                                         >
                                             <span>{device.deviceGroup.icon}</span>
                                             {device.deviceGroup.name}
                                         </span>
-                                    </div>
-                                ) : (
-                                    <div className="invisible">placeholder</div>
-                                )}
+                                    ) : null}
+                                </div>
                             </div>
                         </div>
                     </div>
