@@ -17,16 +17,11 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
     const bonusTimeActive = data?.trafficRule.bonusTimeActive || false;
 
     // Speed-limit rules are UniFi rules with bandwidth_limit enabled; give them
-    // a lightning icon + "Speed Limit" badge so all three rule types are
-    // visually distinct (block / allow / speed limit).
+    // a lightning icon + "Speed limit" badge. All other rules manage app access
+    // and are labeled "App Mgmt" so the three card types (Device / App Mgmt /
+    // Speed limit) are visually distinct.
     const isSpeedLimit = !!rawRule?.bandwidth_limit?.enabled;
-    // Prefer the UniFi rule's authoritative `action` field; fall back to the DB
-    // blockAllow so app-blocking rules don't show a misleading "Allow" badge.
-    const rawAction = rawRule?.action;
-    const action = rawAction === 'block' || rawAction === 'allow'
-        ? rawAction
-        : (data?.trafficRule?.blockAllow || 'allow');
-    const typeLabel = isSpeedLimit ? 'Speed limit' : (action === 'block' ? 'Block' : 'Allow');
+    const typeLabel = isSpeedLimit ? 'Speed limit' : 'App Mgmt';
 
     // UniFi stores speed limits in kbps; display them as Mbps on the card.
     const formatLimit = (kbps) => {
@@ -71,7 +66,7 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                                 <div className="mt-0.5 flex items-center gap-1.5">
                                     <span
                                         className={`badge badge-sm gap-1 ${
-                                            isSpeedLimit ? 'badge-accent' : action === 'block' ? 'badge-error' : 'badge-success'
+                                            isSpeedLimit ? 'badge-accent' : 'badge-primary'
                                         }`}
                                     >
                                         {isSpeedLimit ? <HiBolt className="w-3 h-3" /> : <HiShieldCheck className="w-3 h-3" />}

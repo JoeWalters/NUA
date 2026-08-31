@@ -80,7 +80,7 @@ export default function ModernDeviceCard({
                             {/* Reserve space for type + group badge so toggle/controls don't shift */}
                             <div className="mt-1 min-h-6">
                                 <div className="flex items-center gap-1 flex-wrap">
-                                    <span className="badge badge-ghost badge-sm gap-1">Device</span>
+                                    <span className="badge badge-info badge-sm gap-1">Device</span>
                                     {device?.deviceGroup ? (
                                         <span
                                             className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
