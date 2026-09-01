@@ -1,303 +1,45 @@
-import { useEffect, useRef, useState } from "react";
 import PropTypes from 'prop-types';
-import { importToDbConverter } from "../utility_functions/app_cat_utils";
-import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
+import { useTrafficRules } from "../custom_hooks/useTrafficRules";
 import GenericPageSkeleton from "../skeletons/GenericPageSkeleton";
-import CreateRuleModal from "./CreateRuleModal";
-import EditRuleModal from "./EditRuleModal";
-import SpeedLimitModal from "./SpeedLimitModal";
-import RuleBonusTimeButton from "../utility_components/RuleBonusTimeButton";
-import RuleScheduleButton from "../utility_components/RuleScheduleButton";
+import RuleCard from "./RuleCard";
+import RuleModals from "./RuleModals";
 import {
     HiShieldCheck,
     HiPlus,
     HiArrowDownTray,
-    HiTrash,
-    HiCpuChip,
-    HiMiniPencilSquare,
     HiBolt,
-    HiDevicePhoneMobile,
 } from "react-icons/hi2";
-
-
 
 
 export default function TrafficRules({ embedded = false })
 {
-    // The full controller client list is only needed for "Import UniFi Rules",
-    // so fetch it lazily the first time the import modal is opened instead of on
-    // page load (keeps the large list out of memory until it's actually used).
-    const [importModalOpened, setImportModalOpened] = useState(false);
-    const { existingDeviceList, allClientDeviceList } = useGetAllDevices(importModalOpened);
-    const [customAPIRules, setCustomAPIRules] = useState([]);
-    const [unifiRuleObject, setUnifiRuleObject] = useState([]);
-    const [importRuleChoices, setImportRuleChoices] = useState([]);
-    const [importRuleSelection, setImportRuleSelection] = useState([]);
-    const [checked, setChecked] = useState(false);
-    const [render, setRender] = useState(false);
-    const [importOption, setImportOption] = useState(false);
-    const [loadingImportSubmission, setLoadingImportSubmission] = useState(false);
-    const [loadingUnmanageApp] = useState(false);
-    const [pageLoading, setPageLoading] = useState(true);
-    const importDialogRef = useRef();
-    const createRuleDialogRef = useRef();
-    const editRuleDialogRef = useRef();
-    const speedLimitDialogRef = useRef();
-    const [editingRule, setEditingRule] = useState(null);
-    const [editingRawRule, setEditingRawRule] = useState(null);
-    const [editingCategoryName, setEditingCategoryName] = useState("");
-
-    function checkForImportRules(dbData, unifiData) {
-        // Exclude plain site-wide INTERNET rules, but keep per-client speed-limit
-        // rules (which have bandwidth_limit.enabled and use INTERNET as their
-        // destination) so they show up as importable.
-        const filterOutInternetMatchingTarget = unifiData.filter((rule) =>
-            rule.matching_target !== "INTERNET" || rule.bandwidth_limit?.enabled
-        );
-        if (dbData !== null) {
-            const importData = filterOutInternetMatchingTarget.filter(unifiData =>
-                dbData.some(dbIds => dbIds.trafficRule.unifiId !== unifiData._id));
-                // console.log('checkForImportRules \t', importData);
-            return importData;
-        } else {
-            const importData = filterOutInternetMatchingTarget
-            return importData;
-        }
-    }
-    function checkDeviceType(arr) {
-        const filteredDevices = arr.filter(device => {
-            return !(device?.target_devices?.every(innerDevice => innerDevice?.type === "NETWORK"));
-        });
-        return filteredDevices;
-    }
-    const handleImportModalOpen = () => {
-        setImportModalOpened(true);
-        importDialogRef.current.showModal();
-    }
-    const openEditRule = (data, rawRule) => {
-        const match = (unifiRuleObject || []).find((r) =>
-            r._id === data?.trafficRule?.unifiId
-       );
-        setEditingRule(data);
-        setEditingRawRule(match || null);
-        setEditingCategoryName(match?.description || rawRule?.description || "");
-        editRuleDialogRef.current.showModal();
-       }
-    const handleImportModalClose = () => {
-        importDialogRef.current.close();
-        const resetCheckedState = {};
-        importRuleChoices.forEach(choice => {
-            resetCheckedState[choice._id] = false;
-        });
-        setChecked(false);
-        setImportRuleSelection([]);
-    }
-    const handleSelectedImport = (e, id) => {
-        setChecked(prevState => ({
-            ...prevState,
-            [id]: !prevState[id]
-        }));
-        const choicesFilter = importRuleChoices.filter((choice) => choice._id === id);
-            if (e.target.checked) {
-                const noDuplicates = [...new Set(choicesFilter)];
-                setImportRuleSelection(prev => ([
-                    ...prev,
-                    ...noDuplicates
-                ]))
-            } else if (!e.target.checked) {
-                const filteredOut = importRuleSelection.filter(id => id._id !== e.target.dataset.id);
-                const noDuplicates = [...new Set(filteredOut)];
-                setImportRuleSelection([...noDuplicates])
-            }
-            console.log('importRuleSelection \t', importRuleSelection);
-    }
-    const handleUnmanageApp = e => {
-        console.log(e.currentTarget.dataset.trafficruleid);
-        const dbId = e.currentTarget.dataset.trafficruleid;
-        const unmanageApp = async () => {
-            try {
-                const submitUnmanageApp = await fetch('/unmanageapp', {
-                    method: 'DELETE',
-                    mode: 'cors',
-                    headers: {
-                        'Content-Type' : 'application/json'
-                    },
-                    body: JSON.stringify({ dbId })
-                });
-                if (submitUnmanageApp.ok) {
-                    console.log(`DB ID: ${dbId} unmanaged successfully!`);
-                    reRender();
-                }
-            } catch (error) {
-                console.error(error);
-            }
-        }
-        unmanageApp();
-    }
-    // const handleSelectedDeviceImport = (e, id) => {
-    //     const choicesFilter = importRuleChoices.filter((choice) => choice._id === id);
-    //         setChecked2(prevState => ({
-    //             ...prevState,
-    //             [id]: !prevState[id]
-    //         }));
-    //         if (e.target.checked) {
-    //             const noDuplicates = [...new Set(choicesFilter)]
-    //             setImportDeviceSelection(prev => ([
-    //                 ...prev,
-    //                 ...noDuplicates
-    //             ]))
-    //         } else if (!e.target.checked) {
-    //             const filteredOut = importRuleSelection.filter(id => id._id !== e.target.dataset.unifiid)
-    //             const noDuplicates = [...new Set(filteredOut)];
-    //             setImportDeviceSelection([...noDuplicates]);
-    //         }
-    //         console.log('ImportDeviceSelection \t', importDeviceSelection);
-    // }
-    const reRender = () => {
-        console.log('Component re-rendered.');
-        setRender(prev => !prev);
-        setEditingRule(null);
-        setEditingRawRule(null);
-        setEditingCategoryName("");
-    }
-    const handleToggle = async e => {
-        const checked = e.currentTarget.checked;
-        // console.log('checked \t', checked);
-        const _id = e.currentTarget.dataset.unifiruleid;
-        const findUnifiObj = unifiRuleObject.filter(rule => rule._id === _id).pop();
-        const unifiObjCopy = JSON.parse(JSON.stringify(findUnifiObj));
-        unifiObjCopy.enabled = checked;
-
-        const trafficRuleId = e.currentTarget.dataset.dbtrafficruleid;
-        try {
-            const toggleEnabled = await fetch('/updatetrafficruletoggle', {
-                method: 'PUT',
-                mode: 'cors',
-                headers: {
-                    "Content-Type" : "application/json"
-                },
-                body: JSON.stringify({ _id, trafficRuleId, unifiObjCopy })
-            });
-            if (toggleEnabled.ok) {
-                reRender();
-            }
-        } catch (error) {
-            console.error('There was an error toggling the Traffic Rule.');
-        }
-    }
-    const handleDeleteTrafficRule = async e => {
-        const _id = e.currentTarget.dataset.trafficid;
-        const trafficRuleId = e.currentTarget.dataset.trafficruleid;
-        try {
-            const deleteTrafficRule = await fetch('/deletecustomapi', {
-                method: 'DELETE',
-                mode: 'cors',
-                headers: {
-                    "Content-Type" : "application/json"
-                },
-                body: JSON.stringify({ _id, trafficRuleId })
-            });
-            if (deleteTrafficRule.ok) {
-                console.log('Delete Successful.');
-                const res = await deleteTrafficRule.json();
-                console.log(res.result);
-                reRender();
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    }
-    const handleImportOption = async () => {
-        setLoadingImportSubmission(true);
-
-        const importExists = checkForImportRules(customAPIRules, unifiRuleObject);
-        if (importExists.length) {
-            console.log('importExists \t', importExists);
-        }
-        const { categoryClones, appClones } = importToDbConverter(importRuleSelection, allClientDeviceList, existingDeviceList);
-        if (categoryClones || appClones) {
-            console.log('categoryClones \t', categoryClones);
-            console.log('appClones \t', appClones);
-        }
-        try {
-            const importExistingRules = await fetch('/importexistingunifirules', {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    "Content-Type" : "application/json"
-                },
-                body: JSON.stringify({ categoryClones, appClones })
-            });
-
-            if (importExistingRules.ok) {
-                setLoadingImportSubmission(false);
-                handleImportModalClose();
-                setChecked(false);
-                reRender();
-            }
-        } catch (error) {
-            setLoadingImportSubmission(false);
-            console.error(error);
-        }
-    }
-
-    useEffect(() => { // refresh after re-render && initial?
-        const fetchCustomAPIRules = async () => {
-            const getCustomRules = await fetch('/getdbcustomapirules');
-            try {
-                if (getCustomRules.status === 206) {
-                    setCustomAPIRules([]);
-                    const { unifiData } = await getCustomRules.json();
-
-                    setUnifiRuleObject(unifiData);
-                    const filteredOutNetworkDevices = checkDeviceType(unifiData);
-                    const importExists = checkForImportRules(null, filteredOutNetworkDevices);
-
-                    if (importExists.length) {
-                        setImportOption(true);
-                        setImportRuleChoices([...importExists]);
-                    }
-                } else if (getCustomRules.status === 200) {
-                    const { trafficRuleDbData, unifiData } = await getCustomRules.json();
-                    if (trafficRuleDbData.length) {
-                        setCustomAPIRules(trafficRuleDbData);
-                    }
-                    setUnifiRuleObject(unifiData);
-                    const filteredOutNetworkDevices = checkDeviceType(unifiData);
-                    const importExists = checkForImportRules(trafficRuleDbData, filteredOutNetworkDevices);
-                    const filterOutRulesAlreadyInList = importExists.filter(rule => !trafficRuleDbData.some(obj => obj.trafficRule.unifiId === rule._id));
-                    if (filterOutRulesAlreadyInList.length) {
-                        setImportOption(true);
-                        setImportRuleChoices([...filterOutRulesAlreadyInList]);
-                    }
-                }
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setPageLoading(false);
-            }
-        }
-        fetchCustomAPIRules();
-    }, [render]);
-
-    // useEffect(() => { // fetch DB customAPI rules && unifi rules // necessary 02/27/2024 - not necessary?
-    //     const fetchCustomAPIRules = async () => {
-    //         try {
-    //             const getCustomRules = await fetch('/getdbcustomapirules');
-    //             if (getCustomRules.ok) {
-    //                 const { trafficRuleDbData, unifiData } = await getCustomRules.json();
-    //                 console.log('customDATABASERulesJSON \t', trafficRuleDbData);
-    //                 console.log('unifiData initial \t', unifiData);
-    //                 setCustomAPIRules(trafficRuleDbData);
-    //                 setUnifiRuleObject(unifiData);
-    //             }
-    //         } catch (error) {
-    //             console.error(error);
-    //         }
-    //     }
-    //     fetchCustomAPIRules();
-    // }, []);
-
+    const {
+        customAPIRules,
+        unifiRuleObject,
+        pageLoading,
+        loadingUnmanageApp,
+        importOption,
+        importRuleChoices,
+        importRuleSelection,
+        checked,
+        editingRule,
+        editingRawRule,
+        editingCategoryName,
+        importDialogRef,
+        createRuleDialogRef,
+        editRuleDialogRef,
+        speedLimitDialogRef,
+        handleImportModalOpen,
+        openEditRule,
+        handleImportModalClose,
+        handleSelectedImport,
+        handleUnmanageApp,
+        reRender,
+        handleToggle,
+        handleDeleteTrafficRule,
+        handleImportOption,
+        loadingImportSubmission,
+    } = useTrafficRules();
 
     const containerClass = embedded
         ? 'flex flex-col w-full px-4 sm:px-6 lg:px-8 py-6 gap-6'
@@ -333,7 +75,7 @@ export default function TrafficRules({ embedded = false })
                                     Import
                                 </button>
                             )}
-                                            <button
+                            <button
                                 className="btn btn-sm btn-primary gap-1"
                                 onClick={() => createRuleDialogRef.current.showModal()}
                             >
@@ -364,6 +106,7 @@ export default function TrafficRules({ embedded = false })
                                     rawRule={(unifiRuleObject || []).find((r) => r._id === data?.trafficRule?.unifiId) || null}
                                     onStateChange={reRender}
                                     loadingUnmanageApp={loadingUnmanageApp}
+                                    ruleTags={data?.ruleTags || []}
                                 />
                             ))}
                         </ul>
@@ -376,239 +119,27 @@ export default function TrafficRules({ embedded = false })
                 </div>
             )}
 
-            <CreateRuleModal dialogRef={createRuleDialogRef} onSuccess={reRender} />
-
-            <SpeedLimitModal dialogRef={speedLimitDialogRef} onSuccess={reRender} />
-
-             <EditRuleModal
-                dialogRef={editRuleDialogRef}
-                rule={editingRule}
-                rawRule={editingRawRule}
-                categoryName={editingCategoryName}
-                onSuccess={reRender}
-             />
-
-            {/* Import modal */}
-            <dialog ref={importDialogRef} className="modal">
-                <div className="modal-box max-w-lg">
-                    <div className="flex items-center gap-2 mb-5">
-                        <HiArrowDownTray className="w-5 h-5 text-accent" />
-                        <h3 className="font-bold text-lg">Import UniFi Rules</h3>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                        {importRuleChoices.map((data) => (
-                            <label
-                                key={data._id}
-                                className="flex items-start gap-4 p-4 rounded-xl border border-base-300 bg-base-200 hover:border-accent cursor-pointer transition-colors"
-                            >
-                                <input
-                                    type="checkbox"
-                                    className="checkbox checkbox-accent mt-0.5 flex-shrink-0"
-                                    onClick={e => handleSelectedImport(e, data._id)}
-                                    data-id={data._id}
-                                    checked={checked[data?._id] || false}
-                                    onChange={() => {}}
-                                />
-                                <div className="flex flex-col gap-1 min-w-0">
-                                    <span className="font-semibold text-base-content truncate">{data.description}</span>
-                                    <span className="text-xs text-base-content/50">Target: {data.matching_target}</span>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                    <div className="flex justify-between mt-6">
-                        <button className="btn btn-ghost" onClick={handleImportModalClose}>Cancel</button>
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleImportOption}
-                            disabled={!importRuleSelection.length || loadingImportSubmission}
-                        >
-                            {loadingImportSubmission
-                                ? <span className="loading loading-spinner loading-sm"></span>
-                                : <><HiArrowDownTray className="w-4 h-4" /> Import {importRuleSelection.length > 0 && `(${importRuleSelection.length})`}</>
-                            }
-                        </button>
-                    </div>
-                </div>
-                <form method="dialog" className="modal-backdrop">
-                    <button onClick={handleImportModalClose}>close</button>
-                </form>
-            </dialog>
+            <RuleModals
+                createRuleDialogRef={createRuleDialogRef}
+                speedLimitDialogRef={speedLimitDialogRef}
+                editRuleDialogRef={editRuleDialogRef}
+                editingRule={editingRule}
+                editingRawRule={editingRawRule}
+                editingCategoryName={editingCategoryName}
+                reRender={reRender}
+                importDialogRef={importDialogRef}
+                importRuleChoices={importRuleChoices}
+                importRuleSelection={importRuleSelection}
+                checked={checked}
+                handleSelectedImport={handleSelectedImport}
+                handleImportModalClose={handleImportModalClose}
+                handleImportOption={handleImportOption}
+                loadingImportSubmission={loadingImportSubmission}
+            />
         </>
     );
 }
 
-function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit, rawRule, onStateChange, loadingUnmanageApp }) {
-    const [expanded, setExpanded] = useState(false);
-    const enabled = data?.trafficRule.enabled;
-    const bonusTimeActive = data?.trafficRule.bonusTimeActive || false;
-
-    const getCardBorderClasses = (isEnabled) => {
-        return `border border-base-300 relative ${isEnabled ? 'border-success' : 'border-error'}`;
-    };
-
-    const getAccentBorderColor = (isEnabled) => {
-        if (isEnabled) return '#10B981'; // green-500
-        return '#EF4444'; // red-500
-    };
-
-    return (
-        <li className="list-none">
-            <div className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(enabled)}`}>
-                {/* Stylized top accent border */}
-                <div
-                    className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"
-                    style={{ backgroundColor: getAccentBorderColor(enabled) }}
-                ></div>
-
-                {/* Card Header */}
-                <div className="p-6 pb-4">
-                    <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="flex-shrink-0 p-2 rounded-lg bg-base-200 text-base-content/70">
-                                <HiShieldCheck className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                                <h3 className="text-lg font-semibold text-base-content truncate" title={data?.trafficRule.description}>
-                                    {data?.trafficRule.description}
-                                </h3>
-                                <p className="text-sm text-base-content/60">Traffic Rule</p>
-                                <div className="mt-1 min-h-6">
-                                    <div className="flex items-center gap-2 text-xs text-base-content/60">
-                                        <span className="badge badge-ghost badge-sm gap-1">
-                                            <HiCpuChip className="w-3.5 h-3.5" />
-                                            {data?.matchingAppIds?.length || 0}
-                                        </span>
-                                        <span className="badge badge-ghost badge-sm gap-1">
-                                            <HiDevicePhoneMobile className="w-3.5 h-3.5" />
-                                            {data?.matchingTargetDevices?.length || 0}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Quick Actions Row */}
-                    <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center space-x-2">
-                            <input
-                                type="checkbox"
-                                checked={enabled}
-                                className={`toggle toggle-sm ${enabled ? 'toggle-success' : 'toggle-error'}`}
-                                onClick={onToggle}
-                                data-unifiruleid={data.trafficRule.unifiId}
-                                data-dbtrafficruleid={data.trafficRule.id}
-                                onChange={() => {}}
-                                title={enabled ? 'Disable this rule' : 'Enable this rule'}
-                            />
-                            <span className="text-sm text-base-content/70" title={enabled ? 'This rule is currently enabled' : 'This rule is currently disabled'}>
-                                {enabled ? 'Enabled' : 'Disabled'}
-                            </span>
-                            <RuleBonusTimeButton
-                                trafficRuleId={data?.trafficRule.id}
-                                bonusTimeActive={bonusTimeActive}
-                                onStateChange={onStateChange}
-                            />
-                            <RuleScheduleButton
-                                trafficRuleId={data?.trafficRule.id}
-                                scheduleData={data?.trafficRule}
-                                onStateChange={onStateChange}
-                            />
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                            <button
-                                className="btn btn-ghost btn-xs"
-                                onClick={() => setExpanded(prev => !prev)}
-                                aria-label="Expand rule details"
-                            >
-                                {expanded ? 'Less' : 'More'}
-                            </button>
-                            <button
-                                className="btn btn-ghost btn-xs text-base-content/50 hover:text-primary"
-                                onClick={() => onEdit(data, rawRule)}
-                                data-trafficruleid={data?.trafficRule?.id}
-                                title="Edit Rule"
-                            >
-                                <HiMiniPencilSquare className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Expanded detail section */}
-                {expanded && (
-                    <div className="px-6 pb-6 pt-2 border-t border-base-300 bg-base-200/50 flex flex-col gap-4">
-                        {data?.matchingAppIds?.length > 0 && (
-                            <div>
-                                <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">Apps</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {data.matchingAppIds.map((appId) => (
-                                        <span key={appId?.app_name} className="badge badge-primary badge-sm">{appId?.app_name}</span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {data?.matchingTargetDevices?.length > 0 && (
-                            <div>
-                                <p className="text-xs font-semibold text-base-content/50 uppercase tracking-wider mb-2">Devices</p>
-                                <div className="flex flex-wrap gap-1.5">
-                                    {data.matchingTargetDevices.map((device) => (
-                                        <span key={device.client_mac} className="badge badge-accent badge-sm">{device.client_mac}</span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        <div className="flex gap-2 pt-1">
-                            <button
-                                className={`btn btn-sm flex-1 gap-1 ${loadingUnmanageApp ? 'btn-disabled' : 'btn-outline'}`}
-                                onClick={onUnmanage}
-                                data-trafficruleid={data?.trafficRule.id}
-                                disabled={loadingUnmanageApp}
-                            >
-                                {loadingUnmanageApp
-                                    ? <span className="loading loading-spinner loading-xs"></span>
-                                    : 'Unmanage'
-                                }
-                            </button>
-                            <button
-                                className="btn btn-error btn-outline btn-sm gap-1 flex-1"
-                                onClick={onDelete}
-                                data-trafficid={data?.trafficRule.unifiId}
-                                data-trafficruleid={data?.trafficRule.id}
-                            >
-                                <HiTrash className="w-4 h-4" />
-                                Delete
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </li>
-    );
-}
 TrafficRules.propTypes = {
     embedded: PropTypes.bool,
-};
-
-RuleCard.propTypes = {
-    data: PropTypes.shape({
-        trafficRule: PropTypes.shape({
-            enabled: PropTypes.bool,
-            bonusTimeActive: PropTypes.bool,
-            description: PropTypes.string,
-            unifiId: PropTypes.string,
-            id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-         }),
-        matchingAppIds: PropTypes.array,
-        matchingTargetDevices: PropTypes.array,
-     }),
-    onToggle: PropTypes.func,
-    onDelete: PropTypes.func,
-    onUnmanage: PropTypes.func,
-    onEdit: PropTypes.func,
-    rawRule: PropTypes.object,
-    onStateChange: PropTypes.func,
-    loadingUnmanageApp: PropTypes.bool,
 };

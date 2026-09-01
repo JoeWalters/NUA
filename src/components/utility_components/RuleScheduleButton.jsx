@@ -11,7 +11,7 @@ function formatMinutes(min) {
     return m.toString().length === 1 ? "0" + m : m;
 }
 
-export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStateChange }) {
+export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStateChange, isSpeedLimit }) {
     const scheduleDialogRef = useRef();
     const badDateModalRef = useRef();
     const oneTimeScheduleRef = useRef();
@@ -19,6 +19,12 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
     const [submitBtnLoading, setSubmitBtnLoading] = useState(false);
     const [oneTimeSchedule, setOneTimeSchedule] = useState(false);
     const [scheduleAction, setScheduleAction] = useState('allow');
+
+    // Speed-limit rules are enabled/disabled (not allowed/blocked), so label
+    // the schedule action as Enforce/Disable for them (action-verb form,
+    // parallel to Allow/Block, and unambiguous about what clicking does).
+    const allowLabel = isSpeedLimit ? 'Enforce' : 'Allow';
+    const blockLabel = isSpeedLimit ? 'Disable' : 'Block';
     const [timeData, setTimeData] = useState(null);
     const [dayOfTheWeekSelected, setDayOfTheWeekSelected] = useState(false);
     const [invalidscheduleMessage, setInvalidscheduleMessage] = useState({});
@@ -286,7 +292,9 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
                                             <div className="text-base-content/60">{savedSchedule.extra}</div>
                                         </td>
                                         <td className={`uppercase ${scheduleActionText === 'block' ? 'text-red-500' : 'text-green-500'}`}>
-                                            {scheduleActionText}
+                                            {isSpeedLimit
+                                                ? (scheduleActionText === 'allow' ? 'Enforce' : 'Disable')
+                                                : scheduleActionText}
                                         </td>
                                         <td>
                                             <input
@@ -347,9 +355,9 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
                                 onClick={handleAllow}
                                 onChange={handleAllow}
                                 className={`btn join-item`}
-                                value="allow"
+                                value={allowLabel}
                                 type="radio"
-                                aria-label="Allow"
+                                aria-label={allowLabel}
                                 name="options"
                                 checked={scheduleAction === 'allow'}
                             />
@@ -357,9 +365,9 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
                                 onClick={handleBlock}
                                 onChange={handleBlock}
                                 className={`btn join-item`}
-                                value="block"
+                                value={blockLabel}
                                 type="radio"
-                                aria-label="Block"
+                                aria-label={blockLabel}
                                 name="options"
                                 checked={scheduleAction === 'block'}
                             />

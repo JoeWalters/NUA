@@ -2070,17 +2070,22 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
     const fetchAppCatIds = await prisma?.appCatIds?.findMany();
     const fetchAppIds = await prisma?.appIds?.findMany();
     const fetchTargetDevices = await prisma?.targetDevice?.findMany();
+    const fetchRuleTags = await prisma?.trafficRuleTags?.findMany();
+    const fetchDeviceGroups = await prisma?.deviceGroup?.findMany();
 
     const joinedData = fetchTrafficRules?.map((trafficRule) => {
       const matchingFetchAppCatIds = fetchAppCatIds.find(appCatId => appCatId.trafficRulesId === trafficRule.id);
       const matchingAppIds = fetchAppIds.filter(appId => appId.trafficRulesId === trafficRule.id);
       const matchingTargetDevices = fetchTargetDevices.filter(targetDevice => targetDevice.trafficRulesId === trafficRule.id);
+      const ruleTagIds = (fetchRuleTags || []).filter(t => t.trafficRulesId === trafficRule.id).map(t => t.deviceGroupId);
+      const ruleTags = (fetchDeviceGroups || []).filter(group => ruleTagIds.includes(group.id));
 
       return {
         trafficRule,
         matchingFetchAppCatIds,
         matchingAppIds,
-        matchingTargetDevices
+        matchingTargetDevices,
+        ruleTags
       };
     });
     if (joinedData.length) {
@@ -3265,6 +3270,31 @@ app.post('/api/device-groups/:id/unblock', async (req, res) => {
   }
 });
 
+// ~~~~~~~ Tags are shared between devices and rules ~~~~~~~
+
+// Assign rules to a device group (replaces the current rule set for the group)
+app.put('/api/device-groups/:id/rules', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ruleIds } = req.body;
+    if (!Array.isArray(ruleIds)) {
+      return res.status(400).json({ error: 'ruleIds must be an array' });
+    }
+
+    const groupId = parseInt(id);
+    await prisma.trafficRuleTags.deleteMany({ where: { deviceGroupId: groupId } });
+
+    if (ruleIds.length > 0) {
+      await prisma.trafficRuleTags.createMany({
+        data: ruleIds.map(trafficRulesId => ({ deviceGroupId: groupId, trafficRulesId: parseInt(trafficRulesId) }))
+      });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error assigning rules to group:', error);
+    res.status(500).json({ error: 'Failed to assign rules to group' });
+  }
+});
 // Helper functions for group scheduling
 async function executeGroupSchedule(groupId, blockAllow, unifi, prisma) {
   try {

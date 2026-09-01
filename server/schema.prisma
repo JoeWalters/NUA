@@ -91,6 +91,7 @@ model TrafficRules {
   scheduleAction          String?              // "allow" (enable) | "block" (disable)
   scheduleEnabled         Boolean              @default(false)
   scheduleJobName         String?
+  ruleTags                TrafficRuleTags[]
 }
 
 model AppCatIds {
@@ -170,8 +171,21 @@ model DeviceGroup {
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
   devices                 Device[]
+  trafficRules            TrafficRuleTags[]
   schedules               EasySchedule[]
   crons                   Cron[]
+}
+
+// Tags are shared between devices and rules: a DeviceGroup can tag both
+// devices (via deviceGroupId on Device) and traffic rules (via the join table).
+model TrafficRuleTags {
+  id             Int         @id @default(autoincrement())
+  trafficRules   TrafficRules @relation(fields: [trafficRulesId], references: [id])
+  trafficRulesId Int
+  deviceGroup    DeviceGroup @relation(fields: [deviceGroupId], references: [id])
+  deviceGroupId  Int
+
+  @@unique([trafficRulesId, deviceGroupId])
 }
 
 
