@@ -8,7 +8,6 @@ import { IoMdRefresh } from "react-icons/io";
 import ModernDeviceCard from "./modern_devices/ModernDeviceCard";
 import RuleCard from "./traffic_rules/RuleCard";
 import DeviceGroupManager from "./DeviceGroupManager";
-import RuleTagManager from "./RuleTagManager";
 import AddDeviceModal from "./AddDeviceModal";
 import DeviceModals from "./DeviceModals";
 import RuleModals from "./traffic_rules/RuleModals";
@@ -21,7 +20,6 @@ import { useTrafficRules } from "./custom_hooks/useTrafficRules";
 // icon + accent color + badge.
 export default function PolicyList({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
     const groupManagerRef = useRef();
-    const ruleTagManagerRef = useRef();
     const addDeviceModalRef = useRef();
 
     // Rule data + actions
@@ -84,17 +82,12 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
     const [tagFilter, setTagFilter] = useState('all');
     const [showFilters, setShowFilters] = useState(true);
 
-    // Unique device tags (groups) and rule tags for the unified tag filter
-    const deviceTagOptions = [...new Map(
-        (macData || [])
-            .filter(d => d?.deviceGroup)
-            .map(d => [d.deviceGroup.id, d.deviceGroup])
-    ).values()].sort((a, b) => a.name.localeCompare(b.name));
-
-    const ruleTagOptions = [...new Map(
-        (customAPIRules || [])
-            .flatMap(r => r?.ruleTags || [])
-            .map(t => [t.id, t])
+    // Tags are shared between devices and rules (DeviceGroup), so one combined set.
+    const tagOptions = [...new Map(
+        [
+            ...(macData || []).map(d => d?.deviceGroup).filter(Boolean),
+            ...(customAPIRules || []).flatMap(r => r?.ruleTags || []),
+        ].map(t => [t.id, t])
     ).values()].sort((a, b) => a.name.localeCompare(b.name));
 
     const filteredDevices = (macData || []).filter(device => {
@@ -121,10 +114,8 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
         }
         // tag
         if (tagFilter === 'none') { if (device?.deviceGroup) return false; }
-        else if (tagFilter.startsWith('d-')) {
-            if (device?.deviceGroup?.id !== parseInt(tagFilter.slice(2))) return false;
-        } else if (tagFilter.startsWith('r-')) {
-            return false;
+        else if (tagFilter !== 'all') {
+            if (device?.deviceGroup?.id !== parseInt(tagFilter)) return false;
         }
         return true;
     });
@@ -151,10 +142,8 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
         }
         // tag
         if (tagFilter === 'none') { if ((rule?.ruleTags || []).length > 0) return false; }
-        else if (tagFilter.startsWith('r-')) {
-            if (!(rule?.ruleTags || []).some(t => t.id === parseInt(tagFilter.slice(2)))) return false;
-        } else if (tagFilter.startsWith('d-')) {
-            return false;
+        else if (tagFilter !== 'all') {
+            if (!(rule?.ruleTags || []).some(t => t.id === parseInt(tagFilter))) return false;
         }
         return true;
     });
@@ -172,8 +161,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
     return (
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
             {/* Tag managers — mounted but opened on demand from the filter bar */}
-            <DeviceGroupManager ref={groupManagerRef} devices={macData} onGroupsUpdate={handleRenderToggle} />
-            <RuleTagManager ref={ruleTagManagerRef} rules={customAPIRules} onRulesChange={reRender} />
+            <DeviceGroupManager ref={groupManagerRef} devices={macData} rules={customAPIRules} onGroupsUpdate={handleRenderToggle} onRulesChange={reRender} />
             <AddDeviceModal ref={addDeviceModalRef} onAdded={handleRenderToggle} />
 
             {/* Section header */}
@@ -284,11 +272,8 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                             >
                                 <option value="all">All tags</option>
                                 <option value="none">No tag</option>
-                                {deviceTagOptions.map(g => (
-                                    <option key={`d-${g.id}`} value={`d-${g.id}`}>{g.icon} {g.name}</option>
-                                ))}
-                                {ruleTagOptions.map(t => (
-                                    <option key={`r-${t.id}`} value={`r-${t.id}`}>{t.icon} {t.name}</option>
+                                {tagOptions.map(t => (
+                                    <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
                                 ))}
                             </select>
 
@@ -296,17 +281,10 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                             <div className="flex items-center gap-1">
                                 <button
                                     className="btn btn-ghost btn-sm gap-1"
-                                    title="Manage device tags"
+                                    title="Manage tags (assign to devices and rules)"
                                     onClick={() => groupManagerRef.current?.openManager()}
                                 >
-                                    🏷️ Device Tags
-                                </button>
-                                <button
-                                    className="btn btn-ghost btn-sm gap-1"
-                                    title="Manage rule tags"
-                                    onClick={() => ruleTagManagerRef.current?.openManager()}
-                                >
-                                    🏷️ Rule Tags
+                                    🏷️ Manage Tags
                                 </button>
                                 <button className="btn btn-ghost btn-square" onClick={handleRefresh} title="Refresh">
                                     <IoMdRefresh className="w-5 h-5" />

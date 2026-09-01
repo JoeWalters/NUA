@@ -2,10 +2,11 @@ import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 're
 import { HiPlus } from 'react-icons/hi2';
 import { debugLog } from '../utility_functions/debugMode';
 
-const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, onGroupsUpdate }, ref) {
+const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rules, onGroupsUpdate, onRulesChange }, ref) {
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedDevices, setSelectedDevices] = useState([]);
+    const [selectedRuleIds, setSelectedRuleIds] = useState([]);
     const [showGroupModal, setShowGroupModal] = useState(false);
     const [editingGroup, setEditingGroup] = useState(null);
     const [groupForm, setGroupForm] = useState({
@@ -29,6 +30,7 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, onG
 
     const groupModalRef = useRef();
     const assignModalRef = useRef();
+    const assignRulesModalRef = useRef();
     const scheduleModalRef = useRef();
     const managerDialogRef = useRef();
 
@@ -177,6 +179,44 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, onG
             }
         } catch (error) {
             console.error('Error updating device assignments:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleAssignRules = (group) => {
+        setEditingGroup(group);
+        // Rules carry their tags (DeviceGroups) in rule.ruleTags.
+        const groupRuleIds = (rules || [])
+            .filter(rule => (rule?.ruleTags || []).some(tag => tag.id === group.id))
+            .map(rule => rule?.trafficRule?.id);
+        setSelectedRuleIds(groupRuleIds);
+        assignRulesModalRef.current?.showModal();
+    };
+
+    const handleToggleRuleSelection = (ruleId) => {
+        setSelectedRuleIds(prev =>
+            prev.includes(ruleId)
+                ? prev.filter(id => id !== ruleId)
+                : [...prev, ruleId]
+        );
+    };
+
+    const handleSaveRuleAssignments = async () => {
+        try {
+            setLoading(true);
+            const response = await fetch(`/api/device-groups/${editingGroup.id}/rules`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ruleIds: selectedRuleIds }),
+            });
+
+            if (response.ok) {
+                assignRulesModalRef.current?.close();
+                onRulesChange?.();
+            }
+        } catch (error) {
+            console.error('Error updating rule assignments:', error);
         } finally {
             setLoading(false);
         }
@@ -459,6 +499,12 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, onG
                                             </button>
                                             <button
                                                 className="btn btn-ghost btn-xs w-full justify-start gap-2"
+                                                onClick={() => handleAssignRules(group)}
+                                            >
+                                                🏷️ Assign Rules
+                                            </button>
+                                            <button
+                                                className="btn btn-ghost btn-xs w-full justify-start gap-2"
                                                 onClick={() => handleEditGroup(group)}
                                             >
                                                 ✏️ Edit Tag
@@ -679,6 +725,106 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, onG
                     </div>
                     <form method="dialog" className="modal-backdrop">
                         <button onClick={() => assignModalRef.current?.close()}>close</button>
+                    </form>
+                </dialog>
+
+                {/* Assign Rules Modal */}
+                <dialog className="modal" ref={assignRulesModalRef}>
+                    <div className="modal-box max-w-2xl">
+                        <h3 className="font-bold text-lg mb-4">
+                            Assign Rules to "{editingGroup?.name}"
+                        </h3>
+
+                        <div className="alert alert-info mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div>
+                                <h4 className="font-bold">How to assign rules:</h4>
+                                <p className="text-sm">✅ Check the boxes next to rules you want in this tag, then click "Save Changes"</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mb-4">
+                            <p className="text-sm text-base-content/60">
+                                {selectedRuleIds.length} of {rules?.length || 0} rules selected
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    className="btn btn-xs btn-outline"
+                                    onClick={() => setSelectedRuleIds(rules?.map(r => r?.trafficRule?.id) || [])}
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    className="btn btn-xs btn-outline"
+                                    onClick={() => setSelectedRuleIds([])}
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="max-h-96 overflow-y-auto">
+                            {rules?.length === 0 ? (
+                                <p className="text-center py-8 text-base-content/60">No rules available</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {rules?.map(rule => {
+                                        const ruleId = rule?.trafficRule?.id;
+                                        const isSelected = selectedRuleIds.includes(ruleId);
+                                        const isCurrentlyInGroup = (rule?.ruleTags || []).some(tag => tag.id === editingGroup?.id);
+                                        return (
+                                            <div
+                                                key={ruleId}
+                                                className={`flex items-center justify-between p-3 rounded-lg border-2 transition-all cursor-pointer ${
+                                                    isSelected
+                                                        ? 'bg-primary/10 border-primary'
+                                                        : 'bg-base-200 border-transparent hover:border-base-300'
+                                                }`}
+                                                onClick={() => handleToggleRuleSelection(ruleId)}
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="checkbox checkbox-primary"
+                                                        checked={isSelected}
+                                                        onClick={(event) => event.stopPropagation()}
+                                                        onChange={() => handleToggleRuleSelection(ruleId)}
+                                                    />
+                                                    <div>
+                                                        <p className="font-medium">{rule?.trafficRule?.description}</p>
+                                                        {isCurrentlyInGroup && (
+                                                            <span className="badge badge-xs badge-primary">In this tag</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className={`badge ${rule?.trafficRule?.enabled ? 'badge-success' : 'badge-error'}`}>
+                                                    {rule?.trafficRule?.enabled ? 'Enabled' : 'Disabled'}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="modal-action">
+                            <button
+                                className="btn btn-ghost"
+                                onClick={() => assignRulesModalRef.current?.close()}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleSaveRuleAssignments}
+                                disabled={loading}
+                            >
+                                {loading ? 'Saving...' : 'Save Changes'}
+                            </button>
+                        </div>
+                    </div>
+                    <form method="dialog" className="modal-backdrop">
+                        <button onClick={() => assignRulesModalRef.current?.close()}>close</button>
                     </form>
                 </dialog>
 

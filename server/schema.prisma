@@ -171,32 +171,21 @@ model DeviceGroup {
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
   devices                 Device[]
+  trafficRules            TrafficRuleTags[]
   schedules               EasySchedule[]
   crons                   Cron[]
 }
 
-// Tags for traffic rules (mirrors DeviceGroup, but rules can carry multiple
-// tags via the join table).
-model RuleTag {
-  id          Int     @id @default(autoincrement())
-  name        String
-  description String?
-  color       String? @default("#3B82F6")
-  icon        String? @default("🏷️")
-  active      Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  rules       TrafficRuleTags[]
-}
-
+// Tags are shared between devices and rules: a DeviceGroup can tag both
+// devices (via deviceGroupId on Device) and traffic rules (via the join table).
 model TrafficRuleTags {
   id             Int         @id @default(autoincrement())
   trafficRules   TrafficRules @relation(fields: [trafficRulesId], references: [id])
   trafficRulesId Int
-  ruleTag        RuleTag     @relation(fields: [ruleTagId], references: [id])
-  ruleTagId      Int
+  deviceGroup    DeviceGroup @relation(fields: [deviceGroupId], references: [id])
+  deviceGroupId  Int
 
-  @@unique([trafficRulesId, ruleTagId])
+  @@unique([trafficRulesId, deviceGroupId])
 }
 
 
