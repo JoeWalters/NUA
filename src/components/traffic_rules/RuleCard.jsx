@@ -63,9 +63,9 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                                 <h3 className="text-lg font-semibold text-base-content truncate" title={data?.trafficRule.description}>
                                     {data?.trafficRule.description}
                                 </h3>
-                                <div className="mt-0.5 flex items-center gap-1.5">
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                                     <span
-                                        className={`badge badge-sm gap-1 ${
+                                        className={`badge badge-sm gap-1 flex-shrink-0 ${
                                             isSpeedLimit ? 'badge-accent' : 'badge-primary'
                                         }`}
                                     >
@@ -73,18 +73,18 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                                         {typeLabel}
                                     </span>
                                     {isSpeedLimit && (dlMbps || ulMbps) && (
-                                        <span className="badge badge-ghost badge-sm gap-1">
+                                        <span className="badge badge-ghost badge-sm gap-1 flex-shrink-0">
                                             ↓ {dlMbps ?? '—'} / ↑ {ulMbps ?? '—'} Mbps
                                         </span>
                                     )}
                                 </div>
                                 <div className="mt-1 min-h-6">
-                                    <div className="flex items-center gap-2 text-xs text-base-content/60">
-                                        <span className="badge badge-ghost badge-sm gap-1">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+                                        <span className="badge badge-ghost badge-sm gap-1 flex-shrink-0">
                                             <HiCpuChip className="w-3.5 h-3.5" />
                                             {data?.matchingAppIds?.length || 0}
                                         </span>
-                                        <span className="badge badge-ghost badge-sm gap-1">
+                                        <span className="badge badge-ghost badge-sm gap-1 flex-shrink-0">
                                             <HiDevicePhoneMobile className="w-3.5 h-3.5" />
                                             {data?.matchingTargetDevices?.length || 0}
                                         </span>
