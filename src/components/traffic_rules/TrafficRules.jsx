@@ -52,7 +52,7 @@ export default function TrafficRules({ embedded = false })
                 <div className={containerClass}>
 
                     {/* Page header */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                             <HiShieldCheck className="w-6 h-6 text-primary" />
                             <h1 className="text-2xl font-bold text-base-content">Traffic Rules</h1>
@@ -60,7 +60,7 @@ export default function TrafficRules({ embedded = false })
                                 <span className="badge badge-primary badge-sm ml-1">{customAPIRules.length}</span>
                             )}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             {importOption ? (
                                 <button
                                     className="btn btn-sm btn-ghost gap-1"
@@ -94,7 +94,7 @@ export default function TrafficRules({ embedded = false })
 
                     {/* Rule cards */}
                     {customAPIRules.length ? (
-                        <ul className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 m-0 p-0">
+                        <ul className="grid gap-6 grid-cols-1 md:[grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] m-0 p-0">
                             {customAPIRules.map((data) => (
                                 <RuleCard
                                     key={data?.trafficRule.unifiId}

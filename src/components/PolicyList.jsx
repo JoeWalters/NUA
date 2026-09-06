@@ -165,12 +165,12 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
             <AddDeviceModal ref={addDeviceModalRef} onAdded={handleRenderToggle} />
 
             {/* Section header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <div className="flex items-center gap-2">
                     <h1 className="text-2xl font-bold text-base-content">Devices & Rules</h1>
                     {total > 0 && <span className="badge badge-primary badge-sm ml-1">{total}</span>}
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <button
                         className="btn btn-sm btn-primary gap-1"
                         onClick={() => addDeviceModalRef.current?.open()}
@@ -324,7 +324,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                     <p className="text-base-content/60">Try adjusting your search, type, status, or tag filters.</p>
                 </div>
             ) : (
-                <ul className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 m-0 p-0">
+                <ul className="grid gap-6 grid-cols-1 md:[grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] m-0 p-0">
                     {filteredDevices.map((device) => (
                         <ModernDeviceCard
                             key={device?.id}
