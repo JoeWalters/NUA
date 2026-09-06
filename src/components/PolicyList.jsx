@@ -324,7 +324,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                     <p className="text-base-content/60">Try adjusting your search, type, status, or tag filters.</p>
                 </div>
             ) : (
-                <ul className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] m-0 p-0">
+                <ul className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 m-0 p-0">
                     {filteredDevices.map((device) => (
                         <ModernDeviceCard
                             key={device?.id}

@@ -183,7 +183,7 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
             <dialog ref={dialogRef} className="modal">
                 <div className="modal-box max-w-3xl w-full h-[85vh] flex flex-col p-0 overflow-hidden">
                     {/* Header */}
-                    <div className="flex items-center px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
+                    <div className="flex flex-wrap items-center px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0 gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                             <HiPencil className="w-5 h-5 text-primary flex-shrink-0" />
                             <h2 className="font-bold text-lg truncate">Edit Rule</h2>

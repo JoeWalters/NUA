@@ -1,4 +1,9 @@
- @font-face{
+/* Prevent stray fixed-width elements from causing a sideways scrollbar on mobile */
+body {
+    overflow-x: hidden;
+}
+
+@font-face{
     font-family: 'Aqurine';
     src: local('Aqurine'), url(./fonts/Aqurine.otf) format('opentype')
 }

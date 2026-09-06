@@ -4,7 +4,8 @@ import { TbRepeat, TbRepeatOff } from "react-icons/tb";
 
 export function EZScheduleTable({ returnData, handleDeleteEZSched, handleEZToggle, submitButtonRef }) {
     return (
-        <table className="table table-zebra border rounded-lg shadow overflow-hidden dark:border-gray-700 dark:shadow-gray-900 mb-8">
+        <div className="overflow-x-auto border rounded-lg shadow dark:border-gray-700 dark:shadow-gray-900 mb-8">
+        <table className="table table-zebra">
             <thead>
                 <tr className="font-bold sm:text-xl" align="center">
                     <th>Time</th>
@@ -63,6 +64,7 @@ export function EZScheduleTable({ returnData, handleDeleteEZSched, handleEZToggl
                     }
             </tbody>
         </table>
+        </div>
     );
 }
 // const { date, hour, minute, ampm, oneTime, deviceId, scheduletype } = data;

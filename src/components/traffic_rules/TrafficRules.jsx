@@ -94,7 +94,7 @@ export default function TrafficRules({ embedded = false })
 
                     {/* Rule cards */}
                     {customAPIRules.length ? (
-                        <ul className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] m-0 p-0">
+                        <ul className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 m-0 p-0">
                             {customAPIRules.map((data) => (
                                 <RuleCard
                                     key={data?.trafficRule.unifiId}

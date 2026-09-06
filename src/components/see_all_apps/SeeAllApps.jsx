@@ -780,7 +780,7 @@ export default function SeeAllApps()
                     filteredArray?.map((app) => {
                         return (
                             <>
-                                <div key={app?.id} className="card w-80 min-h-[204px] bg-base-100 shadow-xl hover:bg-base-200 mx-auto">
+                                <div key={app?.id} className="card w-full min-h-[204px] bg-base-100 shadow-xl hover:bg-base-200 mx-auto">
                                     <div className="card-body">
                                         <h2 className="card-title">{app?.name}</h2>
                                         <p>

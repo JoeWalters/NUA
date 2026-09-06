@@ -102,9 +102,9 @@ export default function ModernDeviceCard({
                 </div>
 
                 {/* Quick Actions Row */}
-                <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center justify-between flex-wrap gap-2 mt-4">
                     {/* Main Toggle */}
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <input
                             type="checkbox"
                             className={`toggle toggle-sm ${
@@ -143,7 +143,7 @@ export default function ModernDeviceCard({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <button
                             onClick={() => setIsExpanded(!isExpanded)}
                             className="btn btn-ghost btn-xs"

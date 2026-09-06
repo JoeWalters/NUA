@@ -447,7 +447,7 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                 <div className="modal-box max-w-5xl w-full h-[85vh] flex flex-col p-0 overflow-hidden">
 
                     {/* Fixed header */}
-                    <div className="flex items-center px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
+                    <div className="flex flex-wrap items-center px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0 gap-2">
                         {/* Left: title */}
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                             <HiShieldCheck className="w-5 h-5 text-primary flex-shrink-0" />
@@ -457,7 +457,7 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                         </div>
 
                         {/* Center: step indicator */}
-                        <div className="flex items-center gap-1.5 text-sm flex-shrink-0 px-4">
+                        <div className="hidden sm:flex items-center gap-1.5 text-sm flex-shrink-0 px-4">
                             <span className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-colors ${step === 1 ? 'bg-primary text-primary-content' : 'bg-success text-success-content'}`}>
                                 {step > 1 ? <HiCheck className="w-3.5 h-3.5" /> : '1'}
                             </span>
@@ -659,7 +659,7 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                     </div>
 
                     {/* Fixed footer */}
-                    <div className="flex items-center justify-between px-6 py-4 border-t border-base-300 flex-shrink-0">
+                    <div className="flex flex-wrap items-center justify-between px-6 py-4 border-t border-base-300 flex-shrink-0 gap-2">
                         {step === 1 ? (
                             <>
                                 <button className="btn btn-ghost" onClick={handleClose}>

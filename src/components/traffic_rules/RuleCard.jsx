@@ -113,8 +113,8 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                     </div>
 
                     {/* Quick Actions Row */}
-                    <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center space-x-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2 mt-4">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <input
                                 type="checkbox"
                                 checked={enabled}
@@ -141,7 +141,7 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                             />
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 className="btn btn-ghost btn-xs"
                                 onClick={() => setExpanded(prev => !prev)}
