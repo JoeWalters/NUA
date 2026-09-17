@@ -2072,6 +2072,7 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
     const fetchTargetDevices = await prisma?.targetDevice?.findMany();
     const fetchRuleTags = await prisma?.trafficRuleTags?.findMany();
     const fetchDeviceGroups = await prisma?.deviceGroup?.findMany();
+    const fetchTrafficRuleSchedules = await prisma?.trafficRuleSchedule?.findMany();
 
     const joinedData = fetchTrafficRules?.map((trafficRule) => {
       const matchingFetchAppCatIds = fetchAppCatIds.find(appCatId => appCatId.trafficRulesId === trafficRule.id);
@@ -2079,9 +2080,13 @@ app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && u
       const matchingTargetDevices = fetchTargetDevices.filter(targetDevice => targetDevice.trafficRulesId === trafficRule.id);
       const ruleTagIds = (fetchRuleTags || []).filter(t => t.trafficRulesId === trafficRule.id).map(t => t.deviceGroupId);
       const ruleTags = (fetchDeviceGroups || []).filter(group => ruleTagIds.includes(group.id));
+      const trafficRuleSchedules = (fetchTrafficRuleSchedules || [])
+        .filter(scheduleRow => scheduleRow.trafficRulesId === trafficRule.id)
+        .sort((a, b) => a.createdAt - b.createdAt);
 
       return {
         trafficRule,
+        trafficRuleSchedules,
         matchingFetchAppCatIds,
         matchingAppIds,
         matchingTargetDevices,
@@ -2584,6 +2589,7 @@ app.delete('/deletecustomapi', async (req, res) => { // deletes unifi rule, not 
           await trule.appIds.deleteMany({ where: { trafficRulesId: trafficRuleId }});
           await trule.targetDevice.deleteMany({ where: { trafficRulesId: trafficRuleId }});
           await trule.trafficRuleDevices.deleteMany({ where: { trafficRulesId: trafficRuleId }});
+          await trule.trafficRuleSchedule.deleteMany({ where: { trafficRulesId: trafficRuleId }});
           await trule.trafficRules.delete({ where: { id: trafficRuleId }});
         });
         console.log('Traffic Rule and associated entries deleted successfully!');
@@ -2743,6 +2749,7 @@ app.delete('/unmanageapp', async (req, res) => {
           await trafficRule.appIds.deleteMany({ where: { trafficRulesId: trafficRuleId }});
           await trafficRule.targetDevice.deleteMany({ where: { trafficRulesId: trafficRuleId }});
           await trafficRule.trafficRuleDevices.deleteMany({ where: { trafficRulesId: trafficRuleId }});
+          await trafficRule.trafficRuleSchedule.deleteMany({ where: { trafficRulesId: trafficRuleId }});
           await trafficRule.trafficRules.delete({ where: { id: trafficRuleId }});
         });
         console.log(`Unmanaged traffic rule: ${dbId}, successfully!`);
@@ -2965,9 +2972,9 @@ app.post('/addtrafficruleschedule', async (req, res) => { // create schedule for
 });
 
 app.put('/toggletrafficruleschedule', async (req, res) => { // enable/disable an existing schedule
-  const { trafficRuleId, toggleOn } = req.body;
+  const { scheduleId, toggleOn } = req.body;
   try {
-    await toggleTrafficRuleSchedule(parseInt(trafficRuleId), unifi, prisma, toggleOn === true);
+    await toggleTrafficRuleSchedule(parseInt(scheduleId), unifi, prisma, toggleOn === true);
     res.sendStatus(200);
   } catch (error) {
     console.error(error);
@@ -2976,9 +2983,9 @@ app.put('/toggletrafficruleschedule', async (req, res) => { // enable/disable an
 });
 
 app.delete('/deletetrafficruleschedule', async (req, res) => { // remove a schedule entirely
-  const { trafficRuleId } = req.body;
+  const { scheduleId } = req.body;
   try {
-    await deleteTrafficRuleSchedule(parseInt(trafficRuleId), unifi, prisma);
+    await deleteTrafficRuleSchedule(parseInt(scheduleId), unifi, prisma);
     res.sendStatus(200);
   } catch (error) {
     console.error(error);

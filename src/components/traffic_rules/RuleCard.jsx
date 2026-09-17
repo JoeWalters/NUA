@@ -135,7 +135,7 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                             />
                             <RuleScheduleButton
                                 trafficRuleId={data?.trafficRule.id}
-                                scheduleData={data?.trafficRule}
+                                ruleSchedules={data?.trafficRuleSchedules || []}
                                 onStateChange={onStateChange}
                                 isSpeedLimit={isSpeedLimit}
                             />
@@ -237,6 +237,7 @@ RuleCard.propTypes = {
          }),
         matchingAppIds: PropTypes.array,
         matchingTargetDevices: PropTypes.array,
+        trafficRuleSchedules: PropTypes.array,
      }),
     onToggle: PropTypes.func,
     onDelete: PropTypes.func,
@@ -246,4 +247,5 @@ RuleCard.propTypes = {
     onStateChange: PropTypes.func,
     loadingUnmanageApp: PropTypes.bool,
     ruleTags: PropTypes.array,
+    ruleSchedules: PropTypes.array,
 };
