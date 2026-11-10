@@ -283,6 +283,14 @@ async function withUnifiRetry(requestFn) {
   }
 }
 
+// Wrapped UniFi request helper for scheduled jobs. Reads the module-scoped
+// `unifi` at call time (never a stale captured reference) and re-authenticates
+// + retries once on 401, mirroring withUnifiRetry for HTTP routes. Passing this
+// to the scheduler modules lets scheduled jobs survive an expired UniFi session
+// instead of crashing the process.
+const unifiRequest = async (path, method, payload) =>
+  withUnifiRetry(() => unifi.customApiRequest(path, method, payload));
+
 // fetch login arguments // original
 // let loginData;
 // const fetchLoginInfo = async () => {
@@ -352,7 +360,7 @@ const init = async () => {
     ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction);
   }
 };
-init();
+const initPromise = init();
 // console.log('unifi\t', unifi);
 
 // info
@@ -2889,10 +2897,10 @@ app.post('/addbonusrule', async (req, res) => { // bonus time for a traffic rule
     if (hours || minutes) {
       const currentExpiry = timeoutMap.get(`rule-${trafficRuleId}`)?.time;
       const originalTime = isAdditionalTime && currentExpiry ? Math.max(currentExpiry - Date.now(), 0) : null;
-      const expiresAt = await startBonusRule(trafficRuleId, hours, minutes, unifi, prisma, originalTime);
+      const expiresAt = await startBonusRule(trafficRuleId, hours, minutes, unifiRequest, prisma, originalTime);
 
       const restartCallback = async () => {
-        await endBonusRule(trafficRuleId, unifi, prisma);
+        await endBonusRule(trafficRuleId, unifiRequest, prisma);
         endTimeout(`rule-${trafficRuleId}`);
       };
       startTimeout(`rule-${trafficRuleId}`, minutes, hours, restartCallback, originalTime);
@@ -2944,7 +2952,7 @@ app.post('/deletebonusrule', async (req, res) => { // cancel bonus time for a ru
     if (cancelTimer) {
       endTimeout(`rule-${trafficRuleId}`);
     }
-    await endBonusRule(trafficRuleId, unifi, prisma);
+    await endBonusRule(trafficRuleId, unifiRequest, prisma);
     res.sendStatus(200);
   } catch (error) {
     console.error(error);
@@ -2961,7 +2969,7 @@ app.post('/addtrafficruleschedule', async (req, res) => { // create schedule for
     await addTrafficRuleSchedule(
       parseInt(trafficRuleId),
       { date, hour, minute, ampm, oneTime, modifiedDaysOfTheWeek, scheduleAction },
-      unifi,
+      unifiRequest,
       prisma
     );
     res.sendStatus(200);
@@ -2974,7 +2982,7 @@ app.post('/addtrafficruleschedule', async (req, res) => { // create schedule for
 app.put('/toggletrafficruleschedule', async (req, res) => { // enable/disable an existing schedule
   const { scheduleId, toggleOn } = req.body;
   try {
-    await toggleTrafficRuleSchedule(parseInt(scheduleId), unifi, prisma, toggleOn === true);
+    await toggleTrafficRuleSchedule(parseInt(scheduleId), unifiRequest, prisma, toggleOn === true);
     res.sendStatus(200);
   } catch (error) {
     console.error(error);
@@ -2985,7 +2993,7 @@ app.put('/toggletrafficruleschedule', async (req, res) => { // enable/disable an
 app.delete('/deletetrafficruleschedule', async (req, res) => { // remove a schedule entirely
   const { scheduleId } = req.body;
   try {
-    await deleteTrafficRuleSchedule(parseInt(scheduleId), unifi, prisma);
+    await deleteTrafficRuleSchedule(parseInt(scheduleId), unifiRequest, prisma);
     res.sendStatus(200);
   } catch (error) {
     console.error(error);
@@ -3625,14 +3633,17 @@ app.use(async (err, req, res, next) => {
 
 const PORT = process.env.PORT || customPORT; // portSettings.js
 
-// Restore bonus-time timers that survived a container restart
+// Restore bonus-time timers that survived a container restart.
+// IMPORTANT: wait for init() to finish connecting (unifi set) BEFORE re-arming,
+// otherwise the schedule/bonus jobs capture unifi = null and skip the UniFi PUT.
 (async () => {
   try {
+    await initPromise;
     const deviceResult = await reArmDeviceBonusOnBoot(unifi, prisma, jobFunction, schedulerService);
     console.log(`[boot] Device bonus timers re-armed: ${deviceResult.rearmed}, expired: ${deviceResult.expired}`);
-    const ruleResult = await reArmTrafficBonusOnBoot(unifi, prisma);
+    const ruleResult = await reArmTrafficBonusOnBoot(unifiRequest, prisma);
     console.log(`[boot] Traffic rule bonus timers re-armed: ${ruleResult.rearmed}, expired: ${ruleResult.expired}`);
-    const schedResult = await reArmTrafficRuleSchedulesOnBoot(unifi, prisma);
+    const schedResult = await reArmTrafficRuleSchedulesOnBoot(unifiRequest, prisma);
     console.log(`[boot] Traffic rule schedules re-armed: ${schedResult.rearmed}`);
   } catch (error) {
     console.error('[boot] Failed to restore bonus timers:', error);
@@ -3647,4 +3658,15 @@ process.on('SIGINT', function () {
   console.log('~SIGINT FIRED~');
   schedule.gracefulShutdown()
     .then(() => process.exit(0));
+});
+
+// Safety net: a rejected/errored scheduled job (e.g. node-schedule emits an
+// unhandled 'error' when a callback rejects) must not take down the whole app.
+// The job-level try/catch is the primary fix; this logs anything that slips
+// through so the container keeps serving instead of exiting with code 1.
+process.on('unhandledRejection', (reason) => {
+  console.error('[global] Unhandled promise rejection:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('[global] Uncaught exception:', error);
 });

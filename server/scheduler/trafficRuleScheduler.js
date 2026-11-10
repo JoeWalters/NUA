@@ -21,30 +21,59 @@ const { convertDOWtoString } = require('../server_util_funcs/ez_sched_utils/conv
 const { startTimeout, endTimeout, timeoutMap } = require('../server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
 
 /**
+ * Create a node-schedule job whose callback is wrapped so a rejection is logged
+ * instead of being emitted as an unhandled 'error' event (which crashes the
+ * whole process). An 'error' listener is attached as a belt-and-suspenders.
+ */
+function scheduleSafeJob(trigger, callback) {
+  let job;
+  try {
+    job = schedule.scheduleJob(trigger, async () => {
+      try {
+        await callback();
+      } catch (error) {
+        console.error('[TrafficRuleSchedule] Job callback failed:', error);
+      }
+    });
+  } catch (error) {
+    console.error('[TrafficRuleSchedule] Failed to create job:', error);
+    return null;
+  }
+  if (job) {
+    job.on('error', (error) => {
+      console.error('[TrafficRuleSchedule] Job emitted error:', error);
+    });
+  }
+  return job;
+}
+
+/**
  * Fetch the live rule object from UniFi by its `_id` so that enabling/disabling
  * sends the actual UniFi shape (not the Prisma DB object, which UniFi rejects).
+ * `unifiRequest` is a wrapped request fn (see app.js) that re-authenticates on
+ * 401 and retries once, so an expired session doesn't abort the schedule.
  */
-async function fetchUnifiRule(unifi, unifiId) {
+async function fetchUnifiRule(unifiRequest, unifiId) {
   const path = '/v2/api/site/default/trafficrules';
-  const rules = await unifi.customApiRequest(path, 'GET');
+  const rules = await unifiRequest(path, 'GET');
   return (rules || []).find(rule => rule._id === unifiId) || null;
 }
 
 /**
  * Set the enabled state of a traffic rule in UniFi + DB.
  */
-async function setRuleEnabled(unifi, prisma, ruleId, enabled) {
+async function setRuleEnabled(unifiRequest, prisma, ruleId, enabled) {
   const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
   if (!rule) {
     return;
   }
 
-  if (unifi) {
+  if (unifiRequest) {
     const unifiPath = `/v2/api/site/default/trafficrules/${rule.unifiId}`;
-    const ruleCopy = await fetchUnifiRule(unifi, rule.unifiId);
+    const ruleCopy = await fetchUnifiRule(unifiRequest, rule.unifiId);
     if (ruleCopy) {
       ruleCopy.enabled = enabled;
-      await unifi.customApiRequest(unifiPath, 'PUT', ruleCopy);
+      await unifiRequest(unifiPath, 'PUT', ruleCopy);
     }
   }
 
@@ -60,18 +89,18 @@ async function setRuleEnabled(unifi, prisma, ruleId, enabled) {
  * One-time schedules clear themselves after firing (the job + persisted row are
  * removed), so a one-time action doesn't repeat.
  */
-async function runTrafficRuleScheduleAction(action, unifi, prisma, scheduleId) {
+async function runTrafficRuleScheduleAction(action, unifiRequest, prisma, scheduleId) {
   const row = await prisma.trafficRuleSchedule.findUnique({ where: { id: scheduleId } });
   if (!row) {
     return;
   }
 
   const enabled = action === 'allow';
-  await setRuleEnabled(unifi, prisma, row.trafficRulesId, enabled);
+  await setRuleEnabled(unifiRequest, prisma, row.trafficRulesId, enabled);
   console.log(`[TrafficRuleSchedule] rule ${row.trafficRulesId} ${enabled ? 'enabled' : 'disabled'} by schedule`);
 
   if (row.scheduleType === 'oneTime') {
-    await deleteTrafficRuleSchedule(scheduleId, unifi, prisma);
+    await deleteTrafficRuleSchedule(scheduleId, unifiRequest, prisma);
     console.log(`[TrafficRuleSchedule] rule ${row.trafficRulesId} one-time schedule completed; cleared`);
   }
 }
@@ -80,14 +109,14 @@ async function runTrafficRuleScheduleAction(action, unifi, prisma, scheduleId) {
  * Create a one-time schedule job for a schedule row.
  * @returns {Object|null} the node-schedule job object
  */
-async function addOneTimeTrafficRuleSchedule(scheduleId, data, unifi, prisma) {
+async function addOneTimeTrafficRuleSchedule(scheduleId, data, unifiRequest, prisma) {
   const { date, hour, minute, ampm, scheduleAction } = data;
   const { year, month, day } = dateFromDateString(date);
   const modifiedHour = convertToMilitaryTime(ampm, parseInt(hour));
   const dateTime = new Date(year, month - 1, day, modifiedHour, parseInt(minute), 0);
 
-  return schedule.scheduleJob(dateTime, () =>
-    runTrafficRuleScheduleAction(scheduleAction, unifi, prisma, scheduleId)
+  return scheduleSafeJob(dateTime, () =>
+    runTrafficRuleScheduleAction(scheduleAction, unifiRequest, prisma, scheduleId)
   );
 }
 
@@ -95,7 +124,7 @@ async function addOneTimeTrafficRuleSchedule(scheduleId, data, unifi, prisma) {
  * Create a recurring schedule job for a schedule row.
  * @returns {Object|null} the node-schedule job object
  */
-async function addRecurringTrafficRuleSchedule(scheduleId, data, unifi, prisma) {
+async function addRecurringTrafficRuleSchedule(scheduleId, data, unifiRequest, prisma) {
   const { hour, minute, ampm, modifiedDaysOfTheWeek, scheduleAction } = data;
   const modifiedHour = convertToMilitaryTime(ampm, parseInt(hour));
   const rule = new schedule.RecurrenceRule();
@@ -103,15 +132,15 @@ async function addRecurringTrafficRuleSchedule(scheduleId, data, unifi, prisma) 
   rule.hour = modifiedHour;
   rule.minute = parseInt(minute);
 
-  return schedule.scheduleJob(rule, () =>
-    runTrafficRuleScheduleAction(scheduleAction, unifi, prisma, scheduleId)
+  return scheduleSafeJob(rule, () =>
+    runTrafficRuleScheduleAction(scheduleAction, unifiRequest, prisma, scheduleId)
   );
 }
 
 /**
  * Create a schedule for a traffic rule and persist it as a new row.
  */
-async function addTrafficRuleSchedule(ruleId, data, unifi, prisma) {
+async function addTrafficRuleSchedule(ruleId, data, unifiRequest, prisma) {
   const { date, hour, minute, ampm, oneTime, modifiedDaysOfTheWeek, scheduleAction } = data;
   const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
   if (!rule) {
@@ -138,9 +167,9 @@ async function addTrafficRuleSchedule(ruleId, data, unifi, prisma) {
 
   let job;
   if (oneTime) {
-    job = await addOneTimeTrafficRuleSchedule(created.id, data, unifi, prisma);
+    job = await addOneTimeTrafficRuleSchedule(created.id, data, unifiRequest, prisma);
   } else {
-    job = await addRecurringTrafficRuleSchedule(created.id, data, unifi, prisma);
+    job = await addRecurringTrafficRuleSchedule(created.id, data, unifiRequest, prisma);
   }
 
   if (!job) {
@@ -159,7 +188,7 @@ async function addTrafficRuleSchedule(ruleId, data, unifi, prisma) {
 /**
  * Toggle an existing schedule on/off for a traffic rule (by schedule id).
  */
-async function toggleTrafficRuleSchedule(scheduleId, unifi, prisma, toggleOn) {
+async function toggleTrafficRuleSchedule(scheduleId, unifiRequest, prisma, toggleOn) {
   const row = await prisma.trafficRuleSchedule.findUnique({ where: { id: scheduleId } });
   if (!row || !row.scheduleJobName) {
     throw new Error('No schedule exists for this traffic rule');
@@ -180,8 +209,8 @@ async function toggleTrafficRuleSchedule(scheduleId, unifi, prisma, toggleOn) {
   if (row.scheduleType === 'oneTime') {
     const { year, month, day } = dateFromDateString(row.scheduleDate);
     const dateTime = new Date(year, month - 1, day, row.scheduleHour, row.scheduleMinute, 0);
-    job = schedule.scheduleJob(dateTime, () =>
-      runTrafficRuleScheduleAction(row.scheduleAction, unifi, prisma, scheduleId)
+    job = scheduleSafeJob(dateTime, () =>
+      runTrafficRuleScheduleAction(row.scheduleAction, unifiRequest, prisma, scheduleId)
     );
   } else {
     const modifiedDays = row.scheduleDays.split('').map(day => parseInt(day));
@@ -189,8 +218,8 @@ async function toggleTrafficRuleSchedule(scheduleId, unifi, prisma, toggleOn) {
     r.dayOfWeek = [...modifiedDays];
     r.hour = row.scheduleHour;
     r.minute = row.scheduleMinute;
-    job = schedule.scheduleJob(r, () =>
-      runTrafficRuleScheduleAction(row.scheduleAction, unifi, prisma, scheduleId)
+    job = scheduleSafeJob(r, () =>
+      runTrafficRuleScheduleAction(row.scheduleAction, unifiRequest, prisma, scheduleId)
     );
   }
 
@@ -205,7 +234,7 @@ async function toggleTrafficRuleSchedule(scheduleId, unifi, prisma, toggleOn) {
 /**
  * Delete a schedule for a traffic rule (cancels the job, removes the row).
  */
-async function deleteTrafficRuleSchedule(scheduleId, unifi, prisma) {
+async function deleteTrafficRuleSchedule(scheduleId, unifiRequest, prisma) {
   const row = await prisma.trafficRuleSchedule.findUnique({ where: { id: scheduleId } });
   if (!row) {
     return;
@@ -223,7 +252,7 @@ async function deleteTrafficRuleSchedule(scheduleId, unifi, prisma) {
  * Boot-time restore. Re-creates in-memory jobs for schedule rows that are
  * enabled. Returns count for logging.
  */
-async function reArmTrafficRuleSchedulesOnBoot(unifi, prisma) {
+async function reArmTrafficRuleSchedulesOnBoot(unifiRequest, prisma) {
   let rearmed = 0;
 
   const rows = await prisma.trafficRuleSchedule.findMany({
@@ -239,8 +268,8 @@ async function reArmTrafficRuleSchedulesOnBoot(unifi, prisma) {
     if (row.scheduleType === 'oneTime') {
       const { year, month, day } = dateFromDateString(row.scheduleDate);
       const dateTime = new Date(year, month - 1, day, row.scheduleHour, row.scheduleMinute, 0);
-      job = schedule.scheduleJob(dateTime, () =>
-        runTrafficRuleScheduleAction(row.scheduleAction, unifi, prisma, row.id)
+      job = scheduleSafeJob(dateTime, () =>
+        runTrafficRuleScheduleAction(row.scheduleAction, unifiRequest, prisma, row.id)
       );
     } else {
       const modifiedDays = row.scheduleDays.split('').map(day => parseInt(day));
@@ -248,8 +277,8 @@ async function reArmTrafficRuleSchedulesOnBoot(unifi, prisma) {
       r.dayOfWeek = [...modifiedDays];
       r.hour = row.scheduleHour;
       r.minute = row.scheduleMinute;
-      job = schedule.scheduleJob(r, () =>
-        runTrafficRuleScheduleAction(row.scheduleAction, unifi, prisma, row.id)
+      job = scheduleSafeJob(r, () =>
+        runTrafficRuleScheduleAction(row.scheduleAction, unifiRequest, prisma, row.id)
       );
     }
 

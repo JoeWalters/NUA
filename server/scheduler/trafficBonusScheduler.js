@@ -13,10 +13,12 @@ const { startTimeout, endTimeout, startTimeoutFromExpiry, timeoutMap } = require
 /**
  * Fetch the live rule object from UniFi by its `_id` so that enabling/disabling
  * sends the actual UniFi shape (not the Prisma DB object, which UniFi rejects).
+ * `unifiRequest` is the wrapped request fn (see app.js) that re-authenticates on
+ * 401 and retries once, so an expired session doesn't abort the bonus action.
  */
-async function fetchUnifiRule(unifi, unifiId) {
+async function fetchUnifiRule(unifiRequest, unifiId) {
   const path = '/v2/api/site/default/trafficrules';
-  const rules = await unifi.customApiRequest(path, 'GET');
+  const rules = await unifiRequest(path, 'GET');
   return (rules || []).find(rule => rule._id === unifiId) || null;
 }
 
@@ -24,7 +26,7 @@ async function fetchUnifiRule(unifi, unifiId) {
  * Start bonus time for a traffic rule.
  * Enables the rule (UniFi + DB) and persists an absolute expiry timestamp.
  */
-async function startBonusRule(ruleId, hours, minutes, unifi, prisma, originalTime = null) {
+async function startBonusRule(ruleId, hours, minutes, unifiRequest, prisma, originalTime = null) {
   const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
   if (!rule) {
     throw new Error(`Traffic rule ${ruleId} not found`);
@@ -35,11 +37,11 @@ async function startBonusRule(ruleId, hours, minutes, unifi, prisma, originalTim
 
   // Enable the rule in UniFi and reflect in DB
   const unifiPath = `/v2/api/site/default/trafficrules/${rule.unifiId}`;
-  if (unifi) {
-    const ruleCopy = await fetchUnifiRule(unifi, rule.unifiId);
+  if (unifiRequest) {
+    const ruleCopy = await fetchUnifiRule(unifiRequest, rule.unifiId);
     if (ruleCopy) {
       ruleCopy.enabled = true;
-      await unifi.customApiRequest(unifiPath, 'PUT', ruleCopy);
+      await unifiRequest(unifiPath, 'PUT', ruleCopy);
     }
   }
   await prisma.trafficRules.update({
@@ -53,18 +55,18 @@ async function startBonusRule(ruleId, hours, minutes, unifi, prisma, originalTim
 /**
  * End bonus time for a traffic rule: disable it again and clear the expiry.
  */
-async function endBonusRule(ruleId, unifi, prisma) {
+async function endBonusRule(ruleId, unifiRequest, prisma) {
   const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
   if (!rule) {
     return;
   }
 
   const unifiPath = `/v2/api/site/default/trafficrules/${rule.unifiId}`;
-  if (unifi) {
-    const ruleCopy = await fetchUnifiRule(unifi, rule.unifiId);
+  if (unifiRequest) {
+    const ruleCopy = await fetchUnifiRule(unifiRequest, rule.unifiId);
     if (ruleCopy) {
       ruleCopy.enabled = false;
-      await unifi.customApiRequest(unifiPath, 'PUT', ruleCopy);
+      await unifiRequest(unifiPath, 'PUT', ruleCopy);
     }
   }
   await prisma.trafficRules.update({
@@ -78,7 +80,7 @@ async function endBonusRule(ruleId, unifi, prisma) {
  * the future, and immediately disables rules whose expiry has already passed.
  * Returns counts for logging.
  */
-async function reArmTrafficBonusOnBoot(unifi, prisma) {
+async function reArmTrafficBonusOnBoot(unifiRequest, prisma) {
   let rearmed = 0;
   let expired = 0;
 
@@ -93,13 +95,13 @@ async function reArmTrafficBonusOnBoot(unifi, prisma) {
     if (remaining > 0) {
       // Rule is still in bonus time — re-arm the timer keyed by ruleId
       startTimeoutFromExpiry(rule.id, expiresAt, async () => {
-        await endBonusRule(rule.id, unifi, prisma);
+        await endBonusRule(rule.id, unifiRequest, prisma);
         endTimeout(rule.id);
       });
       rearmed++;
     } else {
       // Bonus time already elapsed while down — disable the rule now
-      await endBonusRule(rule.id, unifi, prisma);
+      await endBonusRule(rule.id, unifiRequest, prisma);
       expired++;
     }
   }
