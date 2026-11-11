@@ -26,9 +26,12 @@ messages for the implementation of each item.
   and the dead `/getdeviceinfo`; removed the `prisma.$disconnect()` calls in
   `deletecustomapi` / `unmanageapp` (they closed the shared connection pool).
   `/debug-status` was kept (still used by the Settings modal).
-- [ ] **Consolidate duplicate device-group APIs.** `/devicegroups` (frontend) and
-  `/api/device-groups` (newer REST style) are two parallel implementations with
-  drift risk. Pick one canonical API.
+- [x] **Consolidate duplicate device-group APIs.** `/devicegroups` (old) and
+  `/api/device-groups` (newer REST style) were two parallel implementations with
+  drift risk. The frontend (DeviceGroupManager) only ever used `/api/device-groups`,
+  so the old `/devicegroups` endpoints (GET/POST/PUT/DELETE, `/devices/:id/group`,
+  `/devicegroups/:id/toggle`) were removed from `server/Routes/device-groups.js`.
+  `/api/device-groups` is now the single canonical API.
 - [ ] **Fix `NODE_ENV=development` in the runtime Docker stage.** The startup
   script's `production` branch (`migrate deploy`) is never taken, so it always
   auto-migrates via `npm run db`. Set `NODE_ENV=production` + deterministic
@@ -82,3 +85,4 @@ messages for the implementation of each item.
 |------|------|-------|
 | 2026-11-11 | Initial review | Findings captured from deep-dive of the `cleanup/main-interface` branch. |
 | 2026-11-11 | Refactor done | Split `app.js` into `server/routes/*` modules; removed debug/testing endpoints + `prisma.$disconnect()` calls. Verified: 0 lint errors, `node --check` passes, runtime `/health` + module routes respond. |
+| 2026-11-11 | Deployed | Commit `2d9e8e5` pushed to `cleanup/main-interface`; GitHub Actions build succeeded (run 43069330221). Updated the `nua` container on trixie/unraid to the new `dev-latest` image (digest `8bceedec...`). Container healthy; `/getmacaddresses`, `/devicegroups`, `/getdbcustomapirules` all working. |
