@@ -58,9 +58,12 @@ messages for the implementation of each item.
   `SchedulerComponents/SelectOptionsComponent.jsx`, `CancelBonusTimeButton.jsx`,
   `DisplayBonusTimer.jsx`, `LoadingDialogTimer.js`, `TimerProvider.jsx`. The
   standalone `TrafficRules.jsx` screen is routed but not linked from the navbar.
-- [ ] **Re-arm schedules server-side at boot.** Cron/easy schedules only
+- [x] **Re-arm schedules server-side at boot.** Cron/easy schedules only
   re-initiate when the frontend calls `/checkjobreinitiation`. Re-arm on boot
-  (like bonus timers) instead of relying on a client trigger.
+  (like bonus timers) instead of relying on a client trigger. Added
+  `server/scheduler/deviceScheduler.js` (`reArmDeviceSchedulesOnBoot`) and wired
+  it into the `app.js` boot sequence; re-armed jobs pass `unifi`/`prisma` into
+  `jobFunction` (the `/checkjobreinitiation` path omitted them — a latent bug).
 - [ ] **Complete rate limiting.** Traffic-rule CRUD and device-group endpoints
   are unthrottled. Add a general API limiter.
 - [ ] **Standardize error responses.** Some routes echo raw UniFi
@@ -89,3 +92,4 @@ messages for the implementation of each item.
 | 2026-11-11 | Deployed | Commit `2d9e8e5` pushed to `cleanup/main-interface`; GitHub Actions build succeeded (run 43069330221). Updated the `nua` container on trixie/unraid to the new `dev-latest` image (digest `8bceedec...`). Container healthy; `/getmacaddresses`, `/devicegroups`, `/getdbcustomapirules` all working. |
 | 2026-11-11 | Device-group consolidation | Commit `31fc564` removed the dead `/devicegroups` API; `/api/device-groups` is canonical. Build succeeded (run 43078925725); container updated to digest `cb1b1d4e...`. Verified: `/devicegroups` now falls through to SPA shell (old API gone), `/api/device-groups` + schedules working. |
 | 2026-11-11 | Auth SPA-fallback fix | Commit `6f7060c` added `'**'` to `PUBLIC_PATHS` so the SPA shell is always served without auth. Build succeeded (run 43081290694); container updated to digest `795899b7...`. Verified: `/trafficrules` serves the HTML shell (200, text/html), container healthy. |
+| 2026-11-11 | Device schedule re-arm on boot | Added `server/scheduler/deviceScheduler.js` (`reArmDeviceSchedulesOnBoot`) and wired it into the `app.js` boot sequence, so cron/easy schedules restore server-side instead of relying on the frontend `/checkjobreinitiation`. Re-armed jobs pass `unifi`/`prisma` into `jobFunction`. |
