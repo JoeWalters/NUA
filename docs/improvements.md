@@ -36,10 +36,11 @@ messages for the implementation of each item.
   script's `production` branch (`migrate deploy`) is never taken, so it always
   auto-migrates via `npm run db`. Set `NODE_ENV=production` + deterministic
   `migrate deploy`; simplify the fragile drift-reconciliation logic.
-- [ ] **Fix auth SPA-fallback edge case.** `app.get('**')` is registered after
+- [x] **Fix auth SPA-fallback edge case.** `app.get('**')` is registered after
   the auth-wrapping override, so with auth enabled a hard refresh on a deep
-  route returns a 401 JSON instead of the HTML shell. Add `'**'` to
-  `PUBLIC_PATHS` or register the fallback before the override.
+  route returned a 401 JSON instead of the HTML shell. Added `'**'` to
+  `PUBLIC_PATHS` in `server_util_funcs/auth.js` — the client-side shell (and
+  login screen) is always served; auth protects the data APIs, not the shell.
 
 ## Medium priority
 
@@ -86,3 +87,4 @@ messages for the implementation of each item.
 | 2026-11-11 | Initial review | Findings captured from deep-dive of the `cleanup/main-interface` branch. |
 | 2026-11-11 | Refactor done | Split `app.js` into `server/routes/*` modules; removed debug/testing endpoints + `prisma.$disconnect()` calls. Verified: 0 lint errors, `node --check` passes, runtime `/health` + module routes respond. |
 | 2026-11-11 | Deployed | Commit `2d9e8e5` pushed to `cleanup/main-interface`; GitHub Actions build succeeded (run 43069330221). Updated the `nua` container on trixie/unraid to the new `dev-latest` image (digest `8bceedec...`). Container healthy; `/getmacaddresses`, `/devicegroups`, `/getdbcustomapirules` all working. |
+| 2026-11-11 | Device-group consolidation | Commit `31fc564` removed the dead `/devicegroups` API; `/api/device-groups` is canonical. Build succeeded (run 43078925725); container updated to digest `cb1b1d4e...`. Verified: `/devicegroups` now falls through to SPA shell (old API gone), `/api/device-groups` + schedules working. |
