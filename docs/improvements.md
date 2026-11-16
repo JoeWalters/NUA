@@ -44,9 +44,11 @@ messages for the implementation of each item.
 
 ## Medium priority
 
-- [ ] **In-memory auth sessions.** The `sessions` Map is lost on restart.
+- [~] **In-memory auth sessions.** The `sessions` Map is lost on restart.
   Switch to a signed/stateless cookie (HMAC/JWT); add CSRF/Origin verification on
-  state-changing routes.
+  state-changing routes. **Skipped** — auth is optional and disabled by default;
+  the user has no plans to enable it, so this is a non-goal. Revisit only if
+  auth is ever turned on.
 - [x] **Fix lint debt.** Frontend: 287 errors (missing `prop-types`, `no-undef`
   in `useCurrentTheme.jsx`, unreachable code in `convertDigitsToDOTW.js`, parse
   errors in `traffic_rule_apps/nomatch.js`/`New_NoMatch.js`). Server: 318
@@ -60,11 +62,17 @@ messages for the implementation of each item.
   frontend lint step a blocking gate.
 - [ ] **Clean up `convertDigitsToDOTW.js`.** `break` after `return` is
   unreachable; the switch can return `undefined` for out-of-range digits.
-- [ ] **Remove dead code.** Unused: `traffic_rule_apps/New_NoMatch.js`,
+- [x] **Remove dead code.** Unused: `traffic_rule_apps/New_NoMatch.js`,
   `nomatch.js`, `temp2.js`, `see_all_apps/app_card/AppCard.jsx`,
   `SchedulerComponents/SelectOptionsComponent.jsx`, `CancelBonusTimeButton.jsx`,
   `DisplayBonusTimer.jsx`, `LoadingDialogTimer.js`, `TimerProvider.jsx`. The
   standalone `TrafficRules.jsx` screen is routed but not linked from the navbar.
+  Deleted `temp2.js`, `AppCard.jsx`, `SelectOptionsComponent.jsx`,
+  `CancelBonusTimeButton.jsx`, `DisplayBonusTimer.jsx`, `LoadingDialogTimer.js`,
+  `TimerProvider.jsx` (all confirmed unreferenced). `nomatch.js`/`New_NoMatch.js`
+  were already removed in the lint-debt fix. `TrafficRules.jsx` was kept — it is
+  reachable via `SeeAllApps` navigation (`navigate('/trafficrules')`), so it is
+  not dead code.
 - [x] **Re-arm schedules server-side at boot.** Cron/easy schedules only
   re-initiate when the frontend calls `/checkjobreinitiation`. Re-arm on boot
   (like bonus timers) instead of relying on a client trigger. Added
@@ -105,3 +113,4 @@ messages for the implementation of each item.
 | 2026-11-11 | Device schedule re-arm on boot | Added `server/scheduler/deviceScheduler.js` (`reArmDeviceSchedulesOnBoot`) and wired it into the `app.js` boot sequence, so cron/easy schedules restore server-side instead of relying on the frontend `/checkjobreinitiation`. Re-armed jobs pass `unifi`/`prisma` into `jobFunction`. |
 | 2026-11-11 | General API rate limiter | Added a general `apiLimiter` (60 req/min) in `server/app.js` covering all state-changing API routes (POST/PUT/DELETE); GET/HEAD/OPTIONS skipped so static assets, the SPA shell, and `/health` are never throttled. |
 | 2026-11-11 | Lint debt | Fixed frontend lint errors (unreachable/undefined code, missing React imports, extra semicolons, unescaped entities, parse errors from deleted dead files); scoped frontend lint to `src/`; disabled `react/prop-types`, `no-console`, and `no-unused-vars` (dead code tracked separately); made the CI frontend lint step a blocking gate. Frontend + server lint now pass with 0 errors. |
+| 2026-11-11 | Dead code removal | Deleted 7 unreferenced files (`temp2.js`, `AppCard.jsx`, `SelectOptionsComponent.jsx`, `CancelBonusTimeButton.jsx`, `DisplayBonusTimer.jsx`, `LoadingDialogTimer.js`, `TimerProvider.jsx`). Kept `TrafficRules.jsx` (reachable via `SeeAllApps` navigation). Frontend build + lint pass. |
