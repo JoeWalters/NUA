@@ -152,6 +152,21 @@ app.use('/unblockallmacs', actionLimiter);
 app.use('/unblockmac', actionLimiter);
 app.use('/addmacaddresses', actionLimiter);
 
+// General API rate limiter. State-changing API routes (traffic-rule CRUD,
+// device-group, device, and schedule endpoints) are unthrottled; this provides
+// a broad safety net so a runaway client can't hammer the controller. Read-only
+// requests (GET/HEAD/OPTIONS) are skipped so static assets, the SPA shell, and
+// the health endpoint are never throttled.
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many requests, please try again later.' },
+  skip(req) {
+    return req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+  }
+});
+app.use(apiLimiter);
+
 function handleLoginError(error) {
   if (error !== undefined) {
     console.log('handleLoginErrors: \t');
