@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { GoInfo, GoTrash } from "react-icons/go";
+import { GoInfo } from "react-icons/go";
 
-export default function CronManager({ triggerRender, deviceId, deviceName }) {
+export default function CronManager({ triggerRender, deviceId }) {
     const [cron, setCron] = useState({
         crontype: 'allow',
         id: deviceId ? parseInt(deviceId) : null,

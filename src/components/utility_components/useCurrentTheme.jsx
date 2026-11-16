@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react';
+
 export default function useCurrentTheme() {
 
     const [themeValue, setThemeValue] = useState('');

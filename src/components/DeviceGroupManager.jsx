@@ -628,14 +628,14 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                 <dialog className="modal" ref={assignModalRef}>
                     <div className="modal-box max-w-2xl">
                         <h3 className="font-bold text-lg mb-4">
-                            Assign Devices to "{editingGroup?.name}"
+                            Assign Devices to &quot;{editingGroup?.name}&quot;
                         </h3>
                         
                         <div className="alert alert-info mb-4">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             <div>
                                 <h4 className="font-bold">How to assign devices:</h4>
-                                <p className="text-sm">✅ Check the boxes next to devices you want in this group, then click "Save Changes"</p>
+                                <p className="text-sm">✅ Check the boxes next to devices you want in this group, then click &quot;Save Changes&quot;</p>
                             </div>
                         </div>
 
@@ -732,14 +732,14 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                 <dialog className="modal" ref={assignRulesModalRef}>
                     <div className="modal-box max-w-2xl">
                         <h3 className="font-bold text-lg mb-4">
-                            Assign Rules to "{editingGroup?.name}"
+                            Assign Rules to &quot;{editingGroup?.name}&quot;
                         </h3>
 
                         <div className="alert alert-info mb-4">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             <div>
                                 <h4 className="font-bold">How to assign rules:</h4>
-                                <p className="text-sm">✅ Check the boxes next to rules you want in this tag, then click "Save Changes"</p>
+                                <p className="text-sm">✅ Check the boxes next to rules you want in this tag, then click &quot;Save Changes&quot;</p>
                             </div>
                         </div>
 
@@ -833,7 +833,7 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                     <div className="modal-box w-11/12 max-w-4xl">
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="font-bold text-lg">
-                                Manage Schedules for "{editingGroup?.name}"
+                                Manage Schedules for &quot;{editingGroup?.name}&quot;
                             </h3>
                             <form method="dialog">
                                 <button 
