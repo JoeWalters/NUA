@@ -165,8 +165,8 @@ function registertrafficrules(app, ctx) {
         res.status(200).json({ success: true, result: result });
       }
     } catch (error) {
-      res.status(500).json({ success: false, error: error?.response?.data });
       console.error(error);
+      await sendError(res, error);
     }
   });
 
@@ -277,10 +277,8 @@ function registertrafficrules(app, ctx) {
         res.status(200).json({ success: true, result: result });
       }
     } catch (error) {
-      res.status(500).json({ success: false, error: error?.response?.data });
       console.error(error);
-    // console.log('error.response \t', error.response);
-    // res.status(error.response.status).json({ error: error.response.data });
+      await sendError(res, error);
     }
   });
 
@@ -408,8 +406,8 @@ function registertrafficrules(app, ctx) {
 
       res.status(200).json({ success: true, result: result, skipped: skipped });
     } catch (error) {
-      res.status(500).json({ success: false, error: error?.response?.data });
       console.error(error);
+      await sendError(res, error);
     }
   });
 
@@ -521,8 +519,8 @@ function registertrafficrules(app, ctx) {
 
       res.status(200).json({ success: true, result: result });
     } catch (error) {
-      res.status(500).json({ success: false, error: error?.response?.data || error });
       console.error(error);
+      await sendError(res, error);
     }
   });
 

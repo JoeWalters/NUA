@@ -46,18 +46,21 @@ const { registertrafficrules } = require('./Routes/traffic-rules');
 
 const prisma = new PrismaClient();
 
-// Send a 500 response. The raw error message is only exposed when diagnostics
-// are enabled (Settings modal); otherwise a generic message is returned and the
-// full error is logged server-side only.
+// Send a 500 response using the standard error envelope:
+//   { success: false, error: <generic message>, details?: <gated internals> }
+// The raw error message is only exposed when diagnostics are enabled (Settings
+// modal); otherwise a generic message is returned and the full error is logged
+// server-side only. `success: false` keeps every error response consistent with
+// the `success: true` success shapes used by the traffic-rule/device routes.
 async function sendError(res, error, message = 'Internal server error.') {
   console.error(error);
   try {
     const diag = await isDiagnosticsEnabled(prisma);
     return res.status(500).json(diag
-      ? { error: message, details: error && error.message }
-      : { error: message });
+      ? { success: false, error: message, details: error && error.message }
+      : { success: false, error: message });
   } catch (e) {
-    return res.status(500).json({ error: message });
+    return res.status(500).json({ success: false, error: message });
   }
 }
 
@@ -361,7 +364,7 @@ const init = async () => {
     }
         
     // Always initialize routes, even without UniFi connection
-    ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction);
+    ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction, sendError);
         
   } catch (error) {
     console.error('⚠️ Could not establish UniFi connection:', error.message);
@@ -369,7 +372,7 @@ const init = async () => {
         
     // Set unifi to null and continue - app can still serve the web interface
     unifi = null;
-    ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction);
+    ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction, sendError);
   }
 };
 const initPromise = init();

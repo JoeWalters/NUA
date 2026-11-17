@@ -84,9 +84,14 @@ messages for the implementation of each item.
   (60 req/min) in `server/app.js` applied to all state-changing routes
   (POST/PUT/DELETE); GET/HEAD/OPTIONS are skipped so static assets, the SPA
   shell, and `/health` are never throttled.
-- [ ] **Standardize error responses.** Some routes echo raw UniFi
+- [x] **Standardize error responses.** Some routes echo raw UniFi
   `error.response.data` (leaks internals), inconsistent status codes. Use one
-  error envelope; gate internals behind diagnostics.
+  error envelope; gate internals behind diagnostics. Standardized `sendError` in
+  `server/app.js` to a single envelope (`{ success: false, error: <generic>,
+  details?: <gated> }`); replaced the 4 raw `error?.response?.data` echoes in
+  `traffic-rules.js` with `sendError`; passed `sendError` into `ezScheduleRoutes`
+  so it gates `error.message` behind diagnostics instead of always leaking it;
+  updated the traffic-rule modals to read the safe message.
 
 ## Low priority / nice-to-haves
 
@@ -114,3 +119,4 @@ messages for the implementation of each item.
 | 2026-11-11 | General API rate limiter | Added a general `apiLimiter` (60 req/min) in `server/app.js` covering all state-changing API routes (POST/PUT/DELETE); GET/HEAD/OPTIONS skipped so static assets, the SPA shell, and `/health` are never throttled. |
 | 2026-11-11 | Lint debt | Fixed frontend lint errors (unreachable/undefined code, missing React imports, extra semicolons, unescaped entities, parse errors from deleted dead files); scoped frontend lint to `src/`; disabled `react/prop-types`, `no-console`, and `no-unused-vars` (dead code tracked separately); made the CI frontend lint step a blocking gate. Frontend + server lint now pass with 0 errors. |
 | 2026-11-11 | Dead code removal | Deleted 7 unreferenced files (`temp2.js`, `AppCard.jsx`, `SelectOptionsComponent.jsx`, `CancelBonusTimeButton.jsx`, `DisplayBonusTimer.jsx`, `LoadingDialogTimer.js`, `TimerProvider.jsx`). Kept `TrafficRules.jsx` (reachable via `SeeAllApps` navigation). Frontend build + lint pass. |
+| 2026-11-11 | Error responses | Standardized `sendError` to `{ success: false, error: <generic>, details?: <gated> }`; replaced 4 raw `error?.response?.data` echoes in `traffic-rules.js`; passed `sendError` into `ezScheduleRoutes` to gate `error.message`; updated traffic-rule modals to read the safe message. Server lint + frontend build/lint pass. |

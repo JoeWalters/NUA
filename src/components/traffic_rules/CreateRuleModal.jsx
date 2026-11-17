@@ -232,7 +232,7 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                     code: error?.code,
                     details: error?.details?.id,
                     errorCode: error?.errorCode,
-                    message: error?.message,
+                    message: error?.message || error,
                     feedback: feedback.message,
                     url: feedback.url,
                 });
@@ -270,7 +270,7 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                     code: error?.code,
                     details: error?.details?.id,
                     errorCode: error?.errorCode,
-                    message: error?.message,
+                    message: error?.message || error,
                     feedback: feedback.message,
                     url: feedback.url,
                 });

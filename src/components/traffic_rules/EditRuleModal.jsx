@@ -161,7 +161,7 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
                 setLoading(false);
                 setUnifiSubmissionError({
                     code: result.error?.id,
-                    message: result.error?.message,
+                    message: result.error?.message || result.error,
                 });
                 unifiErrorDialogRef.current.showModal();
             } else {
