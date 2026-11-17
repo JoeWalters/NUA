@@ -101,8 +101,13 @@ messages for the implementation of each item.
   `AppCatIds`/`AppIds` are near-duplicate join tables.
 - [ ] **Document env vars.** `.env.template` lacks `NUA_CORS_ORIGIN`, `NODE_ENV`,
   `AUTO_MIGRATE`, `PRISMA_CLI_QUERY_ENGINE_TYPE` (used by Dockerfile).
-- [ ] **Update README.** Still documents pm2/manual install; Docker/Unraid is
-  the primary deployment. Document Docker as the recommended path.
+- [x] **Update README.** Still documents pm2/manual install; Docker/Unraid is
+  the primary deployment. Document Docker as the recommended path. Added a
+  Docker (recommended) section with build/run/health-check steps, kept the manual
+  install as an alternative, added an Environment variables table, and updated the
+  background/autostart section to recommend `--restart` (pm2 is now only for the
+  manual path). No sensitive data (hosts, IPs, credentials, container IDs) is
+  shared — placeholders used throughout.
 
 ---
 
@@ -120,3 +125,4 @@ messages for the implementation of each item.
 | 2026-11-11 | Lint debt | Fixed frontend lint errors (unreachable/undefined code, missing React imports, extra semicolons, unescaped entities, parse errors from deleted dead files); scoped frontend lint to `src/`; disabled `react/prop-types`, `no-console`, and `no-unused-vars` (dead code tracked separately); made the CI frontend lint step a blocking gate. Frontend + server lint now pass with 0 errors. |
 | 2026-11-11 | Dead code removal | Deleted 7 unreferenced files (`temp2.js`, `AppCard.jsx`, `SelectOptionsComponent.jsx`, `CancelBonusTimeButton.jsx`, `DisplayBonusTimer.jsx`, `LoadingDialogTimer.js`, `TimerProvider.jsx`). Kept `TrafficRules.jsx` (reachable via `SeeAllApps` navigation). Frontend build + lint pass. |
 | 2026-11-11 | Error responses | Standardized `sendError` to `{ success: false, error: <generic>, details?: <gated> }`; replaced 4 raw `error?.response?.data` echoes in `traffic-rules.js`; passed `sendError` into `ezScheduleRoutes` to gate `error.message`; updated traffic-rule modals to read the safe message. Server lint + frontend build/lint pass. |
+| 2026-11-11 | README update | Documented Docker as the recommended path (build/run/health-check), kept manual install as an alternative, added an Environment variables table, and updated background/autostart to recommend `--restart`. No sensitive data shared. |
