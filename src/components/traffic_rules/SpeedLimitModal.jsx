@@ -124,7 +124,7 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
             });
             const data = await res.json();
             if (!res.ok || !data.success) {
-                setUnifiSubmissionError({ message: data.error?.message || "UniFi rejected the rule." });
+                setUnifiSubmissionError({ message: data.error?.message || data.error || "UniFi rejected the rule." });
                 if (unifiErrorDialogRef.current) unifiErrorDialogRef.current.showModal();
                 return;
             }

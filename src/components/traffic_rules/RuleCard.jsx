@@ -63,9 +63,9 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                                 <h3 className="text-lg font-semibold text-base-content truncate" title={data?.trafficRule.description}>
                                     {data?.trafficRule.description}
                                 </h3>
-                                <div className="mt-0.5 flex items-center gap-1.5">
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                                     <span
-                                        className={`badge badge-sm gap-1 ${
+                                        className={`badge badge-sm gap-1 flex-shrink-0 ${
                                             isSpeedLimit ? 'badge-accent' : 'badge-primary'
                                         }`}
                                     >
@@ -73,18 +73,18 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                                         {typeLabel}
                                     </span>
                                     {isSpeedLimit && (dlMbps || ulMbps) && (
-                                        <span className="badge badge-ghost badge-sm gap-1">
+                                        <span className="badge badge-ghost badge-sm gap-1 flex-shrink-0">
                                             ↓ {dlMbps ?? '—'} / ↑ {ulMbps ?? '—'} Mbps
                                         </span>
                                     )}
                                 </div>
                                 <div className="mt-1 min-h-6">
-                                    <div className="flex items-center gap-2 text-xs text-base-content/60">
-                                        <span className="badge badge-ghost badge-sm gap-1">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+                                        <span className="badge badge-ghost badge-sm gap-1 flex-shrink-0">
                                             <HiCpuChip className="w-3.5 h-3.5" />
                                             {data?.matchingAppIds?.length || 0}
                                         </span>
-                                        <span className="badge badge-ghost badge-sm gap-1">
+                                        <span className="badge badge-ghost badge-sm gap-1 flex-shrink-0">
                                             <HiDevicePhoneMobile className="w-3.5 h-3.5" />
                                             {data?.matchingTargetDevices?.length || 0}
                                         </span>
@@ -113,8 +113,8 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                     </div>
 
                     {/* Quick Actions Row */}
-                    <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center space-x-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2 mt-4">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <input
                                 type="checkbox"
                                 checked={enabled}
@@ -135,13 +135,13 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
                             />
                             <RuleScheduleButton
                                 trafficRuleId={data?.trafficRule.id}
-                                scheduleData={data?.trafficRule}
+                                ruleSchedules={data?.trafficRuleSchedules || []}
                                 onStateChange={onStateChange}
                                 isSpeedLimit={isSpeedLimit}
                             />
                         </div>
 
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <button
                                 className="btn btn-ghost btn-xs"
                                 onClick={() => setExpanded(prev => !prev)}
@@ -237,6 +237,7 @@ RuleCard.propTypes = {
          }),
         matchingAppIds: PropTypes.array,
         matchingTargetDevices: PropTypes.array,
+        trafficRuleSchedules: PropTypes.array,
      }),
     onToggle: PropTypes.func,
     onDelete: PropTypes.func,
@@ -246,4 +247,5 @@ RuleCard.propTypes = {
     onStateChange: PropTypes.func,
     loadingUnmanageApp: PropTypes.bool,
     ruleTags: PropTypes.array,
+    ruleSchedules: PropTypes.array,
 };

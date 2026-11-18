@@ -10,5 +10,5 @@ export function convertSelectedDateForComparison(selectedDate) {
     let userSelectedDate = new Date(year, month, day, modifiedHour, minute, 0);
 
     return userSelectedDate;
-};
+}
 

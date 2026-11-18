@@ -55,11 +55,11 @@ export default function Login({ onLogin })
 
     return (
         <>
-            <div className="flex flex-col my-auto justify-center w-fit h-screen">
+            <div className="flex flex-col my-auto justify-center w-full max-w-sm mx-auto h-screen">
                 <label htmlFor="username">Username: </label>
-                <input type="text" name="username" className="input" onChange={handleChange} />
+                <input type="text" name="username" className="input input-bordered w-full" onChange={handleChange} />
                 <label htmlFor="password">Password: </label>
-                <input type="password" name="password" className="input" onChange={handleChange} />
+                <input type="password" name="password" className="input input-bordered w-full" onChange={handleChange} />
                 <button className="btn btn-large my-4" onClick={handleLogin}>Log In <span className={`${spinner}`}></span></button>
                 <div className={`${err} items-center justify-center my-6`}>
                     <div role="alert" className="alert alert-warning">

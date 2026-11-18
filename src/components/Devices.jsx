@@ -1,16 +1,14 @@
 import { useRef, useState, useEffect } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { HiMiniPencilSquare } from "react-icons/hi2";
 import { MdSchedule } from "react-icons/md";
-import DeviceSkeleton from "./skeletons/DevicesSkeleton";
 import LoadingDialog from "./utility_components/LoadingDialog";
 import BonusTimeButton from "./utility_components/BonusTimeButton";
 import SchedulerModal from "./Scheduler/SchedulerModal.jsx";
 import { debugLog } from "./utility_functions/debugMode";
 
-export default function Devices({ macData, blockedUsers, handleRenderToggle, loadingMacData })
+export default function Devices({ macData, blockedUsers, handleRenderToggle })
 {
-    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [schedulerOpen, setSchedulerOpen] = useState(false);
     const [selectedDeviceForScheduler, setSelectedDeviceForScheduler] = useState(null);
@@ -27,13 +25,6 @@ export default function Devices({ macData, blockedUsers, handleRenderToggle, loa
         setTimerCancelled(cancelled);
     }
 
-    function handleToggleIsLoading() {
-        if (toggleIsLoading) {
-            toggleLoadingDialogRef.current.showModal();
-        } else if (!toggleIsLoading) {
-            toggleLoadingDialogRef.current.close();
-        }
-    }
     const delay = t => new Promise(res => setTimeout(res, t));
 
     useEffect(() => {

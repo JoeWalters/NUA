@@ -113,7 +113,7 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
         <dialog id="addDeviceModal" className="modal" ref={dialogRef}>
             <div className="modal-box w-11/12 max-w-5xl h-[85vh] flex flex-col p-0 overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0">
+                <div className="flex flex-wrap items-center justify-between px-6 pt-5 pb-4 border-b border-base-300 flex-shrink-0 gap-2">
                     <h3 className="font-bold text-lg">Add Device to Management</h3>
                     <form method="dialog">
                         <button className="btn btn-ghost btn-sm btn-circle" aria-label="Close">

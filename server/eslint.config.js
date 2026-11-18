@@ -28,9 +28,13 @@ module.exports = [
       },
     },
     rules: {
-      // Code quality rules - temporarily warn on unused vars until scheduler refactoring cleans up dead code
-      'no-unused-vars': 'warn',
-      'no-console': 'warn',
+      // Unused vars mostly mark intentional dead code (tracked separately in the
+      // "Remove dead code" improvement item), not bugs. Keep lint focused on
+      // real issues instead.
+      'no-unused-vars': 'off',
+      // The Node server legitimately logs via console (startup, job re-arm, UniFi
+      // actions). Allow it; the legacy .eslintrc.js already set this off.
+      'no-console': 'off',
       // Best practices
       'eqeqeq': ['error', 'always'],
       'curly': ['error', 'all'],

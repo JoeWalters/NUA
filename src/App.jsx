@@ -72,7 +72,7 @@ export default function App() {
     <>
       <Navbar themeValue={themeValue} callBackChanged={callBackChanged} onSettingsClick={() => setSettingsOpen(true)} onLogout={handleLogout} showLogout={auth.enabled} onHealthToggle={toggleSyncBanner} />
       {location.pathname !== '/' && <BreadCrumbs />}
-      <div key={location.pathname} className="page-enter flex items-center justify-center h-full w-full">
+      <div key={location.pathname} className="page-enter w-full">
         <Outlet context={{ openSettings: () => setSettingsOpen(true), syncBannerOpen, onToggleSyncBanner: toggleSyncBanner }} />
       </div>
       <SiteSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />

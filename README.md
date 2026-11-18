@@ -26,101 +26,88 @@ This software only works with [UniFi Cloud Gateways](https://ui.com/us/en/cloud-
 #
 
 ## Install & Configure
-### Install Node using Node Version Manager
-1. Run the following command to download and install Node Version Manager (NVM):
+
+### Docker (recommended)
+
+The recommended way to run NUA is with Docker. The CI workflow builds and
+pushes the image to Docker Hub; you can pull a published image or build it
+locally.
+
+1. Build the image locally (or pull a published image):
+
+```bash
+docker build -t nua .
+```
+
+2. Run the container with the required environment variables:
+
+```bash
+docker run -d --name nua -p 4323:4323 \
+  -e HOSTNAME="your-unifi-controller-hostname" \
+  -e PORT=4323 \
+  -e CREDENTIAL_ENCRYPTION_KEY="$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")" \
+  nua
+```
+
+3. Verify the app is healthy:
+
+```bash
+curl http://localhost:4323/health
+# -> {"status":"healthy","database":"connected",...}
+```
+
+Docker handles restarts and autostart automatically (use `--restart unless-stopped`
+if you want the container to come back after a reboot). Set any other environment
+variables with `-e` (see [Environment variables](#environment-variables) below).
+The full list of supported variables is in `.env.template`.
+
+### Manual install (alternative)
+
+If you prefer to run NUA without Docker, install Node.js 18+ and follow the steps
+below.
+
+1. Install Node.js 18+ (for example with NVM):
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
-```
-This installs the NVM script to your user account.
-
-2. Source your `.bashrc` file to activate NVM:
-
-```bash
 source ~/.bashrc
-```
-
-3. Check available Node versions:
-
-```bash
-nvm list-remote
-```
-
-4. Choose Node v18+ and install it:
-
-```bash
 nvm install v18.18.1
-```
-
-5. Verify the installed Node version:
-```bash
 node -v
 ```
-or
-```bash
-nvm list
-```
 
-### Install prerequisite Linux packages
-1. Install Git:
+2. Install Git and clone the repository:
 ```bash
 sudo apt -y install git
-```
-
-2. Clone the repository:
-
-```bash
-git clone git@github.com:ArtimusMaximus/nodeunifireact.git
-```
-
-### Install Node frontend prerequisites
-1. Navigate to the project directory
-
-```bash
+git clone git@github.com:JoeWalters/NUA.git
 cd NUA
 ```
 
-2. Install frontend Node prerequisites:
+3. Install the frontend dependencies:
 ```bash
 npm install
 ```
 
-### Install Node server prerequisites
-1. Navigate to the server directory:
+4. Install the server dependencies:
 ```bash
 cd server
-```
-
-2. Install server Node prerequisites:
-```bash
 npm install
 ```
 
-### Initiate Prisma DB
-1. Run the following command from inside `server` directory:
+5. Initiate the Prisma database:
 ```bash
 npm run db
 ```
 
-### Build NUA frontend
-1. Navigate back to the main project directory:
+6. Build the frontend:
 ```bash
-cd ../
-```
-2. Build the NUA frontend:
-```bash
+cd ..
 npm run build
 ```
 
-### Optional - Set the port number
-If you want to change the default port (4323):
-1. Open `<repo>/server/globalSettings.js`:
-
-
-Now change the `4323` string to your desired port number:
+7. Configure the port (optional). The default is 4323; change it in
+`server/globalSettings.js`:
 
 ```js
 const customPORT = 5000;
-
 
 module.exports = customPORT;
 ```
@@ -142,10 +129,28 @@ NUA_AUTH_PASSWORD=your-password
 
 These variables can be set in your shell, in a `.env` file, or in the Docker run command. See `.env.template` for the full list.
 
-## Start NUA Software
-To start NUA, follow these steps:
+## Environment variables
 
-1. Navigate to the `nodeunifireact/server` directory:
+| Variable | Description |
+|----------|-------------|
+| `HOSTNAME` | The hostname of your UniFi controller (required to connect). |
+| `PORT` | The port NUA listens on (default `4323`). |
+| `CREDENTIAL_ENCRYPTION_KEY` | Secret key used to encrypt stored UniFi credentials. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Keep it stable between restarts. |
+| `NUA_AUTH_ENABLED` | `true` to require a login (default `false`). |
+| `NUA_AUTH_USERNAME` | Login username (when auth is enabled). |
+| `NUA_AUTH_PASSWORD` | Login password (when auth is enabled). |
+| `NUA_AUTH_SESSION_TTL_MS` | Session lifetime in ms (default `28800000` = 8 hours). |
+| `NODE_ENV` | Set in the Docker image (`development`); leave as-is. |
+| `AUTO_MIGRATE` | Set in the Docker image (`true`); leave as-is. |
+| `PRISMA_CLI_QUERY_ENGINE_TYPE` | Set in the Docker image (`binary`); leave as-is. |
+
+> **Note:** When running locally, set `HOSTNAME`, `PORT`, and `CREDENTIAL_ENCRYPTION_KEY` (plus the optional `NUA_AUTH_*` variables). The Docker image sets `NODE_ENV`, `AUTO_MIGRATE`, and `PRISMA_CLI_QUERY_ENGINE_TYPE` automatically.
+
+## Start NUA Software
+
+With Docker, the container starts when you run `docker run` (or starts automatically with `--restart`). With a manual install, start the server like so:
+
+1. Navigate to the `server` directory:
 ```bash
 cd server
 ```
@@ -157,7 +162,13 @@ npm run start
 This will initiate the NUA software. Make sure to check the console for any logs or messages to ensure that NUA has started successfully.
 
 ## How do I run this in the background/autostart?
-[Check out this pm2 documentation](https://pm2.keymetrics.io/docs/usage/quick-start/)
+
+With Docker, use `--restart unless-stopped` (or `--restart always`) so the
+container restarts automatically after a reboot or crash — no extra tooling needed.
+
+If you run NUA manually (without Docker), you can use a process manager like
+[pm2](https://pm2.keymetrics.io/docs/usage/quick-start/) to keep it running in
+the background.
 
 ## Wiki
 [Check the Wiki](https://github.com/ArtimusMaximus/NUA/wiki)

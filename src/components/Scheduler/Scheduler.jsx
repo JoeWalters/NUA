@@ -12,7 +12,7 @@ export default function Scheduler() {
     const [deviceInfo, setDeviceInfo] = useState({});
     const params = useParams();
     const [scheduleMode, setScheduleMode] = useState("standard");
-    const [render, setRender] = useState(false);
+    const [, setRender] = useState(false);
 
     const [changed, setChanged] = useState(false);
     const triggerRender = () => {

@@ -5,7 +5,7 @@ const { nodeOneTimeScheduleRule } = require('../../ez_sched_funcs/nodeOneTimeSch
 const { nodeScheduleRecurrenceRule } = require('../../ez_sched_funcs/nodeRecurringScheduleRule');
 
 
-function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
+function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction, sendError) {
   // console.log("unifi from /addezsched\t", unifi);
   app.post('/addeasyschedule', async (req, res) => {
     const { date, hour, minute, oneTime, blockAllow, modifiedDaysOfTheWeek, ampm, deviceId } = req.body;
@@ -37,7 +37,7 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
       res.sendStatus(200);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Internal server error.', details: error.message });
+      await sendError(res, error);
     }
   });
 
@@ -85,7 +85,7 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
       res.json(updateEZToggle);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Internal server error.', details: error.message });
+      await sendError(res, error);
     }
   });
 
@@ -104,7 +104,7 @@ function ezScheduleRoutes(app, unifi, prisma, schedule, jobFunction) {
       res.json({ message: 'Data Deleted Succesfully.', dataDeleted: deleteEZSchedule });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: 'Internal server error.', details: error.message });
+      await sendError(res, error);
     }
   });
 }

@@ -11,7 +11,7 @@ function formatMinutes(min) {
     return m.toString().length === 1 ? "0" + m : m;
 }
 
-export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStateChange, isSpeedLimit }) {
+export default function RuleScheduleButton({ trafficRuleId, ruleSchedules, onStateChange, isSpeedLimit }) {
     const scheduleDialogRef = useRef();
     const badDateModalRef = useRef();
     const oneTimeScheduleRef = useRef();
@@ -40,9 +40,8 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
         },
     });
 
-    const scheduleEnabled = scheduleData?.scheduleEnabled || false;
-    const scheduleType = scheduleData?.scheduleType;
-    const scheduleActionText = scheduleData?.scheduleAction || 'allow';
+    const schedules = ruleSchedules || [];
+    const anyScheduleEnabled = schedules.some(s => s?.scheduleEnabled);
 
     const d1 = useRef();
     const d2 = useRef();
@@ -193,13 +192,13 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
         }
     };
 
-    const handleDeleteSchedule = async () => {
+    const handleDeleteSchedule = async (scheduleId) => {
         try {
             const res = await fetch('/deletetrafficruleschedule', {
                 method: "DELETE",
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ trafficRuleId })
+                body: JSON.stringify({ scheduleId })
             });
             if (res.ok) {
                 onStateChange?.();
@@ -209,13 +208,13 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
         }
     };
 
-    const handleToggleSchedule = async (toggleOn) => {
+    const handleToggleSchedule = async (scheduleId, toggleOn) => {
         try {
             const res = await fetch('/toggletrafficruleschedule', {
                 method: "PUT",
                 mode: "cors",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ trafficRuleId, toggleOn })
+                body: JSON.stringify({ scheduleId, toggleOn })
             });
             if (res.ok) {
                 onStateChange?.();
@@ -225,15 +224,15 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
         }
     };
 
-    // Build a human-readable description of the currently saved schedule
-    const currentScheduleDescription = () => {
-        if (!scheduleEnabled || !scheduleType) return null;
-        const hour = scheduleData?.scheduleHour ?? 0;
-        const minute = scheduleData?.scheduleMinute ?? 0;
+    // Build a human-readable description of a saved schedule row
+    const currentScheduleDescription = (sched) => {
+        if (!sched?.scheduleType) return null;
+        const hour = sched?.scheduleHour ?? 0;
+        const minute = sched?.scheduleMinute ?? 0;
         const time = `${hour}:${formatMinutes(minute)}`;
 
-        if (scheduleType === 'recurring') {
-            const days = scheduleData?.scheduleDays;
+        if (sched.scheduleType === 'recurring') {
+            const days = sched?.scheduleDays;
             let dow = null;
             if (days) {
                 dow = convertDigitsToDOW(days);
@@ -244,18 +243,16 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
             return { time, extra: dayText };
         }
         // one-time
-        return { time, extra: scheduleData?.scheduleDate || '' };
+        return { time, extra: sched?.scheduleDate || '' };
     };
-
-    const savedSchedule = currentScheduleDescription();
 
     return (
         <>
             <button
                 type="button"
-                className={`btn btn-xs gap-0 ${scheduleEnabled ? "btn-warning" : "btn-outline btn-warning"}`}
+                className={`btn btn-xs gap-0 ${anyScheduleEnabled ? "btn-warning" : "btn-outline btn-warning"}`}
                 onClick={() => scheduleDialogRef.current.showModal()}
-                title={scheduleEnabled ? "Edit schedule" : "Schedule this rule"}
+                title={schedules.length > 0 ? "Edit schedules" : "Schedule this rule"}
             >
                 <MdSchedule className="w-3.5 h-3.5" />
             </button>
@@ -275,7 +272,7 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
                     {/* Existing Schedule */}
                     <div className="bg-base-200 rounded-xl p-5 mb-5">
                         <h4 className="text-base font-semibold mb-3 text-base-content">Existing Schedule</h4>
-                        {savedSchedule ? (
+                        {schedules.length > 0 ? (
                             <table className="table table-zebra w-full rounded-lg">
                                 <thead>
                                     <tr className="font-bold" align="center">
@@ -286,31 +283,37 @@ export default function RuleScheduleButton({ trafficRuleId, scheduleData, onStat
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr align="center">
-                                        <td className="uppercase w-1/4 text-xs sm:text-sm">
-                                            <div>{savedSchedule.time}</div>
-                                            <div className="text-base-content/60">{savedSchedule.extra}</div>
-                                        </td>
-                                        <td className={`uppercase ${scheduleActionText === 'block' ? 'text-red-500' : 'text-green-500'}`}>
-                                            {isSpeedLimit
-                                                ? (scheduleActionText === 'allow' ? 'Enforce' : 'Disable')
-                                                : scheduleActionText}
-                                        </td>
-                                        <td>
-                                            <input
-                                                type="checkbox"
-                                                className="toggle toggle-success"
-                                                checked={scheduleEnabled}
-                                                onClick={() => handleToggleSchedule(!scheduleEnabled)}
-                                                aria-label="Toggle schedule on/off"
-                                            />
-                                        </td>
-                                        <td className="w-3 h-3">
-                                            <div className="w-fit hover:cursor-pointer" onClick={handleDeleteSchedule} title="Delete schedule">
-                                                <GoTrash className="flex items-center justify-center w-6 h-6 pointer-events-none" />
-                                            </div>
-                                        </td>
-                                    </tr>
+                                    {schedules.map((sched) => {
+                                        const schedActionText = sched?.scheduleAction || 'allow';
+                                        const description = currentScheduleDescription(sched);
+                                        return (
+                                            <tr key={sched.id} align="center">
+                                                <td className="uppercase w-1/4 text-xs sm:text-sm">
+                                                    <div>{description?.time}</div>
+                                                    <div className="text-base-content/60">{description?.extra}</div>
+                                                </td>
+                                                <td className={`uppercase ${schedActionText === 'block' ? 'text-red-500' : 'text-green-500'}`}>
+                                                    {isSpeedLimit
+                                                        ? (schedActionText === 'allow' ? 'Enforce' : 'Disable')
+                                                        : schedActionText}
+                                                </td>
+                                                <td>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="toggle toggle-success"
+                                                        checked={sched.scheduleEnabled}
+                                                        onClick={() => handleToggleSchedule(sched.id, !sched.scheduleEnabled)}
+                                                        aria-label="Toggle schedule on/off"
+                                                    />
+                                                </td>
+                                                <td className="w-3 h-3">
+                                                    <div className="w-fit hover:cursor-pointer" onClick={() => handleDeleteSchedule(sched.id)} title="Delete schedule">
+                                                        <GoTrash className="flex items-center justify-center w-6 h-6 pointer-events-none" />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         ) : (

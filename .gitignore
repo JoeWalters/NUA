@@ -37,3 +37,5 @@ server/config/*
 
 # Encryption key — never commit this
 server/config/encryption.key
+# Local agent operational notes (never commit)
+AGENTS.local.md

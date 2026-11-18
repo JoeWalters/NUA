@@ -90,7 +90,7 @@ export default function SchedulerModal({ deviceId, deviceName, isOpen, onClose, 
                 {/* Header */}
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-base-content">
-                        Schedule for <span className="text-primary">"{deviceInfo?.name}"</span>
+                        Schedule for <span className="text-primary">&quot;{deviceInfo?.name}&quot;</span>
                     </h2>
                     <button 
                         ref={closeButtonRef}

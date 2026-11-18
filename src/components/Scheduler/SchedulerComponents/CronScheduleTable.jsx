@@ -2,7 +2,8 @@ import { GoTrash } from "react-icons/go";
 
 export function CronScheduleTable({ returnData, handleDeleteCron, handleCronToggle, submitButtonRef }) {
     return (
-        <table className="table table-zebra border rounded-lg shadow overflow-hidden dark:border-gray-700 dark:shadow-gray-900 mb-8">
+        <div className="overflow-x-auto border rounded-lg shadow dark:border-gray-700 dark:shadow-gray-900 mb-8">
+        <table className="table table-zebra">
             <thead>
                 <tr className="font-bold sm:text-xl" align="center">
                     <th>Cron</th>
@@ -58,5 +59,6 @@ export function CronScheduleTable({ returnData, handleDeleteCron, handleCronTogg
                     }
             </tbody>
         </table>
+        </div>
     );
 }

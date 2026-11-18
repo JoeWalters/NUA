@@ -31,7 +31,9 @@ const SESSION_COOKIE = 'nua_session';
 const sessions = new Map();
 
 /** Routes that are always reachable even when auth is enabled. */
-const PUBLIC_PATHS = new Set(['/login', '/logout', '/auth-status', '/health']);
+// The SPA fallback ('**') is public so the client-side shell (and the login
+// screen) can always be loaded — auth protects the data APIs, not the shell.
+const PUBLIC_PATHS = new Set(['/login', '/logout', '/auth-status', '/health', '**']);
 
 function isEnabled() {
   return process.env[ENV_ENABLED] === 'true' || isConfigured();
