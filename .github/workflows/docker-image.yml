@@ -57,7 +57,7 @@ jobs:
       id: smoke-test
 
     - name: Run server tests
-      run: cd server && node --test test/
+      run: cd server && node --test test/*.test.js
       id: server-tests
 
     - name: Build the frontend
