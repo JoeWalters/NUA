@@ -56,6 +56,7 @@ test('service: reinitCronJob schedules a cron job', () => {
   const job = service.reinitCronJob({ crontime: '0 0 * * *', crontype: 'block' }, 'AA:BB:CC:DD:EE:FF', () => {});
   assert.ok(job && job.name);
   assert.strictEqual(service.jobExists(job.name), true);
+  job?.cancel();
 });
 
 test('service: reinitOneTimeSchedule skips past dates', () => {
@@ -66,11 +67,13 @@ test('service: reinitOneTimeSchedule skips past dates', () => {
 test('service: reinitOneTimeSchedule schedules a future date', () => {
   const job = service.reinitOneTimeSchedule({ date: '2099-01-01', hour: '1', minute: '0', blockAllow: 'block' }, 'AA:BB:CC:DD:EE:FF', () => {});
   assert.ok(job && job.name);
+  job?.cancel();
 });
 
 test('service: reinitRecurringSchedule schedules a recurring job', () => {
   const job = service.reinitRecurringSchedule({ days: '0123456', hour: 9, minute: 0, blockAllow: 'block' }, 'AA:BB:CC:DD:EE:FF', () => {});
   assert.ok(job && job.name);
+  job?.cancel();
 });
 
 // ---------------------------------------------------------------------------
@@ -89,6 +92,7 @@ test('deviceScheduler: reArmDeviceSchedulesOnBoot re-arms cron + easy schedules'
   const result = await reArmDeviceSchedulesOnBoot(null, prisma, async () => {});
   assert.strictEqual(result.rearmed, 2);
   assert.strictEqual(result.cleaned, 0);
+  schedule.gracefulShutdown();
 });
 
 test('deviceScheduler: cleans up elapsed one-time schedules', async () => {
@@ -111,10 +115,13 @@ test('trafficRuleScheduler: reArmTrafficRuleSchedulesOnBoot re-arms enabled sche
   };
   const result = await reArmTrafficRuleSchedulesOnBoot(async () => {}, prisma);
   assert.strictEqual(result.rearmed, 1);
+  schedule.gracefulShutdown();
 });
 
 test('trafficBonusScheduler: reArmTrafficBonusOnBoot handles future + expired', async () => {
-  const future = { id: 1, unifiId: 'abc', bonusTimeExpiresAt: new Date(Date.now() + 60000).toISOString() };
+  // Short expiry so the timer self-clears quickly and doesn't keep the process
+  // alive; the callback is a no-op against the mocked Prisma.
+  const future = { id: 1, unifiId: 'abc', bonusTimeExpiresAt: new Date(Date.now() + 50).toISOString() };
   const expired = { id: 2, unifiId: 'def', bonusTimeExpiresAt: new Date(Date.now() - 60000).toISOString() };
   const prisma = {
     trafficRules: {
@@ -129,8 +136,9 @@ test('trafficBonusScheduler: reArmTrafficBonusOnBoot handles future + expired', 
 
 test('bonusScheduler: reArmDeviceBonusOnBoot handles future + expired', async () => {
   // Use distinct ids so the timer keys do not collide with the traffic-bonus
-  // test (both use startTimeoutFromExpiry keyed by the rule/device id).
-  const future = { id: 3, bonusTimeExpiresAt: new Date(Date.now() + 60000).toISOString() };
+  // test (both use startTimeoutFromExpiry keyed by the rule/device id), and a
+  // short expiry so the timer self-clears quickly.
+  const future = { id: 3, bonusTimeExpiresAt: new Date(Date.now() + 50).toISOString() };
   const expired = { id: 4, bonusTimeExpiresAt: new Date(Date.now() - 60000).toISOString() };
   const prisma = {
     device: {
