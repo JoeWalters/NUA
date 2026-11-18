@@ -48,6 +48,7 @@ function startTimeoutFromExpiry(timerId, expiresAt, callback) {
   return { timeoutMap };
 }
 
+// `endTimeout` is a function declaration (hoisted), so it is available here.
 module.exports = { startTimeout, endTimeout, startTimeoutFromExpiry, timeoutMap };
 
 function endTimeout(timerId) {
@@ -59,5 +60,3 @@ function endTimeout(timerId) {
   }
   return false;
 }
-
-module.exports = { startTimeout, endTimeout, timeoutMap };

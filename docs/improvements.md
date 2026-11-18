@@ -95,8 +95,14 @@ messages for the implementation of each item.
 
 ## Low priority / nice-to-haves
 
-- [ ] **Add tests.** Only `node --check app.js` smoke test exists. Add unit
-  tests for `credentialCrypto`, `auth`, and the scheduler modules.
+- [x] **Add tests.** Only `node --check app.js` smoke test exists. Add unit
+  tests for `credentialCrypto`, `auth`, and the scheduler modules. Added
+  `server/test/` tests using the built-in `node:test` runner (26 tests):
+  `credentialCrypto.test.js`, `auth.test.js`, `scheduler.test.js` (scheduler
+  service helpers + boot-time re-arm functions with mocked Prisma). Tests
+  caught a real bug — a duplicate `module.exports` in `start_end_timeouts.js`
+  dropped `startTimeoutFromExpiry` from the exports (would crash bonus-time
+  re-arm at boot) — now fixed. `npm test` runs them; CI added a server test step.
 - [ ] **Reduce schema duplication.** `TrafficRuleDevices`/`TargetDevice` and
   `AppCatIds`/`AppIds` are near-duplicate join tables.
 - [ ] **Document env vars.** `.env.template` lacks `NUA_CORS_ORIGIN`, `NODE_ENV`,
@@ -126,3 +132,4 @@ messages for the implementation of each item.
 | 2026-11-11 | Dead code removal | Deleted 7 unreferenced files (`temp2.js`, `AppCard.jsx`, `SelectOptionsComponent.jsx`, `CancelBonusTimeButton.jsx`, `DisplayBonusTimer.jsx`, `LoadingDialogTimer.js`, `TimerProvider.jsx`). Kept `TrafficRules.jsx` (reachable via `SeeAllApps` navigation). Frontend build + lint pass. |
 | 2026-11-11 | Error responses | Standardized `sendError` to `{ success: false, error: <generic>, details?: <gated> }`; replaced 4 raw `error?.response?.data` echoes in `traffic-rules.js`; passed `sendError` into `ezScheduleRoutes` to gate `error.message`; updated traffic-rule modals to read the safe message. Server lint + frontend build/lint pass. |
 | 2026-11-11 | README update | Documented Docker as the recommended path (build/run/health-check), kept manual install as an alternative, added an Environment variables table, and updated background/autostart to recommend `--restart`. No sensitive data shared. |
+| 2026-11-11 | Tests | Added `server/test/` unit tests (26) using `node:test` for `credentialCrypto`, `auth`, and the scheduler modules. Tests exposed a real bug in `start_end_timeouts.js` (duplicate `module.exports` dropped `startTimeoutFromExpiry`) — fixed. `npm test` runs them; CI now runs a server test step. |
