@@ -20,6 +20,40 @@ function registertrafficrules(app, ctx) {
   } = ctx;
   const getUnifi = ctx.getUnifi;
 
+  // --- Graceful degradation for the removed per-device speed-limit feature ---
+  //
+  // NUA implemented per-device speed limits as UniFi *traffic rules* with
+  // `bandwidth_limit.enabled`. UniFi Network 11.x no longer implements the
+  // legacy traffic-rule bandwidth limit: POST/PUT/DELETE to
+  // /v2/.../trafficrules now return 501 `api.err.NotImplemented`. Detect that
+  // specific failure and return a clear, version-aware message (raw error only
+  // when diagnostics are enabled) instead of a generic 500 or a leaked error
+  // object.
+  function isUnsupportedFeatureError(error) {
+    const status = error?.response?.status;
+    const code = error?.response?.data?.code;
+    const message = error?.message || error?.response?.data?.message || '';
+    return (
+      status === 501 ||
+      code === 'api.err.NotImplemented' ||
+      /not\s+implemented/i.test(message)
+    );
+  }
+
+  async function sendUnsupportedFeature(res, error) {
+    console.error(error);
+    const diag = await isDiagnosticsEnabled(prisma);
+    return res.status(501).json({
+      success: false,
+      code: 'UNIFI_FEATURE_UNSUPPORTED',
+      error:
+        'Per-device speed limits are not supported by your UniFi controller. '
+        + 'UniFi Network 11.x removed the legacy traffic-rule bandwidth limit that '
+        + 'this feature depends on, so the rule could not be applied.',
+      ...(diag ? { details: error?.message } : {}),
+    });
+  }
+
   app.get('/getdbcustomapirules', async (req, res) => { // get dbtrafficrules && unifi rules
     try {
       const path = '/v2/api/site/default/trafficrules';
@@ -81,6 +115,59 @@ function registertrafficrules(app, ctx) {
         return res.status(401).json({ error: 'UniFi authorization failed. Please verify credentials in /sitesettings.' });
       }
       return res.status(503).json({ error: 'Unable to fetch traffic rules from UniFi controller.' });
+    }
+  });
+
+  // Reconcile NUA's local traffic-rule mirror with what actually exists on the
+  // UniFi controller. A controller firmware upgrade that wipes traffic rules
+  // (UniFi Network 11.x does this) leaves NUA's DB with "ghost" rows whose
+  // unifiId no longer exists on the controller. Prune those so the UI stops
+  // showing phantom rules. Safe by construction: a failed controller read
+  // (unreachable / 401) aborts WITHOUT deleting anything -- we only prune when a
+  // live fetch SUCCEEDS and a rule is provably absent from it.
+  app.post('/reconciletrafficrules', async (req, res) => {
+    if (!getUnifi()) {
+      return res.status(503).json({ error: 'UniFi controller not connected. Please configure credentials at /sitesettings' });
+    }
+    const dryRun = req.body?.dryRun === true;
+    try {
+      const live = await withUnifiRetry(() => getUnifi().customApiRequest('/v2/api/site/default/trafficrules', 'GET'));
+      const liveIds = new Set((Array.isArray(live) ? live : []).map((r) => r._id).filter(Boolean));
+
+      const dbRules = await prisma.trafficRules.findMany();
+      const ghosts = dbRules.filter((rule) => !liveIds.has(rule.unifiId));
+
+      if (dryRun) {
+        return res.status(200).json({
+          success: true,
+          dryRun: true,
+          pruned: 0,
+          wouldPrune: ghosts.map((r) => ({ id: r.id, unifiId: r.unifiId, description: r.description })),
+        });
+      }
+
+      let pruned = 0;
+      const removed = [];
+      for (const ghost of ghosts) {
+        await prisma.$transaction(async (trule) => {
+          await trule.appCatIds.deleteMany({ where: { trafficRulesId: ghost.id } });
+          await trule.appIds.deleteMany({ where: { trafficRulesId: ghost.id } });
+          await trule.targetDevice.deleteMany({ where: { trafficRulesId: ghost.id } });
+          await trule.trafficRuleDevices.deleteMany({ where: { trafficRulesId: ghost.id } });
+          await trule.trafficRuleSchedule.deleteMany({ where: { trafficRulesId: ghost.id } });
+          await trule.trafficRules.delete({ where: { id: ghost.id } });
+        });
+        pruned += 1;
+        removed.push({ id: ghost.id, unifiId: ghost.unifiId, description: ghost.description });
+        console.log(`Reconciled (pruned ghost) traffic rule id=${ghost.id} unifiId=${ghost.unifiId} desc="${ghost.description}"`);
+      }
+      res.status(200).json({ success: true, dryRun: false, pruned, removed });
+    } catch (error) {
+      console.error('Error in /reconciletrafficrules:', error);
+      if (isUnauthorizedUnifiError(error)) {
+        return res.status(401).json({ error: 'UniFi authorization failed. Please verify credentials in /sitesettings.' });
+      }
+      return res.status(503).json({ error: 'Unable to reconcile traffic rules with the UniFi controller.' });
     }
   });
 
@@ -165,6 +252,9 @@ function registertrafficrules(app, ctx) {
         res.status(200).json({ success: true, result: result });
       }
     } catch (error) {
+      if (isUnsupportedFeatureError(error)) {
+        return await sendUnsupportedFeature(res, error);
+      }
       console.error(error);
       await sendError(res, error);
     }
@@ -277,6 +367,9 @@ function registertrafficrules(app, ctx) {
         res.status(200).json({ success: true, result: result });
       }
     } catch (error) {
+      if (isUnsupportedFeatureError(error)) {
+        return await sendUnsupportedFeature(res, error);
+      }
       console.error(error);
       await sendError(res, error);
     }
@@ -406,6 +499,9 @@ function registertrafficrules(app, ctx) {
 
       res.status(200).json({ success: true, result: result, skipped: skipped });
     } catch (error) {
+      if (isUnsupportedFeatureError(error)) {
+        return await sendUnsupportedFeature(res, error);
+      }
       console.error(error);
       await sendError(res, error);
     }
@@ -456,6 +552,9 @@ function registertrafficrules(app, ctx) {
       console.log('updateTrafficRule \t', updateTrafficRule);
       res.sendStatus(200);
     } catch (error) {
+      if (isUnsupportedFeatureError(error)) {
+        return await sendUnsupportedFeature(res, error);
+      }
       res.status(400).json({ error: error });
       console.error(error);
     }
@@ -519,6 +618,9 @@ function registertrafficrules(app, ctx) {
 
       res.status(200).json({ success: true, result: result });
     } catch (error) {
+      if (isUnsupportedFeatureError(error)) {
+        return await sendUnsupportedFeature(res, error);
+      }
       console.error(error);
       await sendError(res, error);
     }
