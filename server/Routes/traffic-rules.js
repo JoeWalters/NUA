@@ -90,7 +90,11 @@ function registertrafficrules(app, ctx) {
       try {
         const qosList = await withUnifiRetry(() =>
           getUnifi().customApiRequest(QOS_RULES_PATH, 'GET'));
-        qosRules = (Array.isArray(qosList) ? qosList : []).map(qosRuleToLegacy).filter(Boolean);
+        // Skip UniFi's own predefined rules (predefined: true) — NUA only manages
+        // user-created rules, matching the pre-11.x behavior.
+        qosRules = (Array.isArray(qosList) ? qosList : [])
+          .filter((r) => !r.predefined)
+          .map(qosRuleToLegacy).filter(Boolean);
       } catch (qosErr) {
         console.warn('qos-rules fetch failed in /getdbcustomapirules:', qosErr?.message || qosErr);
       }
@@ -102,7 +106,11 @@ function registertrafficrules(app, ctx) {
       try {
         const fwList = await withUnifiRetry(() =>
           getUnifi().customApiRequest(FIREWALL_POLICIES_PATH, 'GET'));
-        firewallPolicies = (Array.isArray(fwList) ? fwList : []).map(firewallPolicyToLegacy).filter(Boolean);
+        // Skip UniFi's own predefined policies (Block/Allow All Traffic, port
+        // forwards, simple app blocks, ...) — NUA only manages user-created rules.
+        firewallPolicies = (Array.isArray(fwList) ? fwList : [])
+          .filter((r) => !r.predefined)
+          .map(firewallPolicyToLegacy).filter(Boolean);
       } catch (fwErr) {
         console.warn('firewall-policies fetch failed in /getdbcustomapirules:', fwErr?.message || fwErr);
       }
