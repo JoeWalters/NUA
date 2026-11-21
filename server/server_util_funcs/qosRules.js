@@ -19,6 +19,10 @@
 
 const QOS_RULES_PATH = '/v2/api/site/default/qos-rules';
 
+// The legacy block/allow-rule store. On UniFi Network 11.x its POST/PUT return
+// 501, but GET still returns the (now empty) list, so the lookup below is safe.
+const LEGACY_TRAFFICRULES_PATH = '/v2/api/site/default/trafficrules';
+
 // The UI's "Limit" objective is LIMIT_AND_PRIORITIZE in the API.
 const QOS_OBJECTIVE_LIMIT = 'LIMIT_AND_PRIORITIZE';
 
@@ -94,10 +98,47 @@ function qosRuleToLegacy(q) {
   };
 }
 
+/**
+ * Find a rule by `unifiId` across both stores and return the live object plus
+ * the base path to PUT it back to. QoS "Limit" rules (UniFi 11.x) live in the
+ * `qos-rules` store; legacy block/allow rules live in `trafficrules`. The two
+ * `_id` spaces are disjoint, so we try `qos-rules` first and fall back to
+ * `trafficrules`. A hiccup on one store (network blip, 401, a firmware that
+ * lacks the endpoint) must not abort trying the other, so each GET is
+ * best-effort. Returns `{ rule, store }` or null.
+ *
+ * The schedulers (schedule + bonus time) use this so a scheduled/bonus speed
+ * limit toggles its QoS rule in the `qos-rules` store instead of the now-dead
+ * `trafficrules` store.
+ * @param {Function} unifiRequest wrapped request fn (path, method, body)
+ * @param {string} unifiId the rule's controller _id
+ * @returns {Promise<{rule: object, store: string}|null>}
+ */
+async function resolveRuleForUpdate(unifiRequest, unifiId) {
+  for (const store of [QOS_RULES_PATH, LEGACY_TRAFFICRULES_PATH]) {
+    let list;
+    try {
+      list = await unifiRequest(store, 'GET');
+    } catch (error) {
+      // One store failing (blip / 401 / unsupported) must not prevent the other.
+      continue;
+    }
+    if (Array.isArray(list)) {
+      const rule = list.find((r) => r._id === unifiId);
+      if (rule) {
+        return { rule, store };
+      }
+    }
+  }
+  return null;
+}
+
 module.exports = {
   QOS_RULES_PATH,
+  LEGACY_TRAFFICRULES_PATH,
   QOS_OBJECTIVE_LIMIT,
   isQosRule,
   buildQosRuleFromSpeedLimit,
   qosRuleToLegacy,
+  resolveRuleForUpdate,
 };
