@@ -49,7 +49,7 @@ independent agents):**
   supported, safe-by-construction — a failed controller read aborts without
   deleting). Committed `8c13c0e`; deployed to Unraid. Ran reconcile: pruned 7
   ghost DB rows; verified a create now returns a clean 501 with no DB row.
-- [~] **Re-map speed limiting to `qos-rules` (Option 1, the real fix).** New
+- [x] **Re-map speed limiting to `qos-rules` (Option 1, the real fix) — IMPLEMENTED + VERIFIED.** New
   `server/server_util_funcs/qosRules.js` is a translation shim so the existing UI/
   DB keep working untouched: `buildQosRuleFromSpeedLimit` (create → qos-rule
   POST), `qosRuleToLegacy` (qos-rule → old shape for read/import), `isQosRule`
@@ -60,9 +60,17 @@ independent agents):**
   full PUT). **Note:** scheduled/bonus-time for speed-limit rules still target the
   dead `trafficrules` store (`scheduler/trafficRuleScheduler.js`,
   `trafficBonusScheduler.js`) — a follow-up is needed for time-limited caps.
-- [ ] **Re-import the 3 migrated qos-rules into NUA's DB** so they show in the UI
-  (they exist on the controller, left disabled by the upgrade). Via the existing
-  `importexistingunifirules` flow now that `getdbcustomapirules` surfaces them.
+  **Committed `29405b9`, deployed (digest `6e285b63…`), container healthy.**
+  **Verified end-to-end on the live 11.0.99 controller:** create → read
+  (unifiData + DB, with linked target device) → toggle (flips on controller + DB)
+  → delete (gone from both); a throwaway rule left no residue.
+- [ ] **Re-import the 3 migrated qos-rules into NUA's DB.** `getdbcustomapirules`
+  now surfaces all 5 qos-rules in `unifiData` (the 3 NUA-migrated
+  `Cap J school`/`Cap D School lap`/`LR Throttle YouTube`, disabled,
+  `LIMIT_AND_PRIORITIZE`, plus 2 UniFi *predefined* caps, `predefined:true`,
+  active). They appear in the UI's "Import UniFi Rules" flow, so the user
+  re-imports the 3 NUA ones (and enables them) there. Not auto-imported, to avoid
+  NUA managing UniFi's own predefined rules; import preserves the disabled state.
 - [ ] **Follow-up: re-map scheduled/bonus time + block/allow rules** to `qos-rules`
   / `firewall-policies` respectively.
 
@@ -189,3 +197,4 @@ independent agents):**
 | 2026-11-11 | README update | Documented Docker as the recommended path (build/run/health-check), kept manual install as an alternative, added an Environment variables table, and updated background/autostart to recommend `--restart`. No sensitive data shared. |
 | 2026-11-11 | Tests | Added `server/test/` unit tests (26) using `node:test` for `credentialCrypto`, `auth`, and the scheduler modules. Tests exposed a real bug in `start_end_timeouts.js` (duplicate `module.exports` dropped `startTimeoutFromExpiry`) — fixed. `npm test` runs them; CI now runs a server test step. |
 | 2026-11-21 | UniFi 11.x diagnosed | UniFi Network 11.0.99 (auto-upgraded from 10.6.109) returns 501 `NotImplemented` on `POST /v2/api/site/default/trafficrules` and wiped the old rules. Per-device speed limiting moved to the `qos-rules` store (`objective: LIMIT_AND_PRIORITIZE`, device MAC as source, `ANY` destination). Investigated read-only against the live controller + V11 OpenAPI spec; cross-checked with independent agents. |
+| 2026-11-21 | qos-rules re-map + deploy | Added `server/server_util_funcs/qosRules.js` (translation shim: `buildQosRuleFromSpeedLimit`/`qosRuleToLegacy`/`isQosRule`) and re-pointed the 5 speed-limit handlers in `traffic-rules.js` to the `qos-rules` store (MAC-based, no IP needed; GET-live→mutate→full-PUT for toggle/update; dual-store delete). Committed `29405b9`; build 44863887302 succeeded; deployed (digest `6e285b63…`), container healthy. **Verified end-to-end on the live controller**: create → read → toggle (controller+DB) → delete, all green; a throwaway rule left no residue. The 3 migrated rules now appear in the UI's import list (import left to the user). |
