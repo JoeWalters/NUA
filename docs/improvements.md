@@ -81,11 +81,26 @@ independent agents):**
   `fetchUnifiRule`. **Committed `0ea218e`, deployed (digest `2aebb39b…`), healthy.**
   Verified live via `/addbonusrule` → `/deletebonusrule`: the qos-rule enabled then
   disabled on the controller and the DB `bonusTimeExpiresAt` set then cleared.
-- [ ] **Re-map block/allow (category/app) rules to `firewall-policies`.** The
-  create/update/delete for category/app block-allow rules still hit the legacy
-  `trafficrules` store (501, degraded by Option D's graceful message) — UniFi 11.x
-  moved these to `firewall-policies` (79 present on the controller). A separate
-  re-map, like the speed-limit one.
+- [x] **Re-map block/allow (category/app) rules to `firewall-policies`.** New
+  `server/server_util_funcs/firewallPolicies.js` translates NUA's legacy flat
+  shape <-> the firewall-policy shape (which has a `source` and `destination`,
+  each with a required site-specific `zone_id`, plus `action`/`protocol`/
+  `ip_version`/`schedule`): `buildFirewallPolicyFromLegacy` (create/PUT),
+  `firewallPolicyToLegacy` (read/import), `isFirewallPolicy` (routing),
+  `resolveZones` (derives the LAN + Internet zone ids from the controller's own
+  policy list). `traffic-rules.js` now: `addcategorytrafficrule`/`addappstrafficrule`
+  POST a firewall-policy (zones resolved from the live list); `getdbcustomapirules`
+  merges translated firewall-policies into `unifiData` (predefined rules filtered
+  out, so only user-created rules show, matching pre-11.x behavior); toggle/
+  update/delete route block/allow rules to `firewall-policies` (GET-live ->
+  mutate -> full PUT; delete checks qos, then firewall, then legacy). The
+  scheduler's `resolveRuleForUpdate` also checks firewall-policies, so scheduled/
+  bonus-time toggles work for block/allow rules too. **Committed `dd4512d` +
+  `848ecde`, deployed (digest `be93c7d1…`), healthy.** Verified live through NUA's
+  own API: create a disabled app-block (correct LAN/Internet zones) -> read
+  (unifiData + DB) -> toggle on/off (controller + DB) -> delete (gone from both).
+  Tests: `firewallPolicies.test.js` (11) added; `isFirewallPolicy` fixed to return
+  a strict boolean; suite 26 -> 43.
 
 ---
 
@@ -212,3 +227,4 @@ independent agents):**
 | 2026-11-21 | UniFi 11.x diagnosed | UniFi Network 11.0.99 (auto-upgraded from 10.6.109) returns 501 `NotImplemented` on `POST /v2/api/site/default/trafficrules` and wiped the old rules. Per-device speed limiting moved to the `qos-rules` store (`objective: LIMIT_AND_PRIORITIZE`, device MAC as source, `ANY` destination). Investigated read-only against the live controller + V11 OpenAPI spec; cross-checked with independent agents. |
 | 2026-11-21 | qos-rules re-map + deploy | Added `server/server_util_funcs/qosRules.js` (translation shim: `buildQosRuleFromSpeedLimit`/`qosRuleToLegacy`/`isQosRule`) and re-pointed the 5 speed-limit handlers in `traffic-rules.js` to the `qos-rules` store (MAC-based, no IP needed; GET-live→mutate→full-PUT for toggle/update; dual-store delete). Committed `29405b9`; build 44863887302 succeeded; deployed (digest `6e285b63…`), container healthy. **Verified end-to-end on the live controller**: create → read → toggle (controller+DB) → delete, all green; a throwaway rule left no residue. The 3 migrated rules now appear in the UI's import list (import left to the user). |
 | 2026-11-21 | Scheduler fix (bonus + scheduled) | The schedule + bonus-time schedulers still fetched/PUT the legacy `trafficrules` store (501 on 11.x), so time-limited/bonus speed limits failed to toggle. Added `resolveRuleForUpdate` to `qosRules.js` (dual-store lookup: qos-rules first, fall back to trafficrules, a failing store doesn't abort the other; returns the store to PUT back to) and pointed both schedulers at it. Added `test/qosRules.test.js` (6 tests; suite 26→32). Committed `0ea218e`; build 44867116298 succeeded; deployed (digest `2aebb39b…`), healthy. **Verified live**: `/addbonusrule` enabled the qos-rule on the controller (+ DB `bonusTimeExpiresAt`), `/deletebonusrule` disabled it and cleared the expiry; delete removed it from the controller. |
+| 2026-11-21 | block/allow re-map to firewall-policies | Added `server/server_util_funcs/firewallPolicies.js` (translation shim: `buildFirewallPolicyFromLegacy`/`firewallPolicyToLegacy`/`isFirewallPolicy`/`resolveZones`) and re-pointed the block/allow handlers in `traffic-rules.js` to the `firewall-policies` store (zones resolved from the controller's own policy list; predefined rules filtered out of the read; GET-live→mutate→full-PUT for toggle/update; 3-store delete). Extended `resolveRuleForUpdate` to check firewall-policies so scheduled/bonus toggles work for block/allow too. Added `test/firewallPolicies.test.js` (11) + fixed `isFirewallPolicy` to return a strict boolean; suite 32→43. Committed `dd4512d` + `848ecde`; builds 44925987469 + 44926957611 succeeded; deployed (digest `be93c7d1…`), healthy. **Verified live through NUA's own API**: create a disabled app-block (correct LAN/Internet zones) → read (unifiData + DB) → toggle on/off (controller + DB) → delete (gone from both), back to the original 13 user rules + 0 DB rows. |
