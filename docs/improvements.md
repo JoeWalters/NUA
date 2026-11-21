@@ -57,9 +57,8 @@ independent agents):**
   `addspeedlimittrafficrule` POSTs to `qos-rules` (MAC-based, no IP needed);
   `getdbcustomapirules` merges translated `qos-rules` into `unifiData` (best-effort
   fetch); toggle/update/delete route QoS rules to `qos-rules` (GET live → mutate →
-  full PUT). **Note:** scheduled/bonus-time for speed-limit rules still target the
-  dead `trafficrules` store (`scheduler/trafficRuleScheduler.js`,
-  `trafficBonusScheduler.js`) — a follow-up is needed for time-limited caps.
+  full PUT). **Note:** scheduled/bonus-time for speed-limit rules now route to
+  `qos-rules` too (see the scheduler fix below).
   **Committed `29405b9`, deployed (digest `6e285b63…`), container healthy.**
   **Verified end-to-end on the live 11.0.99 controller:** create → read
   (unifiData + DB, with linked target device) → toggle (flips on controller + DB)
@@ -71,8 +70,22 @@ independent agents):**
   active). They appear in the UI's "Import UniFi Rules" flow, so the user
   re-imports the 3 NUA ones (and enables them) there. Not auto-imported, to avoid
   NUA managing UniFi's own predefined rules; import preserves the disabled state.
-- [ ] **Follow-up: re-map scheduled/bonus time + block/allow rules** to `qos-rules`
-  / `firewall-policies` respectively.
+- [x] **Re-map scheduled/bonus time for speed-limit rules to `qos-rules`.** The
+  schedule + bonus-time schedulers fetched/PUT the legacy `trafficrules` store
+  (now 501), so time-limited and bonus speed limits silently failed to toggle
+  their rule. Added `resolveRuleForUpdate` to `qosRules.js` (finds a rule by
+  `unifiId` across both stores — qos-rules first, fall back to trafficrules, a
+  failing store doesn't abort the other — and returns the store to PUT back to);
+  both schedulers (`trafficRuleScheduler.setRuleEnabled`,
+  `trafficBonusScheduler.start/endBonusRule`) use it, replacing the legacy-only
+  `fetchUnifiRule`. **Committed `0ea218e`, deployed (digest `2aebb39b…`), healthy.**
+  Verified live via `/addbonusrule` → `/deletebonusrule`: the qos-rule enabled then
+  disabled on the controller and the DB `bonusTimeExpiresAt` set then cleared.
+- [ ] **Re-map block/allow (category/app) rules to `firewall-policies`.** The
+  create/update/delete for category/app block-allow rules still hit the legacy
+  `trafficrules` store (501, degraded by Option D's graceful message) — UniFi 11.x
+  moved these to `firewall-policies` (79 present on the controller). A separate
+  re-map, like the speed-limit one.
 
 ---
 
@@ -198,3 +211,4 @@ independent agents):**
 | 2026-11-11 | Tests | Added `server/test/` unit tests (26) using `node:test` for `credentialCrypto`, `auth`, and the scheduler modules. Tests exposed a real bug in `start_end_timeouts.js` (duplicate `module.exports` dropped `startTimeoutFromExpiry`) — fixed. `npm test` runs them; CI now runs a server test step. |
 | 2026-11-21 | UniFi 11.x diagnosed | UniFi Network 11.0.99 (auto-upgraded from 10.6.109) returns 501 `NotImplemented` on `POST /v2/api/site/default/trafficrules` and wiped the old rules. Per-device speed limiting moved to the `qos-rules` store (`objective: LIMIT_AND_PRIORITIZE`, device MAC as source, `ANY` destination). Investigated read-only against the live controller + V11 OpenAPI spec; cross-checked with independent agents. |
 | 2026-11-21 | qos-rules re-map + deploy | Added `server/server_util_funcs/qosRules.js` (translation shim: `buildQosRuleFromSpeedLimit`/`qosRuleToLegacy`/`isQosRule`) and re-pointed the 5 speed-limit handlers in `traffic-rules.js` to the `qos-rules` store (MAC-based, no IP needed; GET-live→mutate→full-PUT for toggle/update; dual-store delete). Committed `29405b9`; build 44863887302 succeeded; deployed (digest `6e285b63…`), container healthy. **Verified end-to-end on the live controller**: create → read → toggle (controller+DB) → delete, all green; a throwaway rule left no residue. The 3 migrated rules now appear in the UI's import list (import left to the user). |
+| 2026-11-21 | Scheduler fix (bonus + scheduled) | The schedule + bonus-time schedulers still fetched/PUT the legacy `trafficrules` store (501 on 11.x), so time-limited/bonus speed limits failed to toggle. Added `resolveRuleForUpdate` to `qosRules.js` (dual-store lookup: qos-rules first, fall back to trafficrules, a failing store doesn't abort the other; returns the store to PUT back to) and pointed both schedulers at it. Added `test/qosRules.test.js` (6 tests; suite 26→32). Committed `0ea218e`; build 44867116298 succeeded; deployed (digest `2aebb39b…`), healthy. **Verified live**: `/addbonusrule` enabled the qos-rule on the controller (+ DB `bonusTimeExpiresAt`), `/deletebonusrule` disabled it and cleared the expiry; delete removed it from the controller. |
