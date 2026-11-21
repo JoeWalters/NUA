@@ -1,6 +1,16 @@
 // traffic-rules routes for NUA server.
 // Registered via registertrafficrules(app, ctx) from app.js.
 
+// UniFi Network 11.x moved per-device speed limiting from the legacy
+// `trafficrules` store (now 501) to the `qos-rules` store. This module is the
+// translation shim so the existing UI/DB keep working (see module docs).
+const {
+  QOS_RULES_PATH,
+  isQosRule,
+  buildQosRuleFromSpeedLimit,
+  qosRuleToLegacy,
+} = require('../server_util_funcs/qosRules');
+
 function registertrafficrules(app, ctx) {
   const {
     prisma,
@@ -59,21 +69,20 @@ function registertrafficrules(app, ctx) {
       const path = '/v2/api/site/default/trafficrules';
       const result = await withUnifiRetry(() => getUnifi().customApiRequest(path, 'GET'));
 
-      // TEMP DEBUG: dump a real rule so we can mirror UniFi's exact shape.
-      const sampleRule = Array.isArray(result)
-        ? result.find(r => r.bandwidth_limit?.enabled) || result[0]
-        : null;
-      if (sampleRule) {
-        console.log('DEBUG full rule \t', JSON.stringify({
-          matching_target: sampleRule.matching_target,
-          ip_addresses: sampleRule.ip_addresses,
-          ip_ranges: sampleRule.ip_ranges,
-          target_devices: sampleRule.target_devices,
-          network_ids: sampleRule.network_ids,
-          bandwidth_limit: sampleRule.bandwidth_limit,
-          action: sampleRule.action,
-        }));
+      // UniFi Network 11.x stores per-device speed limits in the `qos-rules`
+      // store (objective LIMIT_AND_PRIORITIZE), not the legacy `trafficrules`
+      // store (now empty / 501). Fetch both and translate the qos-rules into the
+      // legacy shape so the UI/DB (which speak the old shape) keep working. The
+      // qos-rules fetch is best-effort: a controller hiccup or a firmware that
+      // lacks the endpoint must not break the whole read.
+      let qosRules = [];
+      try {
+        const qosList = await withUnifiRetry(() => getUnifi().customApiRequest(QOS_RULES_PATH, 'GET'));
+        qosRules = (Array.isArray(qosList) ? qosList : []).map(qosRuleToLegacy).filter(Boolean);
+      } catch (qosErr) {
+        console.warn('qos-rules fetch failed in /getdbcustomapirules:', qosErr?.message || qosErr);
       }
+      const unifiData = [...(Array.isArray(result) ? result : []), ...qosRules];
 
       const fetchTrafficRules = await prisma?.trafficRules?.findMany();
       const fetchAppCatIds = await prisma?.appCatIds?.findMany();
@@ -103,12 +112,12 @@ function registertrafficrules(app, ctx) {
         };
       });
       if (joinedData.length) {
-        return res.status(200).json({ trafficRuleDbData: joinedData, unifiData: result });
+        return res.status(200).json({ trafficRuleDbData: joinedData, unifiData });
       }
-      if (result.length && !joinedData.length) {
-        return res.status(206).json({ unifiData: result });
+      if (unifiData.length && !joinedData.length) {
+        return res.status(206).json({ unifiData });
       }
-      return res.status(200).json({ trafficRuleDbData: [], unifiData: result || [] });
+      return res.status(200).json({ trafficRuleDbData: [], unifiData });
     } catch (error) {
       console.error('Error in /getdbcustomapirules:', error);
       if (isUnauthorizedUnifiError(error)) {
@@ -382,89 +391,34 @@ function registertrafficrules(app, ctx) {
     const { description, enabled, devices } = req.body;
 
     try {
-    // Build a MAC -> IP map from the live client list (online, current IPs) plus
-    // the all-users list (last-known IPs, so offline devices are still covered).
-      const clientByMac = {};
-      const addClients = (list) => {
-        for (const client of list) {
-          if (client.mac && client.ip) {
-            clientByMac[client.mac.toLowerCase()] = client.ip;
-          }
-        }
-      };
-      addClients(await getUnifi().getClientDevices());
-      addClients(await getUnifi().getAllUsers());
+      // UniFi Network 11.x caps a device via a QoS "Limit" rule (the qos-rules
+      // store, objective LIMIT_AND_PRIORITIZE), addressed by the device MAC as
+      // the rule's SOURCE — no destination IP/ID is needed (unlike the old
+      // IP-based trafficrules, which are now 501). So target the selected
+      // devices by MAC directly; an offline device is fine (the cap applies when
+      // it next connects).
+      const clientMacs = (devices || [])
+        .map((d) => d.macAddress)
+        .filter((m) => typeof m === 'string' && m.trim());
 
-      // Target every selected device we have an IP for; skip the rest (e.g. a
-      // device never seen online) rather than failing the whole rule.
-      const targeted = devices.filter((d) => clientByMac[d.macAddress.toLowerCase()]);
-      const skipped = devices.filter((d) => !clientByMac[d.macAddress.toLowerCase()]);
-
-      if (!targeted.length) {
+      if (!clientMacs.length) {
         return res.status(400).json({
           success: false,
           error: {
-            message: 'No selected device has a known IP on the controller yet — try again after the device connects.',
+            message: 'No device with a MAC address was selected for this speed limit.',
           },
         });
       }
 
-      const speedLimitObject = {
-        action: 'ALLOW',
-        app_category_ids: [],
-        app_ids: [],
-        bandwidth_limit: {
-          download_limit_kbps: 1024,
-          enabled: true,
-          upload_limit_kbps: 1024,
-        },
-        description: description || 'Speed limit rule',
-        domains: [],
+      const qosRule = buildQosRuleFromSpeedLimit({
+        name: description || 'Speed limit rule',
+        clientMacs,
+        downloadKbps: req.body.downloadKbps,
+        uploadKbps: req.body.uploadKbps,
         enabled: enabled,
-        // matching_target is the rule's DESTINATION (App/Domain/IP/Region/
-        // Internet/Local network). This modal only picks source clients + bandwidth
-        // with no destination selector, so default to 'INTERNET' — it needs no
-        // app_ids (avoids MissingApplication) and no local IP (avoids the
-        // bandwidth-limiting-on-local-IP rejection). Clients are the source, listed
-        // in target_devices ({ client_mac, type: 'CLIENT' }) like a real rule.
-        ip_addresses: [],
-        ip_ranges: [],
-        matching_target: 'INTERNET',
-        network_ids: [],
-        regions: [],
-        schedule: { mode: 'ALWAYS', repeat_on_days: [], time_all_day: false },
-        target_devices: targeted.map((d) => ({
-          client_mac: d.macAddress,
-          type: 'CLIENT',
-        })),
-      };
+      });
 
-      // Set the requested limits (Mbps already converted to kbps by the client).
-      speedLimitObject.bandwidth_limit.download_limit_kbps = req.body.downloadKbps;
-      speedLimitObject.bandwidth_limit.upload_limit_kbps = req.body.uploadKbps;
-
-      const path = '/v2/api/site/default/trafficrules';
-
-      // TEMP DEBUG: fetch a real rule so we can mirror UniFi's exact speed-limit shape.
-      const existingRules = await getUnifi().customApiRequest(path, 'GET');
-      const sampleRule = Array.isArray(existingRules)
-        ? existingRules.find(r => r.bandwidth_limit?.enabled) || existingRules[0]
-        : null;
-      if (sampleRule) {
-        console.log('DEBUG full rule \t', JSON.stringify({
-          matching_target: sampleRule.matching_target,
-          ip_addresses: sampleRule.ip_addresses,
-          ip_ranges: sampleRule.ip_ranges,
-          target_devices: sampleRule.target_devices,
-          network_ids: sampleRule.network_ids,
-          bandwidth_limit: sampleRule.bandwidth_limit,
-          action: sampleRule.action,
-        }));
-      } else {
-        console.log('DEBUG no rules found');
-      }
-
-      const result = await getUnifi().customApiRequest(path, 'POST', speedLimitObject);
+      const result = await getUnifi().customApiRequest(QOS_RULES_PATH, 'POST', qosRule);
 
       const setTrafficRuleEntry = await prisma.trafficRules.create({
         data: {
@@ -475,7 +429,10 @@ function registertrafficrules(app, ctx) {
         },
       });
 
-      for (const device of targeted) {
+      for (const device of (devices || [])) {
+        if (!device.macAddress) {
+          continue;
+        }
         await prisma.trafficRuleDevices.create({
           data: {
             deviceName: device.name,
@@ -497,7 +454,7 @@ function registertrafficrules(app, ctx) {
         });
       }
 
-      res.status(200).json({ success: true, result: result, skipped: skipped });
+      res.status(200).json({ success: true, result: result, skipped: [] });
     } catch (error) {
       if (isUnsupportedFeatureError(error)) {
         return await sendUnsupportedFeature(res, error);
@@ -536,6 +493,33 @@ function registertrafficrules(app, ctx) {
     const { _id, trafficRuleId, unifiObjCopy } = req.body;
     console.log('unifiObjCopy \t', unifiObjCopy);
     try {
+      // QoS "Limit" rules (UniFi 11.x) live in the qos-rules store. Toggle them
+      // there: fetch the live object, flip enabled, and PUT the whole thing back
+      // (PATCH is 405 and the controller validates by object bind, so a full
+      // -object PUT is required).
+      if (isQosRule(unifiObjCopy)) {
+        const qosList = await getUnifi().customApiRequest(QOS_RULES_PATH, 'GET');
+        const current = (Array.isArray(qosList) ? qosList : []).find((r) => r._id === _id);
+        if (!current) {
+          return res.status(404).json({ error: `QoS rule ${_id} not found on the controller` });
+        }
+        current.enabled = unifiObjCopy.enabled;
+        const result = await getUnifi().customApiRequest(`${QOS_RULES_PATH}/${_id}`, 'PUT', current);
+        console.log('qos toggle result \t', result);
+
+        const updateTrafficRule = await prisma.trafficRules.update({
+          where: {
+            id: parseInt(trafficRuleId)
+          },
+          data: {
+            enabled: unifiObjCopy.enabled
+          }
+        });
+        console.log('updateTrafficRule \t', updateTrafficRule);
+        res.sendStatus(200);
+        return;
+      }
+
       const path = `/v2/api/site/default/trafficrules/${_id}`;
 
       const result = await getUnifi().customApiRequest(path, 'PUT', unifiObjCopy);
@@ -571,8 +555,39 @@ function registertrafficrules(app, ctx) {
     }
 
     try {
-      const path = `/v2/api/site/default/trafficrules/${unifiRule._id}`;
-      const result = await getUnifi().customApiRequest(path, 'PUT', unifiRule);
+      let result;
+      // QoS "Limit" rules (UniFi 11.x) live in the qos-rules store; block/allow
+      // rules live in trafficrules. Route by shape so both keep working.
+      if (isQosRule(unifiRule)) {
+        const qosList = await getUnifi().customApiRequest(QOS_RULES_PATH, 'GET');
+        const current = (Array.isArray(qosList) ? qosList : []).find((r) => r._id === unifiRule._id);
+        if (!current) {
+          return res.status(404).json({ error: `QoS rule ${unifiRule._id} not found on the controller` });
+        }
+        // The controller validates by object bind (PATCH is 405), so mutate the
+        // LIVE object with the edits and PUT it whole.
+        current.name = description || unifiRule.name || current.name;
+        const limits = unifiRule.bandwidth_limit;
+        if (limits) {
+          if (typeof limits.download_limit_kbps === 'number') {
+            current.download_limit_kbps = limits.download_limit_kbps;
+          }
+          if (typeof limits.upload_limit_kbps === 'number') {
+            current.upload_limit_kbps = limits.upload_limit_kbps;
+          }
+        }
+        const nextDevices = targetDevices.length ? targetDevices : (unifiRule.target_devices || []);
+        if (nextDevices.length && current.source) {
+          current.source.client_macs = nextDevices
+            .map((d) => d.client_mac || d.macAddress)
+            .filter(Boolean)
+            .map((m) => String(m).toLowerCase());
+        }
+        result = await getUnifi().customApiRequest(`${QOS_RULES_PATH}/${unifiRule._id}`, 'PUT', current);
+      } else {
+        const path = `/v2/api/site/default/trafficrules/${unifiRule._id}`;
+        result = await getUnifi().customApiRequest(path, 'PUT', unifiRule);
+      }
 
       const idToUse = parseInt(trafficRuleId);
 
@@ -633,17 +648,28 @@ function registertrafficrules(app, ctx) {
     const { _id, trafficRuleId } = req.body;
     console.log('id of rule to delete \t', _id);
     console.log('trafficRuleId \t', trafficRuleId);
-    const path = `/v2/api/site/default/trafficrules/${_id}`;
     try {
-    // console.log('unifi.customApiRequest \t', unifi.customApiRequest)
-      const checkForExistingUnifiRule = await getUnifi().customApiRequest('/v2/api/site/default/trafficrules', 'GET');
-      console.log('checkForExistingUnifiRule \t', checkForExistingUnifiRule);
-      const checkFilter = checkForExistingUnifiRule.filter((rule) => {
-        return rule._id === _id;
-      });
-      if (checkFilter.length) {
-        const result = await getUnifi().customApiRequest(path, 'DELETE', null);
-        console.log('"DELETE" result: \t', result);
+      // A per-device speed limit lives in the qos-rules store on UniFi 11.x;
+      // block/allow rules live in the legacy trafficrules store. The two _id
+      // spaces are disjoint, so check qos-rules first, then trafficrules, and
+      // delete from whichever holds the rule.
+      let checkFilter = [];
+      const qosList = await getUnifi().customApiRequest(QOS_RULES_PATH, 'GET');
+      const qosMatch = (Array.isArray(qosList) ? qosList : []).filter((rule) => rule._id === _id);
+      if (qosMatch.length) {
+        const result = await getUnifi().customApiRequest(`${QOS_RULES_PATH}/${_id}`, 'DELETE', null);
+        console.log('qos "DELETE" result: \t', result);
+        checkFilter = qosMatch;
+      } else {
+        const checkForExistingUnifiRule = await getUnifi().customApiRequest('/v2/api/site/default/trafficrules', 'GET');
+        checkFilter = checkForExistingUnifiRule.filter((rule) => {
+          return rule._id === _id;
+        });
+        if (checkFilter.length) {
+          const path = `/v2/api/site/default/trafficrules/${_id}`;
+          const result = await getUnifi().customApiRequest(path, 'DELETE', null);
+          console.log('"DELETE" result: \t', result);
+        }
       }
       const deleteTrafficRuleAndAssociated = async (trafficRuleId) => {
         try {

@@ -13,6 +13,61 @@ messages for the implementation of each item.
 
 ---
 
+## UniFi Network 11.x compatibility (2026-11-21)
+
+UniFi Network **11.0.99** auto-upgraded this site (from 10.6.109) and
+**silently broke per-device speed limiting**: the legacy `trafficrules` API
+(`POST /v2/api/site/default/trafficrules`, which NUA used for its `bandwidth_limit`
+mechanism) now returns **HTTP 501 `api.err.NotImplemented`**, and the upgrade
+**wiped the existing traffic rules** (controller `trafficrules` is now empty). NUA
+had no detection — it surfaced a raw `501`/`api.err.NotImplemented` to the UI.
+
+**Root cause / mechanism found (investigated read-only against the live 11.0.99
+controller, confirmed against the vendor V11 OpenAPI spec and cross-checked with
+independent agents):**
+- Per-device speed limiting **moved to the `qos-rules` store**
+  (`/v2/api/site/default/qos-rules`), where a cap is a rule with
+  `objective: "LIMIT_AND_PRIORITIZE"` (the UI's "Limit"), addressed by the device
+  MAC as the rule's **source** (`source.client_macs`), capping **any destination**
+  (`destination.matching_target: "ANY"`). Schema: `name`, `source`, `destination`,
+  `objective`, `download_limit_kbps`, `upload_limit_kbps`, `download_burst`,
+  `upload_burst`, `enabled`, `schedule`, `index`. Writes need `X-CSRF-Token`
+  (node-unifi already carries it); `PATCH` is 405 so a full-object `PUT` is
+  required; `index` is assigned by the controller on create.
+- The 3 pre-upgrade speed limits migrated to `qos-rules` but were left
+  **disabled** (`Cap J school`, `Cap D School lap`, `LR Throttle YouTube`).
+- Block/allow rules appear to live in `firewall-policies` (79 present) — a
+  **separate** store from the speed-limit re-map; out of scope here.
+- Option 2 (per-user WiFi Speed Limit via `rest/usergroup`) is inert on a UDM —
+  the `qos-rules` store is the working one.
+
+- [x] **Graceful degradation + ghost-rule cleanup (Option D).** Detect the 501 and
+  return a clear user message instead of a raw error; prune DB "ghost" rows whose
+  `unifiId` no longer exists on the controller. `server/Routes/traffic-rules.js`:
+  `isUnsupportedFeatureError`, `sendUnsupportedFeature` (wired into the 5 write/
+  toggle handlers), and `POST /reconciletrafficrules` (prunes ghosts, dry-run
+  supported, safe-by-construction — a failed controller read aborts without
+  deleting). Committed `8c13c0e`; deployed to Unraid. Ran reconcile: pruned 7
+  ghost DB rows; verified a create now returns a clean 501 with no DB row.
+- [~] **Re-map speed limiting to `qos-rules` (Option 1, the real fix).** New
+  `server/server_util_funcs/qosRules.js` is a translation shim so the existing UI/
+  DB keep working untouched: `buildQosRuleFromSpeedLimit` (create → qos-rule
+  POST), `qosRuleToLegacy` (qos-rule → old shape for read/import), `isQosRule`
+  (route toggle/update/delete to the right store). `traffic-rules.js` now:
+  `addspeedlimittrafficrule` POSTs to `qos-rules` (MAC-based, no IP needed);
+  `getdbcustomapirules` merges translated `qos-rules` into `unifiData` (best-effort
+  fetch); toggle/update/delete route QoS rules to `qos-rules` (GET live → mutate →
+  full PUT). **Note:** scheduled/bonus-time for speed-limit rules still target the
+  dead `trafficrules` store (`scheduler/trafficRuleScheduler.js`,
+  `trafficBonusScheduler.js`) — a follow-up is needed for time-limited caps.
+- [ ] **Re-import the 3 migrated qos-rules into NUA's DB** so they show in the UI
+  (they exist on the controller, left disabled by the upgrade). Via the existing
+  `importexistingunifirules` flow now that `getdbcustomapirules` surfaces them.
+- [ ] **Follow-up: re-map scheduled/bonus time + block/allow rules** to `qos-rules`
+  / `firewall-policies` respectively.
+
+---
+
 ## High priority
 
 - [x] **Refactor `server/app.js` route modules.** The single 3,600+ line file
@@ -133,3 +188,4 @@ messages for the implementation of each item.
 | 2026-11-11 | Error responses | Standardized `sendError` to `{ success: false, error: <generic>, details?: <gated> }`; replaced 4 raw `error?.response?.data` echoes in `traffic-rules.js`; passed `sendError` into `ezScheduleRoutes` to gate `error.message`; updated traffic-rule modals to read the safe message. Server lint + frontend build/lint pass. |
 | 2026-11-11 | README update | Documented Docker as the recommended path (build/run/health-check), kept manual install as an alternative, added an Environment variables table, and updated background/autostart to recommend `--restart`. No sensitive data shared. |
 | 2026-11-11 | Tests | Added `server/test/` unit tests (26) using `node:test` for `credentialCrypto`, `auth`, and the scheduler modules. Tests exposed a real bug in `start_end_timeouts.js` (duplicate `module.exports` dropped `startTimeoutFromExpiry`) — fixed. `npm test` runs them; CI now runs a server test step. |
+| 2026-11-21 | UniFi 11.x diagnosed | UniFi Network 11.0.99 (auto-upgraded from 10.6.109) returns 501 `NotImplemented` on `POST /v2/api/site/default/trafficrules` and wiped the old rules. Per-device speed limiting moved to the `qos-rules` store (`objective: LIMIT_AND_PRIORITIZE`, device MAC as source, `ANY` destination). Investigated read-only against the live controller + V11 OpenAPI spec; cross-checked with independent agents. |
