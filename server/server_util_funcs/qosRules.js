@@ -23,6 +23,9 @@ const QOS_RULES_PATH = '/v2/api/site/default/qos-rules';
 // 501, but GET still returns the (now empty) list, so the lookup below is safe.
 const LEGACY_TRAFFICRULES_PATH = '/v2/api/site/default/trafficrules';
 
+// Block/allow rules moved to the firewall-policies store (see firewallPolicies.js).
+const { FIREWALL_POLICIES_PATH } = require('./firewallPolicies');
+
 // The UI's "Limit" objective is LIMIT_AND_PRIORITIZE in the API.
 const QOS_OBJECTIVE_LIMIT = 'LIMIT_AND_PRIORITIZE';
 
@@ -99,28 +102,29 @@ function qosRuleToLegacy(q) {
 }
 
 /**
- * Find a rule by `unifiId` across both stores and return the live object plus
- * the base path to PUT it back to. QoS "Limit" rules (UniFi 11.x) live in the
- * `qos-rules` store; legacy block/allow rules live in `trafficrules`. The two
- * `_id` spaces are disjoint, so we try `qos-rules` first and fall back to
- * `trafficrules`. A hiccup on one store (network blip, 401, a firmware that
- * lacks the endpoint) must not abort trying the other, so each GET is
- * best-effort. Returns `{ rule, store }` or null.
+ * Find a rule by `unifiId` across every store and return the live object plus
+ * the base path to PUT it back to. UniFi Network 11.x splits rules across
+ * stores: speed limits live in `qos-rules`, block/allow rules live in
+ * `firewall-policies`, and the legacy `trafficrules` store is now empty (its
+ * writes return 501). The `_id` spaces are disjoint (globally-unique UUIDs), so
+ * the first store that contains the rule wins. Each GET is best-effort — a hiccup
+ * on one store (blip / 401 / a firmware that lacks the endpoint) must not abort
+ * the others. Returns `{ rule, store }` or null.
  *
- * The schedulers (schedule + bonus time) use this so a scheduled/bonus speed
- * limit toggles its QoS rule in the `qos-rules` store instead of the now-dead
- * `trafficrules` store.
+ * The schedulers (schedule + bonus time) use this so a scheduled/bonus rule
+ * toggles its rule in whichever store holds it (qos-rules or firewall-policies)
+ * instead of the now-dead `trafficrules` store.
  * @param {Function} unifiRequest wrapped request fn (path, method, body)
  * @param {string} unifiId the rule's controller _id
  * @returns {Promise<{rule: object, store: string}|null>}
  */
 async function resolveRuleForUpdate(unifiRequest, unifiId) {
-  for (const store of [QOS_RULES_PATH, LEGACY_TRAFFICRULES_PATH]) {
+  for (const store of [QOS_RULES_PATH, FIREWALL_POLICIES_PATH, LEGACY_TRAFFICRULES_PATH]) {
     let list;
     try {
       list = await unifiRequest(store, 'GET');
     } catch (error) {
-      // One store failing (blip / 401 / unsupported) must not prevent the other.
+      // One store failing (blip / 401 / unsupported) must not prevent the others.
       continue;
     }
     if (Array.isArray(list)) {

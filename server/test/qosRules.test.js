@@ -10,15 +10,20 @@ const {
   isQosRule,
 } = require('../server_util_funcs/qosRules');
 
+const { FIREWALL_POLICIES_PATH } = require('../server_util_funcs/firewallPolicies');
+
 // A fake wrapped request fn that returns a different list per store and records
 // the (path, method) of every call, so the tests can assert which store a rule
 // was found in (and therefore which store a subsequent PUT would target).
-function makeRequest({ qos = [], traffic = [] } = {}) {
+function makeRequest({ qos = [], firewall = [], traffic = [] } = {}) {
   const calls = [];
   const unifiRequest = async (path, method) => {
     calls.push({ path, method });
     if (path === QOS_RULES_PATH) {
       return qos;
+    }
+    if (path === FIREWALL_POLICIES_PATH) {
+      return firewall;
     }
     if (path === LEGACY_TRAFFICRULES_PATH) {
       return traffic;
@@ -54,8 +59,20 @@ test('resolveRuleForUpdate: falls back to the legacy trafficrules store', async 
   assert.ok(resolved, 'expected a match in the fallback store');
   assert.strictEqual(resolved.store, LEGACY_TRAFFICRULES_PATH, 'should route to trafficrules');
   assert.strictEqual(resolved.rule, legacyRule);
-  // Both stores were queried (qos-rules first, then the fallback).
-  assert.strictEqual(calls.length, 2);
+  // All three stores are queried (qos-rules, then firewall-policies, then the
+  // legacy fallback) before a match is found.
+  assert.strictEqual(calls.length, 3);
+});
+
+test('resolveRuleForUpdate: finds a block/allow rule in the firewall-policies store', async () => {
+  const fwRule = { _id: 'fw-1', action: 'BLOCK', source: { matching_target: 'CLIENT' }, destination: { matching_target: 'APP' } };
+  const { unifiRequest } = makeRequest({ qos: [], firewall: [fwRule], traffic: [] });
+
+  const resolved = await resolveRuleForUpdate(unifiRequest, 'fw-1');
+
+  assert.ok(resolved, 'expected a match in the firewall-policies store');
+  assert.strictEqual(resolved.store, FIREWALL_POLICIES_PATH, 'should route to firewall-policies');
+  assert.strictEqual(resolved.rule, fwRule);
 });
 
 test('resolveRuleForUpdate: returns null when the rule is in neither store', async () => {
