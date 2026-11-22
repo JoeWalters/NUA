@@ -1,5 +1,6 @@
 
 const schedule = require('node-schedule');
+const { applyBlock } = require('./blockMode');
 
 async function cronBonusTimeEndJobReinitiation(deviceId, _schedule, prisma, unifi, jobFunction, logger) {
   try {
@@ -42,8 +43,8 @@ async function cronBonusTimeEndJobReinitiation(deviceId, _schedule, prisma, unif
       }
     }
 
-    // unifi may be null during boot-time re-arm before the controller connects
-    const blockDevice = await unifi?.blockClient(getMacAddressForDevice.macAddress);
+    // Re-block the device using its configured block mode.
+    const blockDevice = await applyBlock(getMacAddressForDevice.macAddress, getMacAddressForDevice.blockMode || 'full', unifi, prisma);
     const updateDeviceStatus = await prisma.device.update({
       where: { id: deviceId },
       data: {

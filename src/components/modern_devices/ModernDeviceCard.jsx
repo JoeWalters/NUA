@@ -8,6 +8,7 @@ import {
     HiOutlineDeviceTablet 
 } from "react-icons/hi";
 import BonusTimeButton from "../utility_components/BonusTimeButton";
+import PauseButton from "../utility_components/PauseButton";
 
 export default function ModernDeviceCard({ 
     device, 
@@ -52,6 +53,19 @@ export default function ModernDeviceCard({
         return '#EF4444'; // red-500
     };
 
+    // Get a human-readable label and color for the block mode
+    const getBlockModeInfo = (mode) => {
+        switch (mode) {
+            case 'internet':
+                return { label: 'Internet Block', color: 'badge-warning', badge: 'badge-warning' };
+            case 'speedlimit':
+                return { label: 'Speed Limit', color: 'badge-info', badge: 'badge-info' };
+            case 'full':
+            default:
+                return { label: 'Full Block', color: 'badge-error', badge: 'badge-error' };
+        }
+    };
+
     return (
         <div className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(device?.active, device?.bonusTimeActive)}`}>
             {/* Stylized left accent border */}
@@ -81,6 +95,11 @@ export default function ModernDeviceCard({
                             <div className="mt-1 min-h-6">
                                 <div className="flex items-center gap-1 flex-wrap">
                                     <span className="badge badge-info badge-sm gap-1">Device</span>
+                                    {device?.blockMode && device.blockMode !== 'full' ? (
+                                        <span className={`badge badge-sm gap-1 ${getBlockModeInfo(device.blockMode).badge}`}>
+                                            {getBlockModeInfo(device.blockMode).label}
+                                        </span>
+                                    ) : null}
                                     {device?.deviceGroup ? (
                                         <span
                                             className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
@@ -133,6 +152,12 @@ export default function ModernDeviceCard({
                             bonusTimeActive={device?.bonusTimeActive}
                             handleRenderToggle={handleRenderToggle}
                         />
+                        <PauseButton
+                            deviceId={device?.id}
+                            paused={!!device?.pausedUntil}
+                            pausedUntil={device?.pausedUntil}
+                            handleRenderToggle={handleRenderToggle}
+                        />
                         <button
                             onClick={() => onScheduleClick(device?.id, device?.name)}
                             className="btn btn-xs gap-0 btn-outline btn-warning"
@@ -179,6 +204,12 @@ export default function ModernDeviceCard({
                                 device?.active ? 'text-success' : 'text-error'
                             }`}>
                                 {device?.active ? 'Allowed' : 'Blocked'}
+                            </p>
+                        </div>
+                        <div>
+                            <span className="text-base-content/60">Block Mode:</span>
+                            <p className="font-medium mt-1 text-base-content">
+                                {getBlockModeInfo(device?.blockMode).label}
                             </p>
                         </div>
                     </div>

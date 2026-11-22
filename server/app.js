@@ -31,6 +31,7 @@ const { startBonusTime, deleteBonusToggles, restartPausedJobs: bonusRestartPause
 const { startBonusRule, endBonusRule, reArmTrafficBonusOnBoot } = require('./scheduler/trafficBonusScheduler'); // Traffic rule bonus scheduler
 const { addTrafficRuleSchedule, toggleTrafficRuleSchedule, deleteTrafficRuleSchedule, reArmTrafficRuleSchedulesOnBoot } = require('./scheduler/trafficRuleScheduler'); // Traffic rule schedules
 const { reArmDeviceSchedulesOnBoot } = require('./scheduler/deviceScheduler'); // Device cron/easy schedules
+const { reArmPausedDevicesOnBoot } = require('./server_util_funcs/pauseTimer'); // Pause internet timer
 const asyncHandler = require('./server_util_funcs/asyncHandler');
 const auth = require('./server_util_funcs/auth');
 const { isDiagnosticsEnabled } = require('./server_util_funcs/diagnostics');
@@ -785,6 +786,8 @@ const PORT = process.env.PORT || customPORT; // portSettings.js
     console.log(`[boot] Traffic rule schedules re-armed: ${schedResult.rearmed}`);
     const deviceSchedResult = await reArmDeviceSchedulesOnBoot(unifi, prisma, jobFunction);
     console.log(`[boot] Device schedules re-armed: ${deviceSchedResult.rearmed}, cleaned: ${deviceSchedResult.cleaned}`);
+    const pausedResult = await reArmPausedDevicesOnBoot(unifi, prisma);
+    console.log(`[boot] Pause timers re-armed: ${pausedResult.rearmed}, expired: ${pausedResult.expired}`);
   } catch (error) {
     console.error('[boot] Failed to restore bonus timers:', error);
   }

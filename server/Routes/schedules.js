@@ -1,6 +1,8 @@
 // schedules routes for NUA server.
 // Registered via registerschedules(app, ctx) from app.js.
 
+const { applyBlock } = require('../server_util_funcs/blockMode');
+
 function registerschedules(app, ctx) {
   const {
     prisma,
@@ -355,8 +357,8 @@ function registerschedules(app, ctx) {
       // Delete bonus toggles and re-initiate all paused jobs (Phase 5)
       await deleteBonusToggles(deviceId, getUnifi(), prisma, jobFunction, schedulerService, logger);
 
-      const confirmBlocked = await getUnifi()?.blockClient(getMacAddressForDevice.macAddress);
-      console.log(`${getMacAddressForDevice.macAddress} has been blocked: ${confirmBlocked}`);
+      const confirmBlocked = await applyBlock(getMacAddressForDevice.macAddress, getMacAddressForDevice.blockMode || 'full', getUnifi(), prisma);
+      console.log(`${getMacAddressForDevice.macAddress} has been blocked (${getMacAddressForDevice.blockMode || 'full'}): ${confirmBlocked}`);
       await clearBonusTimeExpiry(deviceId, prisma);
       await prisma.device.update({
         where: { id: deviceId },

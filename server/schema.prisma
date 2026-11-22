@@ -28,6 +28,8 @@ model Device {
   active                  Boolean
   bonusTimeActive         Boolean  @default(false)
   bonusTimeExpiresAt      DateTime?
+  blockMode               String   @default("full")
+  pausedUntil             DateTime?
   createdAt               DateTime @default(now())
   crons                   Cron[]
   easySchedules           EasySchedule[]

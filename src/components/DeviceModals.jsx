@@ -60,6 +60,23 @@ export default function DeviceModals({
                                 onChange={handleEditInput}
                             />
                         </div>
+
+                        <div>
+                            <label className="label">
+                                <span className="label-text">Block Mode</span>
+                                <span className="label-text-alt">Determines how this device is restricted</span>
+                            </label>
+                            <select
+                                name="blockMode"
+                                className="select select-bordered w-full"
+                                defaultValue={updatedDeviceData?.blockMode || 'full'}
+                                onChange={handleEditInput}
+                            >
+                                <option value="full">Full Block — device disconnected from network</option>
+                                <option value="internet">Internet Block — device online, no internet access</option>
+                                <option value="speedlimit">Speed Limit — device online, very slow speed</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="modal-action">

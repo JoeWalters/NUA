@@ -2,6 +2,7 @@ const { convertToMilitaryTime } = require('../convert_to_military_time');
 const { logger } = require('../server_log_utils/customLogger');
 const { endTimeout } = require('../start_&_clear_timeouts/start_end_timeouts');
 const { jobFunction } = require('../jobfunction');
+const { applyBlock } = require('../blockMode');
 const { dateFromDateString } = require('../ez_sched_utils/dateFromDateString');
 
 async function stopBonusTime(deviceId, cancelTimer, schedule, prisma, unifi) {
@@ -78,10 +79,9 @@ async function stopBonusTime(deviceId, cancelTimer, schedule, prisma, unifi) {
         await prisma.easyBonusToggles.delete({ where: { id: bonusToggle.id }});
       }
     }
-    // await unifi.blockClient(getMacAddressForDevice.macAddress);
-    // console.log("blockDevice\t", blockDevice);
-    const confirmBlocked = await unifi?.blockClient(getMacAddressForDevice.macAddress);
-    console.log(`${getMacAddressForDevice.macAddress} has been blocked: ${confirmBlocked}`);
+    // Re-block the device using its configured block mode.
+    const confirmBlocked = await applyBlock(getMacAddressForDevice.macAddress, getMacAddressForDevice.blockMode || 'full', unifi, prisma);
+    console.log(`${getMacAddressForDevice.macAddress} has been blocked (${getMacAddressForDevice.blockMode || 'full'}): ${confirmBlocked}`);
     await prisma.device.update({
       where: { id: deviceId },
       data: {
