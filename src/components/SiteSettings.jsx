@@ -493,7 +493,7 @@ export default function SiteSettings({ isOpen, onClose })
                         <div className="text-2xl font-bold">Block Mode Defaults</div>
                         <div className="divider mt-0"></div>
                         <p className="text-sm text-center opacity-70 max-w-xs">
-                            The global default block mode. Devices and groups that don't have their own setting use this.
+                            The global default block mode. Devices and groups that don&#39;t have their own setting use this.
                         </p>
                         <div className="flex flex-col items-center gap-3">
                             <select

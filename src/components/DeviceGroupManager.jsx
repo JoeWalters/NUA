@@ -611,7 +611,7 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                             <div>
                                 <label className="label">
                                     <span className="label-text">Default Block Mode</span>
-                                    <span className="label-text-alt">Applied to devices in this group that don't have their own mode</span>
+                                    <span className="label-text-alt">Applied to devices in this group that don&#39;t have their own mode</span>
                                 </label>
                                 <select
                                     className="select select-bordered w-full"
