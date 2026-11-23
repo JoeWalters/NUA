@@ -16,7 +16,11 @@ export function useTrafficRules() {
     const [unifiRuleObject, setUnifiRuleObject] = useState([]);
     const [importRuleChoices, setImportRuleChoices] = useState([]);
     const [importRuleSelection, setImportRuleSelection] = useState([]);
-    const [checked, setChecked] = useState(false);
+    // Map of unifiRule _id -> selected. Must stay an object for the whole
+    // lifetime of the modal (RuleModals declares `checked` as PropTypes.object);
+    // a boolean initial/reset value produced the "Invalid prop `checked` of type
+    // `boolean`" warning on first render.
+    const [checked, setChecked] = useState({});
     const [render, setRender] = useState(false);
     const [importOption, setImportOption] = useState(false);
     const [loadingImportSubmission, setLoadingImportSubmission] = useState(false);
@@ -65,11 +69,7 @@ export function useTrafficRules() {
     }
     const handleImportModalClose = () => {
         importDialogRef.current.close();
-        const resetCheckedState = {};
-        importRuleChoices.forEach(choice => {
-            resetCheckedState[choice._id] = false;
-        });
-        setChecked(false);
+        setChecked({});
         setImportRuleSelection([]);
     }
     const handleSelectedImport = (e, id) => {
@@ -192,7 +192,6 @@ export function useTrafficRules() {
             if (importExistingRules.ok) {
                 setLoadingImportSubmission(false);
                 handleImportModalClose();
-                setChecked(false);
                 reRender();
             }
         } catch (error) {

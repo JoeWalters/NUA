@@ -132,6 +132,27 @@ export function importToDbConverter(importedRules, allDeviceList, existingDevice
                 importDBInternetCatObject.devices = [];
             }
             categoryClones.push(importDBInternetCatObject);
+        } else {
+            // Fallback: mirror any rule the branches above didn't claim. The
+            // important case is per-device speed limits, which on UniFi Network
+            // 11.x live in the qos-rules store and are translated to a legacy
+            // shape with matching_target 'ANY' (see
+            // server/server_util_funcs/qosRules.js qosRuleToLegacy). Previously
+            // these fell through with no branch and were silently dropped, so
+            // "Import UniFi Rules" never imported a speed-limit rule. The
+            // category/internet mirror path handles them (the rule already exists
+            // on the controller; we're only recording it in NUA's DB).
+            const importDBMirrorObject = { ...internetDbDeviceObjectClone, ...importedRules[i] };
+
+            const deviceList = getDeviceFromMac(allDeviceList, existingDeviceList, importDBMirrorObject, importDBMirrorObject);
+
+            if (deviceList.length) {
+                const c = flattenAll(deviceList);
+                importDBMirrorObject.devices.push(...c);
+            } else {
+                importDBMirrorObject.devices = [];
+            }
+            categoryClones.push(importDBMirrorObject);
         }
     }
     return { categoryClones, appClones }
