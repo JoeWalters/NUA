@@ -61,8 +61,9 @@ export default function ModernDeviceCard({
             case 'speedlimit':
                 return { label: 'Speed Limit', color: 'badge-info', badge: 'badge-info' };
             case 'full':
-            default:
                 return { label: 'Full Block', color: 'badge-error', badge: 'badge-error' };
+            default:
+                return { label: 'Inherited', color: 'badge-ghost', badge: 'badge-ghost' };
         }
     };
 

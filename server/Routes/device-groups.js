@@ -1,6 +1,8 @@
 // device-groups routes for NUA server.
 // Registered via registerdevicegroups(app, ctx) from app.js.
 
+const { applyBlock, clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
+
 function registerdevicegroups(app, ctx) {
   const {
     prisma,
@@ -24,14 +26,15 @@ function registerdevicegroups(app, ctx) {
       }
       for (const device of group.devices) {
         try {
+          const resolvedMode = await resolveBlockMode(prisma, device);
           if (blockAllow === 'block') {
-            await getUnifi().blockClient(device.macAddress);
+            await applyBlock(device.macAddress, resolvedMode, getUnifi(), prisma);
             await prisma.device.update({ where: { id: device.id }, data: { active: false } });
           } else {
-            await getUnifi().unblockClient(device.macAddress);
+            await clearBlock(device.macAddress, resolvedMode, getUnifi(), prisma);
             await prisma.device.update({ where: { id: device.id }, data: { active: true } });
           }
-          console.log(`${blockAllow}ed device ${device.macAddress} in group ${group.name}`);
+          console.log(`${blockAllow}ed device ${device.macAddress} in group ${group.name} (mode: ${resolvedMode})`);
         } catch (error) {
           console.error(`Failed to ${blockAllow} device ${device.macAddress}:`, error);
         }
@@ -82,10 +85,15 @@ function registerdevicegroups(app, ctx) {
 
   app.post('/api/device-groups', async (req, res) => {
     try {
-      const { name, description, color, icon } = req.body;
+      const { name, description, color, icon, defaultBlockMode } = req.body;
         
       if (!name || name.trim() === '') {
         return res.status(400).json({ error: 'Group name is required' });
+      }
+
+      const VALID_BLOCK_MODES = ['full', 'internet', 'speedlimit', 'inherit'];
+      if (defaultBlockMode !== undefined && defaultBlockMode !== null && !VALID_BLOCK_MODES.includes(defaultBlockMode)) {
+        return res.status(400).json({ error: `Invalid default block mode. Must be one of: ${VALID_BLOCK_MODES.join(', ')}.` });
       }
 
       const group = await prisma.deviceGroup.create({
@@ -93,7 +101,8 @@ function registerdevicegroups(app, ctx) {
           name: name.trim(),
           description: description?.trim() || null,
           color: color || '#3B82F6',
-          icon: icon || '👤'
+          icon: icon || '👤',
+          defaultBlockMode: defaultBlockMode === 'inherit' ? null : defaultBlockMode,
         }
       });
 
@@ -107,10 +116,15 @@ function registerdevicegroups(app, ctx) {
   app.put('/api/device-groups/:id', async (req, res) => {
     try {
       const { id } = req.params;
-      const { name, description, color, icon } = req.body;
+      const { name, description, color, icon, defaultBlockMode } = req.body;
 
       if (!name || name.trim() === '') {
         return res.status(400).json({ error: 'Group name is required' });
+      }
+
+      const VALID_BLOCK_MODES = ['full', 'internet', 'speedlimit', 'inherit'];
+      if (defaultBlockMode !== undefined && defaultBlockMode !== null && !VALID_BLOCK_MODES.includes(defaultBlockMode)) {
+        return res.status(400).json({ error: `Invalid default block mode. Must be one of: ${VALID_BLOCK_MODES.join(', ')}.` });
       }
 
       const group = await prisma.deviceGroup.update({
@@ -120,6 +134,7 @@ function registerdevicegroups(app, ctx) {
           description: description?.trim() || null,
           color: color || '#3B82F6',
           icon: icon || '👤',
+          defaultBlockMode: defaultBlockMode !== undefined ? (defaultBlockMode === 'inherit' ? null : defaultBlockMode) : undefined,
           updatedAt: new Date()
         }
       });
@@ -207,14 +222,15 @@ function registerdevicegroups(app, ctx) {
         return res.json({ success: true, message: 'No devices in group' });
       }
 
-      // Block each device via UniFi
+      // Block each device via its resolved block mode
       const macAddresses = devices.map(device => device.macAddress);
         
-      for (const macAddress of macAddresses) {
+      for (const device of devices) {
         try {
-          await getUnifi()?.blockClient(macAddress);
+          const resolvedMode = await resolveBlockMode(prisma, device);
+          await applyBlock(device.macAddress, resolvedMode, getUnifi(), prisma);
         } catch (error) {
-          console.warn(`Failed to block device ${macAddress}:`, error);
+          console.warn(`Failed to block device ${device.macAddress}:`, error);
         }
       }
 
@@ -245,14 +261,13 @@ function registerdevicegroups(app, ctx) {
         return res.json({ success: true, message: 'No devices in group' });
       }
 
-      // Unblock each device via UniFi
-      const macAddresses = devices.map(device => device.macAddress);
-        
-      for (const macAddress of macAddresses) {
+      // Unblock each device via its resolved block mode
+      for (const device of devices) {
         try {
-          await getUnifi()?.unblockClient(macAddress);
+          const resolvedMode = await resolveBlockMode(prisma, device);
+          await clearBlock(device.macAddress, resolvedMode, getUnifi(), prisma);
         } catch (error) {
-          console.warn(`Failed to unblock device ${macAddress}:`, error);
+          console.warn(`Failed to unblock device ${device.macAddress}:`, error);
         }
       }
 

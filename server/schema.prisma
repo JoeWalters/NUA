@@ -19,6 +19,7 @@ model Credentials {
   defaultPage             String?
   initialSetup            Boolean?
   diagnosticsEnabled      Boolean?  @default(false)
+  defaultBlockMode        String?  // global default: "full" | "internet" | "speedlimit"; null = "full"
 }
 
 model Device {
@@ -28,7 +29,7 @@ model Device {
   active                  Boolean
   bonusTimeActive         Boolean  @default(false)
   bonusTimeExpiresAt      DateTime?
-  blockMode               String   @default("full")
+  blockMode               String?
   pausedUntil             DateTime?
   createdAt               DateTime @default(now())
   crons                   Cron[]
@@ -178,6 +179,7 @@ model DeviceGroup {
   color                   String?      @default("#3B82F6")
   icon                    String?      @default("👤")
   active                  Boolean      @default(true)
+  defaultBlockMode        String?      // group default; null = inherit from global
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
   devices                 Device[]

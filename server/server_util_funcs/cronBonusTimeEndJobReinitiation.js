@@ -1,6 +1,6 @@
 
 const schedule = require('node-schedule');
-const { applyBlock } = require('./blockMode');
+const { applyBlock, resolveBlockMode } = require('./blockMode');
 
 async function cronBonusTimeEndJobReinitiation(deviceId, _schedule, prisma, unifi, jobFunction, logger) {
   try {
@@ -11,7 +11,7 @@ async function cronBonusTimeEndJobReinitiation(deviceId, _schedule, prisma, unif
       return;
     }
 
-    const getMacAddressForDevice = await prisma.device.findUnique({ where: { id: deviceId }});
+    const getMacAddressForDevice = await prisma.device.findUnique({ where: { id: deviceId }, include: { deviceGroup: true } });
         
     if (!getMacAddressForDevice) {
       throw new Error(`Device with ID ${deviceId} not found`);
@@ -43,8 +43,9 @@ async function cronBonusTimeEndJobReinitiation(deviceId, _schedule, prisma, unif
       }
     }
 
-    // Re-block the device using its configured block mode.
-    const blockDevice = await applyBlock(getMacAddressForDevice.macAddress, getMacAddressForDevice.blockMode || 'full', unifi, prisma);
+    // Re-block the device using its resolved block mode.
+    const resolvedMode = await resolveBlockMode(prisma, getMacAddressForDevice);
+    const blockDevice = await applyBlock(getMacAddressForDevice.macAddress, resolvedMode, unifi, prisma);
     const updateDeviceStatus = await prisma.device.update({
       where: { id: deviceId },
       data: {

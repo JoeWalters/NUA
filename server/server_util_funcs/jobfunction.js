@@ -1,6 +1,6 @@
 const { deleteCompletedJobs } = require('./ez_sched_utils/deleteCompletedJobs');
 const { red } = require('./red');
-const { applyBlock, clearBlock } = require('./blockMode');
+const { applyBlock, clearBlock, resolveBlockMode } = require('./blockMode');
 
 // jobFunction is the single entry point for all scheduled block/allow actions.
 // It looks up the device's blockMode from the DB and dispatches to the right
@@ -14,12 +14,15 @@ const jobFunction = async (crontype, macAddress, oneTime, unifi, prisma) => {
       throw new Error('**block/allow must be specified for jobFunction, undefined was passed!**');
     }
 
-    // Look up the device's block mode. Falls back to 'full' if not found.
+    // Look up the device's resolved block mode. Falls back to 'full' if not found.
     let blockMode = 'full';
     if (prisma && macAddress) {
       try {
-        const device = await prisma.device.findUnique({ where: { macAddress } });
-        blockMode = device?.blockMode || 'full';
+        const device = await prisma.device.findUnique({
+          where: { macAddress },
+          include: { deviceGroup: true },
+        });
+        blockMode = await resolveBlockMode(prisma, device);
       } catch (lookupError) {
         console.warn('jobFunction: blockMode lookup failed, defaulting to "full":', lookupError?.message || lookupError);
       }

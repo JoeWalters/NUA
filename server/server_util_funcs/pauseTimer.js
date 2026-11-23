@@ -10,7 +10,7 @@
 // Restart-safe: pausedUntil is persisted on the Device row so a timer that
 // survived a restart can be re-armed by reArmPausedDevicesOnBoot().
 
-const { applyBlock, clearBlock } = require('./blockMode');
+const { applyBlock, clearBlock, resolveBlockMode } = require('./blockMode');
 const { startTimeout, endTimeout, startTimeoutFromExpiry, timeoutMap } = require('./start_&_clear_timeouts/start_end_timeouts');
 
 // Resolve a preset string to { hours, minutes }.
@@ -45,7 +45,7 @@ function resolvePreset(preset) {
  * @returns {Promise<{ timer: number, pausedUntil: string }>}
  */
 async function pauseDevice(deviceId, preset, unifi, prisma) {
-  const device = await prisma.device.findUnique({ where: { id: deviceId } });
+  const device = await prisma.device.findUnique({ where: { id: deviceId }, include: { deviceGroup: true } });
   if (!device) {
     throw new Error(`Device ${deviceId} not found`);
   }
@@ -58,8 +58,9 @@ async function pauseDevice(deviceId, preset, unifi, prisma) {
   const { hours, minutes } = resolvePreset(preset);
   const totalMinutes = hours * 60 + minutes;
 
-  // Block the device using its configured block mode.
-  const success = await applyBlock(device.macAddress, device.blockMode || 'full', unifi, prisma);
+  // Block the device using its resolved block mode.
+  const resolvedMode = await resolveBlockMode(prisma, device);
+  const success = await applyBlock(device.macAddress, resolvedMode, unifi, prisma);
   if (!success) {
     throw new Error(`Failed to block device ${device.macAddress}`);
   }
@@ -92,7 +93,7 @@ async function pauseDevice(deviceId, preset, unifi, prisma) {
  * @returns {Promise<boolean>} true if the device was unpaused
  */
 async function unpauseDevice(deviceId, unifi, prisma) {
-  const device = await prisma.device.findUnique({ where: { id: deviceId } });
+  const device = await prisma.device.findUnique({ where: { id: deviceId }, include: { deviceGroup: true } });
   if (!device) {
     return false;
   }
@@ -100,8 +101,9 @@ async function unpauseDevice(deviceId, unifi, prisma) {
   // Cancel any running timer.
   endTimeout(deviceId);
 
-  // Clear the block using the device's configured block mode.
-  await clearBlock(device.macAddress, device.blockMode || 'full', unifi, prisma);
+  // Clear the block using the device's resolved block mode.
+  const resolvedMode = await resolveBlockMode(prisma, device);
+  await clearBlock(device.macAddress, resolvedMode, unifi, prisma);
 
   // Persist the unpaused state.
   await prisma.device.update({

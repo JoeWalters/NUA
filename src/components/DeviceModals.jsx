@@ -69,9 +69,10 @@ export default function DeviceModals({
                             <select
                                 name="blockMode"
                                 className="select select-bordered w-full"
-                                defaultValue={updatedDeviceData?.blockMode || 'full'}
+                                defaultValue={updatedDeviceData?.blockMode || 'inherit'}
                                 onChange={handleEditInput}
                             >
+                                <option value="inherit">Inherit from group / global default</option>
                                 <option value="full">Full Block — device disconnected from network</option>
                                 <option value="internet">Internet Block — device online, no internet access</option>
                                 <option value="speedlimit">Speed Limit — device online, very slow speed</option>

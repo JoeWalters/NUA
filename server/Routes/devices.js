@@ -1,7 +1,7 @@
 // devices routes for NUA server.
 // Registered via registerdevices(app, ctx) from app.js.
 
-const { applyBlock, clearBlock } = require('../server_util_funcs/blockMode');
+const { applyBlock, clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
 const { pauseDevice, unpauseDevice } = require('../server_util_funcs/pauseTimer');
 
 function registerdevices(app, ctx) {
@@ -270,11 +270,14 @@ function registerdevices(app, ctx) {
         return;
       }
 
-      // Look up the device's block mode from the DB. Falls back to 'full'.
+      // Look up the device's resolved block mode from the DB. Falls back to 'full'.
       let blockMode = 'full';
       try {
-        const deviceRecord = await prisma.device.findUnique({ where: { id: parseInt(id) } });
-        blockMode = deviceRecord?.blockMode || 'full';
+        const deviceRecord = await prisma.device.findUnique({
+          where: { id: parseInt(id) },
+          include: { deviceGroup: true },
+        });
+        blockMode = await resolveBlockMode(prisma, deviceRecord);
       } catch (lookupError) {
         console.warn('updatemacaddressstatus: blockMode lookup failed, defaulting to "full":', lookupError?.message || lookupError);
       }
@@ -478,7 +481,7 @@ function registerdevices(app, ctx) {
     if (!isValidMac(macAddress)) {
       return res.status(400).json({ error: 'Invalid MAC address format.' });
     }
-    const VALID_BLOCK_MODES = ['full', 'internet', 'speedlimit'];
+    const VALID_BLOCK_MODES = ['full', 'internet', 'speedlimit', 'inherit'];
     if (blockMode !== undefined && !VALID_BLOCK_MODES.includes(blockMode)) {
       return res.status(400).json({ error: `Invalid block mode. Must be one of: ${VALID_BLOCK_MODES.join(', ')}.` });
     }
@@ -490,7 +493,7 @@ function registerdevices(app, ctx) {
         data: {
           name: name,
           macAddress: macAddress,
-          ...(blockMode !== undefined ? { blockMode } : {}),
+          ...(blockMode !== undefined ? { blockMode: blockMode === 'inherit' ? null : blockMode } : {}),
         }
       });
       res.json(updatedDeviceData);

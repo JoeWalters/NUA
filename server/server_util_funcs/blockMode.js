@@ -204,9 +204,54 @@ async function toggleQosRule(macAddress, deviceName, prefix, speedKbps, enabled,
   }
 }
 
+/**
+ * Resolve a device's effective block mode from the three-level hierarchy:
+ *   Device.blockMode > DeviceGroup.defaultBlockMode > Credentials.defaultBlockMode > "full"
+ *
+ * A null value at any level means "inherit from the next level down".
+ * The device record should include the `deviceGroup` relation.
+ *
+ * @param {object} prisma       the Prisma client
+ * @param {object} device       a device record (with deviceGroup included, or without)
+ * @returns {Promise<string>}   the resolved mode: "full" | "internet" | "speedlimit"
+ */
+async function resolveBlockMode(prisma, device) {
+  // Level 1: device's own setting.
+  if (device?.blockMode) {
+    return device.blockMode;
+  }
+
+  // Level 2: the device's group default.
+  let group = device?.deviceGroup;
+  if (!group && device?.deviceGroupId) {
+    try {
+      group = await prisma.deviceGroup.findUnique({ where: { id: device.deviceGroupId } });
+    } catch (error) {
+      console.warn('resolveBlockMode: failed to look up group:', error?.message || error);
+    }
+  }
+  if (group?.defaultBlockMode) {
+    return group.defaultBlockMode;
+  }
+
+  // Level 3: the global default from Credentials.
+  try {
+    const credentials = await prisma.credentials.findUnique({ where: { id: 1 } });
+    if (credentials?.defaultBlockMode) {
+      return credentials.defaultBlockMode;
+    }
+  } catch (error) {
+    console.warn('resolveBlockMode: failed to look up global default:', error?.message || error);
+  }
+
+  // Ultimate fallback.
+  return 'full';
+}
+
 module.exports = {
   applyBlock,
   clearBlock,
+  resolveBlockMode,
   NUA_INTERNET_BLOCK_PREFIX,
   NUA_SPEED_LIMIT_PREFIX,
   SLOW_SPEED_KBPS,
