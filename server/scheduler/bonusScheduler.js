@@ -13,6 +13,7 @@ const { convertToMilitaryTime } = require('../server_util_funcs/convert_to_milit
 const { minutesHoursToMilli } = require('../server_util_funcs/minutesHoursToMilli');
 const { startTimeout, endTimeout, startTimeoutFromExpiry } = require('../server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
 const { clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
+const { logActivity } = require('../server_util_funcs/activityLog');
 
 /**
  * Start bonus time for a device
@@ -26,6 +27,12 @@ async function startBonusTime(deviceId, hours, minutes, unifi, prisma, scheduler
   await prisma.device.update({
     where: { id: deviceId },
     data: { bonusTimeActive: true, bonusTimeExpiresAt: expiresAt }
+  });
+
+  logActivity(prisma, 'bonus_start', {
+    deviceName: getMacAddressForDevice?.name,
+    deviceMac: getMacAddressForDevice?.macAddress,
+    detail: `${hours ? hours + 'h ' : ''}${minutes}min`,
   });
 
   const getMacAddressForDevice = await prisma.device.findUnique({ 

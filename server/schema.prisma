@@ -200,4 +200,20 @@ model TrafficRuleTags {
   @@unique([trafficRulesId, deviceGroupId])
 }
 
+// Activity Log — a queryable audit trail of all block/unblock/pause/bonus events.
+// Each entry records what happened, to which device, in which mode, and when.
+// Written by logActivity() at the key event points (jobFunction, manual toggle,
+// pause/unpause, bonus start/stop). Reads are served by GET /activity-log.
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime @default(now())
+  eventType String   // "block" | "unblock" | "pause" | "unpause" | "bonus_start" | "bonus_end"
+  deviceName String?
+  deviceMac  String?
+  blockMode  String?  // "full" | "internet" | "speedlimit"
+  detail     String?  // additional context (e.g. "30min preset", "cron: 0 9 * * *")
+  success    Boolean  @default(true)
+}
+
+
 

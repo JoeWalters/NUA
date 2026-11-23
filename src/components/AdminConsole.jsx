@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import PolicyList from "./PolicyList";
+import ActivityLog from "./ActivityLog";
 import { useOutletContext } from 'react-router-dom';
 import NuaSvg from "../images/nua.svg";
-import { HiOutlineChevronUp } from 'react-icons/hi2';
+import { HiOutlineChevronUp, HiOutlineClipboardDocumentList } from 'react-icons/hi2';
 import { debugLog } from '../utility_functions/debugMode';
 
 
@@ -24,6 +25,7 @@ export default function AdminConsole()
     const scrollSentinelRef = useRef();
     const macRequestCounterRef = useRef(0);
     const macRequestAbortRef = useRef(null);
+    const activityLogRef = useRef();
 
     // Show/hide "scroll to top" button when user scrolls past the sentinel
     useEffect(() => {
@@ -186,6 +188,18 @@ export default function AdminConsole()
                         </div>
                     )}
 
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                        <h1 className="text-2xl font-bold">Devices &amp; Rules</h1>
+                        <button
+                            className="btn btn-ghost btn-sm gap-2"
+                            onClick={() => activityLogRef.current?.open()}
+                            title="View activity log"
+                        >
+                            <HiOutlineClipboardDocumentList className="w-4 h-4" />
+                            Activity Log
+                        </button>
+                    </div>
+
                     <div className="bg-base-100 rounded-2xl border border-base-300 shadow-sm overflow-hidden">
                         <PolicyList
                             macData={macData && macData}
@@ -227,6 +241,9 @@ export default function AdminConsole()
             >
                 <HiOutlineChevronUp className="w-5 h-5" />
             </button>
+
+            {/* Activity Log modal */}
+            <ActivityLog ref={activityLogRef} />
         </>
     )
 }

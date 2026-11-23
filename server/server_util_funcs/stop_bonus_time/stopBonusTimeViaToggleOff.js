@@ -3,6 +3,7 @@ const { logger } = require('../server_log_utils/customLogger');
 const { endTimeout } = require('../start_&_clear_timeouts/start_end_timeouts');
 const { jobFunction } = require('../jobfunction');
 const { applyBlock, resolveBlockMode } = require('../blockMode');
+const { logActivity } = require('../activityLog');
 const { dateFromDateString } = require('../ez_sched_utils/dateFromDateString');
 
 async function stopBonusTime(deviceId, cancelTimer, schedule, prisma, unifi) {
@@ -89,6 +90,13 @@ async function stopBonusTime(deviceId, cancelTimer, schedule, prisma, unifi) {
         active: false,
         bonusTimeActive: false
       }
+    });
+
+    logActivity(prisma, 'bonus_end', {
+      deviceName: getMacAddressForDevice?.name,
+      deviceMac: getMacAddressForDevice?.macAddress,
+      blockMode: resolvedMode,
+      detail: 'manual_stop',
     });
 
     // res.sendStatus(200);

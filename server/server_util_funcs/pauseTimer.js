@@ -11,6 +11,7 @@
 // survived a restart can be re-armed by reArmPausedDevicesOnBoot().
 
 const { applyBlock, clearBlock, resolveBlockMode } = require('./blockMode');
+const { logActivity } = require('./activityLog');
 const { startTimeout, endTimeout, startTimeoutFromExpiry, timeoutMap } = require('./start_&_clear_timeouts/start_end_timeouts');
 
 // Resolve a preset string to { hours, minutes }.
@@ -72,6 +73,13 @@ async function pauseDevice(deviceId, preset, unifi, prisma) {
     data: { active: false, pausedUntil: pausedUntil.toISOString() },
   });
 
+  logActivity(prisma, 'pause', {
+    deviceName: device.name,
+    deviceMac: device.macAddress,
+    blockMode: resolvedMode,
+    detail: typeof preset === 'string' ? preset : `custom (${totalMinutes}min)`,
+  });
+
   // Set up the auto-restore timer.
   const restoreCallback = async () => {
     await unpauseDevice(deviceId, unifi, prisma);
@@ -109,6 +117,13 @@ async function unpauseDevice(deviceId, unifi, prisma) {
   await prisma.device.update({
     where: { id: deviceId },
     data: { active: true, pausedUntil: null },
+  });
+
+  logActivity(prisma, 'unpause', {
+    deviceName: device.name,
+    deviceMac: device.macAddress,
+    blockMode: resolvedMode,
+    detail: 'timer_expired',
   });
 
   return true;

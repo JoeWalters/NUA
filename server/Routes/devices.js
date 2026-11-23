@@ -3,6 +3,7 @@
 
 const { applyBlock, clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
 const { pauseDevice, unpauseDevice } = require('../server_util_funcs/pauseTimer');
+const { logActivity } = require('../server_util_funcs/activityLog');
 
 function registerdevices(app, ctx) {
   const {
@@ -315,6 +316,9 @@ function registerdevices(app, ctx) {
 
       // Only update database if UniFi operation succeeded
       if (unifiSuccess) {
+        const deviceRecord = await prisma.device.findUnique({ where: { id: parseInt(id) } });
+        const deviceName = deviceRecord?.name || macAddress;
+
         const updateUser = await prisma.device.update({
           where: {
             id,
@@ -324,6 +328,13 @@ function registerdevices(app, ctx) {
             active: actualStatus,
           // bonusTimeActive: false // necessary 11/26/2024
           }
+        });
+
+        logActivity(prisma, active ? 'block' : 'unblock', {
+          deviceName,
+          deviceMac: macAddress,
+          blockMode,
+          detail: 'manual_toggle',
         });
             
         // Get current blocked users for response consistency
@@ -659,6 +670,22 @@ function registerdevices(app, ctx) {
     } catch (error) {
       console.error('Error in /getpausetimer:', error);
       return res.status(500).json({ success: false, error: 'Failed to fetch pause timer' });
+    }
+  });
+
+  // --- Activity Log ---
+
+  app.get('/activity-log', async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+      const logs = await prisma.activityLog.findMany({
+        orderBy: { timestamp: 'desc' },
+        take: limit,
+      });
+      return res.json({ success: true, logs });
+    } catch (error) {
+      console.error('Error in /activity-log:', error);
+      return res.status(500).json({ success: false, error: 'Failed to fetch activity log' });
     }
   });
 }
