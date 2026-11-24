@@ -14,6 +14,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
         updatedDeviceData,
         timerCancelled,
         toastMessage,
+        showToast,
         schedulerOpen,
         selectedDeviceForScheduler,
         editRef,
@@ -55,6 +56,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
                 timerCancelled={timerCancelled}
                 timerHandler={timerHandler}
                 handleRenderToggle={handleRenderToggle}
+                showToast={showToast}
                 onBlockAll={handleBlockAll}
                 onUnblockAll={handleUnBlockAll}
                 onManageTags={() => groupManagerRef.current?.openManager()}

@@ -29,7 +29,7 @@ export default function AllDevicesCard({ props, length, handleAddToDevices })
 
     return (
         <>
-            <div className="bg-white dark:bg-base-200 rounded-xl border border-base-300 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+            <div className="bg-base-100 rounded-xl border border-base-300 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
                 {/* Card header */}
                 <div className="p-4 pb-3">
                     <div className="flex items-start gap-3">

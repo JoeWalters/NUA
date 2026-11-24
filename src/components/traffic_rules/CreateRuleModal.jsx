@@ -41,7 +41,7 @@ import {
     dbCategoryDeviceObject,
     appDeviceObject,
     appDbDeviceObject,
-} from "../see_all_apps/app_objects";
+} from "../../traffic_rule_apps/app_objects";
 
 const feedback = {
     message:
@@ -168,7 +168,7 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
         }
     };
 
-    // ─── Submit helpers (same logic as SeeAllApps) ────────────────────────────
+    // ─── Submit helpers ──────────────────────────────────
 
     const createCategoryObjectRule = (obj, devs, categoryId, desc, action) => {
         obj.target_devices.push(...devs.map((d) => ({ client_mac: d.macAddress, type: "CLIENT" })));

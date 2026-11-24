@@ -57,6 +57,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
         updatedDeviceData,
         timerCancelled,
         toastMessage,
+        showToast,
         schedulerOpen,
         selectedDeviceForScheduler,
         editRef,
@@ -336,6 +337,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                             timerCancelled={timerCancelled}
                             timerHandler={timerHandler}
                             handleRenderToggle={handleRenderToggle}
+                            showToast={showToast}
                         />
                     ))}
                     {filteredRules.map((data) => (

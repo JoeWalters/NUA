@@ -68,6 +68,8 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
 
             if (updateToggle.ok && result.success) {
                 setLoading(false);
+                // The server toggles the state that was sent, so the new state is its negation.
+                showToast(dataToUpdate?.[0]?.active ? 'Device blocked' : 'Device allowed');
                 onDataChange?.();
 
                 delay(2000).then(() => {
@@ -109,10 +111,14 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
             });
             if (blockAll.ok) {
                 await blockAll.json();
+                showToast('All devices unblocked');
                 onDataChange?.();
+            } else {
+                showToast('Failed to unblock all devices');
             }
         } catch (error) {
             console.error(error);
+            showToast('Network error while unblocking devices');
         }
     };
 
@@ -129,10 +135,14 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
             });
             if (blockAll.ok) {
                 await blockAll.json();
+                showToast('All devices blocked');
                 onDataChange?.();
+            } else {
+                showToast('Failed to block all devices');
             }
         } catch (error) {
             console.error('Error blocking all devices:', error);
+            showToast('Network error while blocking devices');
         }
     };
 
@@ -157,10 +167,14 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
             });
             if (submitForDeletion.ok) {
                 await submitForDeletion.json();
+                showToast('Device removed');
                 onDataChange?.();
+            } else {
+                showToast('Failed to remove device');
             }
         } catch (error) {
             console.error('Error deleting device:', error);
+            showToast('Network error while removing device');
         }
     };
 
@@ -201,14 +215,19 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
                 if (updates.ok) {
                     await updates.json();
                     setLoading(false);
+                    showToast('Device updated');
                     onDataChange?.();
                     editRef.current.close();
                     newDeviceNameRef.current.value = '';
                     newMacAddressRef.current.value = '';
+                } else {
+                    setLoading(false);
+                    showToast('Failed to update device');
                 }
             } catch (error) {
                 setLoading(false);
                 console.error(error);
+                showToast('Network error while updating device');
             }
         };
         updateEdits();

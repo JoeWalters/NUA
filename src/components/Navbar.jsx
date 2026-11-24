@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { HiCog6Tooth, HiBars3 } from "react-icons/hi2";
+import { HiCog6Tooth, HiBars3, HiOutlineClipboardDocumentList } from "react-icons/hi2";
 import NuaSvg from "../images/nua.svg";
 import PropTypes from 'prop-types';
 
-export default function Navbar({ themeValue, callBackChanged, onSettingsClick, onLogout, showLogout, onHealthToggle }) {
+export default function Navbar({ themeValue, callBackChanged, onSettingsClick, onLogout, showLogout, onHealthToggle, onActivityLogClick }) {
   const [connected, setConnected] = useState(null);
 
   useEffect(() => {
@@ -81,6 +81,15 @@ export default function Navbar({ themeValue, callBackChanged, onSettingsClick, o
 
       <button
         className="btn btn-ghost btn-sm btn-circle"
+        title="Activity log"
+        aria-label="Activity log"
+        onClick={onActivityLogClick}
+      >
+        <HiOutlineClipboardDocumentList className="w-5 h-5" />
+      </button>
+
+      <button
+        className="btn btn-ghost btn-sm btn-circle"
         title="Site Settings"
         onClick={onSettingsClick}
       >
@@ -144,4 +153,5 @@ Navbar.propTypes = {
   onLogout: PropTypes.func,
   showLogout: PropTypes.bool,
   onHealthToggle: PropTypes.func,
+  onActivityLogClick: PropTypes.func,
 };

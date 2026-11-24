@@ -999,7 +999,7 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                         <div>
                             <h4 className="font-semibold mb-4">Existing Schedules ({schedules.length})</h4>
                             {schedules.length === 0 ? (
-                                <div className="text-center py-8 text-gray-500">
+                                <div className="text-center py-8 text-base-content/60">
                                     <p>No schedules created yet.</p>
                                     <p className="text-sm">Create a schedule above to automatically control this group.</p>
                                 </div>
@@ -1015,7 +1015,7 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                                                     <span className="font-medium">
                                                         {formatScheduleTime(schedule.hour, schedule.minute, schedule.ampm)}
                                                     </span>
-                                                    <span className="text-sm text-gray-500">
+                                                    <span className="text-sm text-base-content/60">
                                                         {schedule.oneTime ? `On ${schedule.date}` : formatScheduleDays(schedule.days)}
                                                     </span>
                                                 </div>

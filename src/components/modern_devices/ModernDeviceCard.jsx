@@ -18,7 +18,8 @@ export default function ModernDeviceCard({
     onScheduleClick, // Added prop
     timerCancelled, 
     timerHandler, 
-    handleRenderToggle 
+    handleRenderToggle,
+    showToast,
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -68,7 +69,7 @@ export default function ModernDeviceCard({
     };
 
     return (
-        <div className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(device?.active, device?.bonusTimeActive)}`}>
+        <div className={`bg-base-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(device?.active, device?.bonusTimeActive)}`}>
             {/* Stylized left accent border */}
             <div 
                 className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"
@@ -152,12 +153,14 @@ export default function ModernDeviceCard({
                             timerHandler={timerHandler}
                             bonusTimeActive={device?.bonusTimeActive}
                             handleRenderToggle={handleRenderToggle}
+                            showToast={showToast}
                         />
                         <PauseButton
                             deviceId={device?.id}
                             paused={!!device?.pausedUntil}
                             pausedUntil={device?.pausedUntil}
                             handleRenderToggle={handleRenderToggle}
+                            showToast={showToast}
                         />
                         <button
                             onClick={() => onScheduleClick(device?.id, device?.name)}
