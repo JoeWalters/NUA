@@ -19,6 +19,7 @@ const { convertToMilitaryTime } = require('../server_util_funcs/convert_to_milit
 const { dateFromDateString } = require('../server_util_funcs/ez_sched_utils/dateFromDateString');
 const { convertDOWtoString } = require('../server_util_funcs/ez_sched_utils/convertDOWtoString');
 const { startTimeout, endTimeout, timeoutMap } = require('../server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
+const { resolveRuleForUpdate } = require('../server_util_funcs/qosRules');
 
 /**
  * Create a node-schedule job whose callback is wrapped so a rejection is logged
@@ -48,19 +49,10 @@ function scheduleSafeJob(trigger, callback) {
 }
 
 /**
- * Fetch the live rule object from UniFi by its `_id` so that enabling/disabling
- * sends the actual UniFi shape (not the Prisma DB object, which UniFi rejects).
- * `unifiRequest` is a wrapped request fn (see app.js) that re-authenticates on
- * 401 and retries once, so an expired session doesn't abort the schedule.
- */
-async function fetchUnifiRule(unifiRequest, unifiId) {
-  const path = '/v2/api/site/default/trafficrules';
-  const rules = await unifiRequest(path, 'GET');
-  return (rules || []).find(rule => rule._id === unifiId) || null;
-}
-
-/**
- * Set the enabled state of a traffic rule in UniFi + DB.
+ * Set the enabled state of a traffic rule in UniFi + DB. The rule may be a QoS
+ * "Limit" rule (qos-rules store, UniFi 11.x) or a legacy block/allow rule
+ * (trafficrules store); resolveRuleForUpdate finds it in whichever store holds
+ * it and returns that store's base path to PUT it back to.
  */
 async function setRuleEnabled(unifiRequest, prisma, ruleId, enabled) {
   const rule = await prisma.trafficRules.findUnique({ where: { id: ruleId } });
@@ -69,11 +61,13 @@ async function setRuleEnabled(unifiRequest, prisma, ruleId, enabled) {
   }
 
   if (unifiRequest) {
-    const unifiPath = `/v2/api/site/default/trafficrules/${rule.unifiId}`;
-    const ruleCopy = await fetchUnifiRule(unifiRequest, rule.unifiId);
-    if (ruleCopy) {
-      ruleCopy.enabled = enabled;
-      await unifiRequest(unifiPath, 'PUT', ruleCopy);
+    const resolved = await resolveRuleForUpdate(unifiRequest, rule.unifiId);
+    if (resolved) {
+      // The controller validates by object bind, so flip the LIVE object's
+      // enabled flag and PUT the whole thing back to its store (qos-rules or
+      // trafficrules).
+      resolved.rule.enabled = enabled;
+      await unifiRequest(`${resolved.store}/${rule.unifiId}`, 'PUT', resolved.rule);
     }
   }
 

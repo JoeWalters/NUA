@@ -13,6 +13,97 @@ messages for the implementation of each item.
 
 ---
 
+## UniFi Network 11.x compatibility (2026-11-21)
+
+UniFi Network **11.0.99** auto-upgraded this site (from 10.6.109) and
+**silently broke per-device speed limiting**: the legacy `trafficrules` API
+(`POST /v2/api/site/default/trafficrules`, which NUA used for its `bandwidth_limit`
+mechanism) now returns **HTTP 501 `api.err.NotImplemented`**, and the upgrade
+**wiped the existing traffic rules** (controller `trafficrules` is now empty). NUA
+had no detection — it surfaced a raw `501`/`api.err.NotImplemented` to the UI.
+
+**Root cause / mechanism found (investigated read-only against the live 11.0.99
+controller, confirmed against the vendor V11 OpenAPI spec and cross-checked with
+independent agents):**
+- Per-device speed limiting **moved to the `qos-rules` store**
+  (`/v2/api/site/default/qos-rules`), where a cap is a rule with
+  `objective: "LIMIT_AND_PRIORITIZE"` (the UI's "Limit"), addressed by the device
+  MAC as the rule's **source** (`source.client_macs`), capping **any destination**
+  (`destination.matching_target: "ANY"`). Schema: `name`, `source`, `destination`,
+  `objective`, `download_limit_kbps`, `upload_limit_kbps`, `download_burst`,
+  `upload_burst`, `enabled`, `schedule`, `index`. Writes need `X-CSRF-Token`
+  (node-unifi already carries it); `PATCH` is 405 so a full-object `PUT` is
+  required; `index` is assigned by the controller on create.
+- The 3 pre-upgrade speed limits migrated to `qos-rules` but were left
+  **disabled** (`Cap J school`, `Cap D School lap`, `LR Throttle YouTube`).
+- Block/allow rules appear to live in `firewall-policies` (79 present) — a
+  **separate** store from the speed-limit re-map; out of scope here.
+- Option 2 (per-user WiFi Speed Limit via `rest/usergroup`) is inert on a UDM —
+  the `qos-rules` store is the working one.
+
+- [x] **Graceful degradation + ghost-rule cleanup (Option D).** Detect the 501 and
+  return a clear user message instead of a raw error; prune DB "ghost" rows whose
+  `unifiId` no longer exists on the controller. `server/Routes/traffic-rules.js`:
+  `isUnsupportedFeatureError`, `sendUnsupportedFeature` (wired into the 5 write/
+  toggle handlers), and `POST /reconciletrafficrules` (prunes ghosts, dry-run
+  supported, safe-by-construction — a failed controller read aborts without
+  deleting). Committed `8c13c0e`; deployed to Unraid. Ran reconcile: pruned 7
+  ghost DB rows; verified a create now returns a clean 501 with no DB row.
+- [x] **Re-map speed limiting to `qos-rules` (Option 1, the real fix) — IMPLEMENTED + VERIFIED.** New
+  `server/server_util_funcs/qosRules.js` is a translation shim so the existing UI/
+  DB keep working untouched: `buildQosRuleFromSpeedLimit` (create → qos-rule
+  POST), `qosRuleToLegacy` (qos-rule → old shape for read/import), `isQosRule`
+  (route toggle/update/delete to the right store). `traffic-rules.js` now:
+  `addspeedlimittrafficrule` POSTs to `qos-rules` (MAC-based, no IP needed);
+  `getdbcustomapirules` merges translated `qos-rules` into `unifiData` (best-effort
+  fetch); toggle/update/delete route QoS rules to `qos-rules` (GET live → mutate →
+  full PUT). **Note:** scheduled/bonus-time for speed-limit rules now route to
+  `qos-rules` too (see the scheduler fix below).
+  **Committed `29405b9`, deployed (digest `6e285b63…`), container healthy.**
+  **Verified end-to-end on the live 11.0.99 controller:** create → read
+  (unifiData + DB, with linked target device) → toggle (flips on controller + DB)
+  → delete (gone from both); a throwaway rule left no residue.
+- [ ] **Re-import the 3 migrated qos-rules into NUA's DB.** `getdbcustomapirules`
+  now surfaces all 5 qos-rules in `unifiData` (the 3 NUA-migrated
+  `Cap J school`/`Cap D School lap`/`LR Throttle YouTube`, disabled,
+  `LIMIT_AND_PRIORITIZE`, plus 2 UniFi *predefined* caps, `predefined:true`,
+  active). They appear in the UI's "Import UniFi Rules" flow, so the user
+  re-imports the 3 NUA ones (and enables them) there. Not auto-imported, to avoid
+  NUA managing UniFi's own predefined rules; import preserves the disabled state.
+- [x] **Re-map scheduled/bonus time for speed-limit rules to `qos-rules`.** The
+  schedule + bonus-time schedulers fetched/PUT the legacy `trafficrules` store
+  (now 501), so time-limited and bonus speed limits silently failed to toggle
+  their rule. Added `resolveRuleForUpdate` to `qosRules.js` (finds a rule by
+  `unifiId` across both stores — qos-rules first, fall back to trafficrules, a
+  failing store doesn't abort the other — and returns the store to PUT back to);
+  both schedulers (`trafficRuleScheduler.setRuleEnabled`,
+  `trafficBonusScheduler.start/endBonusRule`) use it, replacing the legacy-only
+  `fetchUnifiRule`. **Committed `0ea218e`, deployed (digest `2aebb39b…`), healthy.**
+  Verified live via `/addbonusrule` → `/deletebonusrule`: the qos-rule enabled then
+  disabled on the controller and the DB `bonusTimeExpiresAt` set then cleared.
+- [x] **Re-map block/allow (category/app) rules to `firewall-policies`.** New
+  `server/server_util_funcs/firewallPolicies.js` translates NUA's legacy flat
+  shape <-> the firewall-policy shape (which has a `source` and `destination`,
+  each with a required site-specific `zone_id`, plus `action`/`protocol`/
+  `ip_version`/`schedule`): `buildFirewallPolicyFromLegacy` (create/PUT),
+  `firewallPolicyToLegacy` (read/import), `isFirewallPolicy` (routing),
+  `resolveZones` (derives the LAN + Internet zone ids from the controller's own
+  policy list). `traffic-rules.js` now: `addcategorytrafficrule`/`addappstrafficrule`
+  POST a firewall-policy (zones resolved from the live list); `getdbcustomapirules`
+  merges translated firewall-policies into `unifiData` (predefined rules filtered
+  out, so only user-created rules show, matching pre-11.x behavior); toggle/
+  update/delete route block/allow rules to `firewall-policies` (GET-live ->
+  mutate -> full PUT; delete checks qos, then firewall, then legacy). The
+  scheduler's `resolveRuleForUpdate` also checks firewall-policies, so scheduled/
+  bonus-time toggles work for block/allow rules too. **Committed `dd4512d` +
+  `848ecde`, deployed (digest `be93c7d1…`), healthy.** Verified live through NUA's
+  own API: create a disabled app-block (correct LAN/Internet zones) -> read
+  (unifiData + DB) -> toggle on/off (controller + DB) -> delete (gone from both).
+  Tests: `firewallPolicies.test.js` (11) added; `isFirewallPolicy` fixed to return
+  a strict boolean; suite 26 -> 43.
+
+---
+
 ## High priority
 
 - [x] **Refactor `server/app.js` route modules.** The single 3,600+ line file
@@ -133,3 +224,7 @@ messages for the implementation of each item.
 | 2026-11-11 | Error responses | Standardized `sendError` to `{ success: false, error: <generic>, details?: <gated> }`; replaced 4 raw `error?.response?.data` echoes in `traffic-rules.js`; passed `sendError` into `ezScheduleRoutes` to gate `error.message`; updated traffic-rule modals to read the safe message. Server lint + frontend build/lint pass. |
 | 2026-11-11 | README update | Documented Docker as the recommended path (build/run/health-check), kept manual install as an alternative, added an Environment variables table, and updated background/autostart to recommend `--restart`. No sensitive data shared. |
 | 2026-11-11 | Tests | Added `server/test/` unit tests (26) using `node:test` for `credentialCrypto`, `auth`, and the scheduler modules. Tests exposed a real bug in `start_end_timeouts.js` (duplicate `module.exports` dropped `startTimeoutFromExpiry`) — fixed. `npm test` runs them; CI now runs a server test step. |
+| 2026-11-21 | UniFi 11.x diagnosed | UniFi Network 11.0.99 (auto-upgraded from 10.6.109) returns 501 `NotImplemented` on `POST /v2/api/site/default/trafficrules` and wiped the old rules. Per-device speed limiting moved to the `qos-rules` store (`objective: LIMIT_AND_PRIORITIZE`, device MAC as source, `ANY` destination). Investigated read-only against the live controller + V11 OpenAPI spec; cross-checked with independent agents. |
+| 2026-11-21 | qos-rules re-map + deploy | Added `server/server_util_funcs/qosRules.js` (translation shim: `buildQosRuleFromSpeedLimit`/`qosRuleToLegacy`/`isQosRule`) and re-pointed the 5 speed-limit handlers in `traffic-rules.js` to the `qos-rules` store (MAC-based, no IP needed; GET-live→mutate→full-PUT for toggle/update; dual-store delete). Committed `29405b9`; build 44863887302 succeeded; deployed (digest `6e285b63…`), container healthy. **Verified end-to-end on the live controller**: create → read → toggle (controller+DB) → delete, all green; a throwaway rule left no residue. The 3 migrated rules now appear in the UI's import list (import left to the user). |
+| 2026-11-21 | Scheduler fix (bonus + scheduled) | The schedule + bonus-time schedulers still fetched/PUT the legacy `trafficrules` store (501 on 11.x), so time-limited/bonus speed limits failed to toggle. Added `resolveRuleForUpdate` to `qosRules.js` (dual-store lookup: qos-rules first, fall back to trafficrules, a failing store doesn't abort the other; returns the store to PUT back to) and pointed both schedulers at it. Added `test/qosRules.test.js` (6 tests; suite 26→32). Committed `0ea218e`; build 44867116298 succeeded; deployed (digest `2aebb39b…`), healthy. **Verified live**: `/addbonusrule` enabled the qos-rule on the controller (+ DB `bonusTimeExpiresAt`), `/deletebonusrule` disabled it and cleared the expiry; delete removed it from the controller. |
+| 2026-11-21 | block/allow re-map to firewall-policies | Added `server/server_util_funcs/firewallPolicies.js` (translation shim: `buildFirewallPolicyFromLegacy`/`firewallPolicyToLegacy`/`isFirewallPolicy`/`resolveZones`) and re-pointed the block/allow handlers in `traffic-rules.js` to the `firewall-policies` store (zones resolved from the controller's own policy list; predefined rules filtered out of the read; GET-live→mutate→full-PUT for toggle/update; 3-store delete). Extended `resolveRuleForUpdate` to check firewall-policies so scheduled/bonus toggles work for block/allow too. Added `test/firewallPolicies.test.js` (11) + fixed `isFirewallPolicy` to return a strict boolean; suite 32→43. Committed `dd4512d` + `848ecde`; builds 44925987469 + 44926957611 succeeded; deployed (digest `be93c7d1…`), healthy. **Verified live through NUA's own API**: create a disabled app-block (correct LAN/Internet zones) → read (unifiData + DB) → toggle on/off (controller + DB) → delete (gone from both), back to the original 13 user rules + 0 DB rows. |

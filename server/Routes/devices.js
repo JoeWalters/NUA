@@ -1,6 +1,10 @@
 // devices routes for NUA server.
 // Registered via registerdevices(app, ctx) from app.js.
 
+const { applyBlock, clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
+const { pauseDevice, unpauseDevice } = require('../server_util_funcs/pauseTimer');
+const { logActivity } = require('../server_util_funcs/activityLog');
+
 function registerdevices(app, ctx) {
   const {
     prisma,
@@ -267,6 +271,18 @@ function registerdevices(app, ctx) {
         return;
       }
 
+      // Look up the device's resolved block mode from the DB. Falls back to 'full'.
+      let blockMode = 'full';
+      try {
+        const deviceRecord = await prisma.device.findUnique({
+          where: { id: parseInt(id) },
+          include: { deviceGroup: true },
+        });
+        blockMode = await resolveBlockMode(prisma, deviceRecord);
+      } catch (lookupError) {
+        console.warn('updatemacaddressstatus: blockMode lookup failed, defaulting to "full":', lookupError?.message || lookupError);
+      }
+
       let unifiSuccess = false;
       let actualStatus = active;
       let operationMessage = '';
@@ -274,18 +290,18 @@ function registerdevices(app, ctx) {
       try {
         if (active) {
         // Device is currently active, so we want to block it
-          const result = await getUnifi().blockClient(macAddress);
-          unifiSuccess = result && (Array.isArray(result) ? result.length > 0 : result);
+          const result = await applyBlock(macAddress, blockMode, getUnifi(), prisma);
+          unifiSuccess = result;
           actualStatus = !unifiSuccess; // If blocked successfully, device becomes inactive
           operationMessage = unifiSuccess ? 'blocked' : 'block failed';
-          console.log(`Block operation for ${macAddress}: ${unifiSuccess ? 'SUCCESS' : 'FAILED'}`, result);
+          console.log(`Block operation for ${macAddress} (${blockMode}): ${unifiSuccess ? 'SUCCESS' : 'FAILED'}`);
         } else {
         // Device is currently blocked, so we want to unblock it
-          const result = await getUnifi().unblockClient(macAddress);
-          unifiSuccess = result && (Array.isArray(result) ? result.length > 0 : result);
+          const result = await clearBlock(macAddress, blockMode, getUnifi(), prisma);
+          unifiSuccess = result;
           actualStatus = unifiSuccess; // If unblocked successfully, device becomes active
           operationMessage = unifiSuccess ? 'unblocked' : 'unblock failed';
-          console.log(`Unblock operation for ${macAddress}: ${unifiSuccess ? 'SUCCESS' : 'FAILED'}`, result);
+          console.log(`Unblock operation for ${macAddress} (${blockMode}): ${unifiSuccess ? 'SUCCESS' : 'FAILED'}`);
         }
       } catch (unifiError) {
         console.error('UniFi operation failed:', unifiError);
@@ -300,6 +316,9 @@ function registerdevices(app, ctx) {
 
       // Only update database if UniFi operation succeeded
       if (unifiSuccess) {
+        const deviceRecord = await prisma.device.findUnique({ where: { id: parseInt(id) } });
+        const deviceName = deviceRecord?.name || macAddress;
+
         const updateUser = await prisma.device.update({
           where: {
             id,
@@ -309,6 +328,13 @@ function registerdevices(app, ctx) {
             active: actualStatus,
           // bonusTimeActive: false // necessary 11/26/2024
           }
+        });
+
+        logActivity(prisma, active ? 'block' : 'unblock', {
+          deviceName,
+          deviceMac: macAddress,
+          blockMode,
+          detail: 'manual_toggle',
         });
             
         // Get current blocked users for response consistency
@@ -462,9 +488,13 @@ function registerdevices(app, ctx) {
   });
 
   app.put('/updatedevicedata', async (req, res) => { // Devices.jsx device edit
-    const { name, macAddress, id } = req.body;
+    const { name, macAddress, id, blockMode } = req.body;
     if (!isValidMac(macAddress)) {
       return res.status(400).json({ error: 'Invalid MAC address format.' });
+    }
+    const VALID_BLOCK_MODES = ['full', 'internet', 'speedlimit', 'inherit'];
+    if (blockMode !== undefined && !VALID_BLOCK_MODES.includes(blockMode)) {
+      return res.status(400).json({ error: `Invalid block mode. Must be one of: ${VALID_BLOCK_MODES.join(', ')}.` });
     }
     try {
       const updatedDeviceData = await prisma.device.update({
@@ -474,6 +504,7 @@ function registerdevices(app, ctx) {
         data: {
           name: name,
           macAddress: macAddress,
+          ...(blockMode !== undefined ? { blockMode: blockMode === 'inherit' ? null : blockMode } : {}),
         }
       });
       res.json(updatedDeviceData);
@@ -561,6 +592,100 @@ function registerdevices(app, ctx) {
       res.sendStatus(200);
     } catch (error) {
       console.error(error);
+    }
+  });
+
+  // --- Pause Internet Timer ---
+
+  app.post('/pause-device', async (req, res) => {
+    const { deviceId, preset } = req.body;
+    try {
+      if (!getUnifi()) {
+        return res.status(503).json({
+          success: false,
+          error: 'UniFi controller not connected',
+          message: 'Please configure UniFi credentials at /sitesettings',
+        });
+      }
+      if (!deviceId) {
+        return res.status(400).json({ success: false, error: 'deviceId is required' });
+      }
+      const result = await pauseDevice(deviceId, preset, getUnifi(), prisma);
+      return res.json({ success: true, timer: result.timer, pausedUntil: result.pausedUntil });
+    } catch (error) {
+      console.error('Error pausing device:', error);
+      const diag = await isDiagnosticsEnabled(prisma);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to pause device',
+        ...(diag ? { details: error?.message || 'Unknown error' } : {}),
+      });
+    }
+  });
+
+  app.post('/unpause-device', async (req, res) => {
+    const { deviceId } = req.body;
+    try {
+      if (!getUnifi()) {
+        return res.status(503).json({
+          success: false,
+          error: 'UniFi controller not connected',
+          message: 'Please configure UniFi credentials at /sitesettings',
+        });
+      }
+      if (!deviceId) {
+        return res.status(400).json({ success: false, error: 'deviceId is required' });
+      }
+      const success = await unpauseDevice(deviceId, getUnifi(), prisma);
+      if (!success) {
+        return res.status(404).json({ success: false, error: 'Device not found' });
+      }
+      const blockedUsers = await getBlockedUsers();
+      return res.json({ success: true, blockedUsers });
+    } catch (error) {
+      console.error('Error unpausing device:', error);
+      const diag = await isDiagnosticsEnabled(prisma);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to unpause device',
+        ...(diag ? { details: error?.message || 'Unknown error' } : {}),
+      });
+    }
+  });
+
+  app.get('/getpausetimer', async (req, res) => {
+    const { deviceId } = req.body;
+    try {
+      const t = timeoutMap.get(deviceId)?.time;
+      if (t) {
+        return res.json({ timer: t - Date.now() });
+      }
+      // Restart-safe fallback: read the persisted pausedUntil.
+      const device = await prisma.device.findUnique({ where: { id: deviceId } });
+      if (device?.pausedUntil) {
+        const expiry = new Date(device.pausedUntil).getTime();
+        return res.json({ timer: Math.max(expiry - Date.now(), 0) });
+      }
+      return res.status(204).send();
+    } catch (error) {
+      console.error('Error in /getpausetimer:', error);
+      return res.status(500).json({ success: false, error: 'Failed to fetch pause timer' });
+    }
+  });
+
+  // --- Activity Log ---
+
+  app.get('/activity-log', async (req, res) => {
+    try {
+      const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+      const logs = await prisma.activityLog.findMany({
+        orderBy: { timestamp: 'desc' },
+        take: limit,
+      });
+      return res.json({ success: true, logs });
+    } catch (error) {
+      console.error('Error in /activity-log:', error);
+      return res.status(500).json({ success: false, error: 'Failed to fetch activity log' });
     }
   });
 }

@@ -17,7 +17,7 @@ function registersettings(app, ctx) {
   const getUnifi = ctx.getUnifi;
 
   app.post('/savesitesettings', async (req, res) => {
-    const { username, password, hostname, port, sslverify, refreshRate, diagnosticsEnabled } = req.body;
+    const { username, password, hostname, port, sslverify, refreshRate, diagnosticsEnabled, defaultBlockMode } = req.body;
     if (await isDiagnosticsEnabled(prisma)) {
       console.log(req.body);
     }
@@ -41,6 +41,7 @@ function registersettings(app, ctx) {
           sslverify: sslBool,
           refreshRate: parseInt(refreshRate),
           diagnosticsEnabled: !!diagnosticsEnabled,
+          defaultBlockMode: defaultBlockMode === 'inherit' ? null : (defaultBlockMode || null),
           initialSetup: false
         },
         create: {
@@ -50,7 +51,8 @@ function registersettings(app, ctx) {
           port: parseInt(port),
           sslverify: sslBool,
           refreshRate: parseInt(refreshRate),
-          diagnosticsEnabled: !!diagnosticsEnabled
+          diagnosticsEnabled: !!diagnosticsEnabled,
+          defaultBlockMode: defaultBlockMode === 'inherit' ? null : (defaultBlockMode || null),
         }
       });
       res.json({ siteCredentials });
@@ -61,7 +63,7 @@ function registersettings(app, ctx) {
   });
 
   app.put('/updatesitesettings', async (req, res) => {
-    const { username, password, hostname, port, sslverify, id, refreshRate, diagnosticsEnabled } = req.body;
+    const { username, password, hostname, port, sslverify, id, refreshRate, diagnosticsEnabled, defaultBlockMode } = req.body;
     let sslBool;
     if (sslverify === 'false') {
       sslBool = false;
@@ -81,7 +83,8 @@ function registersettings(app, ctx) {
           port: parseInt(port),
           sslverify: sslBool,
           refreshRate: parseInt(refreshRate),
-          diagnosticsEnabled: !!diagnosticsEnabled
+          diagnosticsEnabled: !!diagnosticsEnabled,
+          defaultBlockMode: defaultBlockMode !== undefined ? (defaultBlockMode === 'inherit' ? null : defaultBlockMode) : undefined,
         }
       });
       res.json({ message: 'Credentials successfully saved!' });

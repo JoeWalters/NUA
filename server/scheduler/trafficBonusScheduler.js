@@ -9,18 +9,12 @@
 
 const { minutesHoursToMilli } = require('../server_util_funcs/minutesHoursToMilli');
 const { startTimeout, endTimeout, startTimeoutFromExpiry, timeoutMap } = require('../server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
+const { resolveRuleForUpdate } = require('../server_util_funcs/qosRules');
 
-/**
- * Fetch the live rule object from UniFi by its `_id` so that enabling/disabling
- * sends the actual UniFi shape (not the Prisma DB object, which UniFi rejects).
- * `unifiRequest` is the wrapped request fn (see app.js) that re-authenticates on
- * 401 and retries once, so an expired session doesn't abort the bonus action.
- */
-async function fetchUnifiRule(unifiRequest, unifiId) {
-  const path = '/v2/api/site/default/trafficrules';
-  const rules = await unifiRequest(path, 'GET');
-  return (rules || []).find(rule => rule._id === unifiId) || null;
-}
+// Rule lookup/update now goes through resolveRuleForUpdate in qosRules.js, which
+// routes QoS "Limit" rules (UniFi 11.x) to the qos-rules store and falls back to
+// the legacy trafficrules store. (Previously a local fetchUnifiRule that only
+// knew the trafficrules store.)
 
 /**
  * Start bonus time for a traffic rule.
@@ -35,13 +29,14 @@ async function startBonusRule(ruleId, hours, minutes, unifiRequest, prisma, orig
   const extraMs = originalTime ? Math.max(originalTime, 0) : 0;
   const expiresAt = new Date(Date.now() + extraMs + minutesHoursToMilli(minutes, hours));
 
-  // Enable the rule in UniFi and reflect in DB
-  const unifiPath = `/v2/api/site/default/trafficrules/${rule.unifiId}`;
+  // Enable the rule in UniFi and reflect in DB. The rule may be a QoS "Limit"
+  // rule (qos-rules store) or a legacy rule (trafficrules); resolveRuleForUpdate
+  // finds it in whichever holds it and returns the store to PUT back to.
   if (unifiRequest) {
-    const ruleCopy = await fetchUnifiRule(unifiRequest, rule.unifiId);
-    if (ruleCopy) {
-      ruleCopy.enabled = true;
-      await unifiRequest(unifiPath, 'PUT', ruleCopy);
+    const resolved = await resolveRuleForUpdate(unifiRequest, rule.unifiId);
+    if (resolved) {
+      resolved.rule.enabled = true;
+      await unifiRequest(`${resolved.store}/${rule.unifiId}`, 'PUT', resolved.rule);
     }
   }
   await prisma.trafficRules.update({
@@ -61,12 +56,13 @@ async function endBonusRule(ruleId, unifiRequest, prisma) {
     return;
   }
 
-  const unifiPath = `/v2/api/site/default/trafficrules/${rule.unifiId}`;
+  // Disable the rule in UniFi and reflect in DB. See startBonusRule for why the
+  // lookup goes through resolveRuleForUpdate (qos-rules vs trafficrules).
   if (unifiRequest) {
-    const ruleCopy = await fetchUnifiRule(unifiRequest, rule.unifiId);
-    if (ruleCopy) {
-      ruleCopy.enabled = false;
-      await unifiRequest(unifiPath, 'PUT', ruleCopy);
+    const resolved = await resolveRuleForUpdate(unifiRequest, rule.unifiId);
+    if (resolved) {
+      resolved.rule.enabled = false;
+      await unifiRequest(`${resolved.store}/${rule.unifiId}`, 'PUT', resolved.rule);
     }
   }
   await prisma.trafficRules.update({

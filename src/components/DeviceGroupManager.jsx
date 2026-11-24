@@ -13,7 +13,8 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
         name: '',
         description: '',
         color: '#3B82F6',
-        icon: '👤'
+        icon: '👤',
+        defaultBlockMode: 'inherit',
     });
     const [schedules, setSchedules] = useState([]);
     const [scheduleForm, setScheduleForm] = useState({
@@ -79,7 +80,8 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
             name: '',
             description: '',
             color: '#3B82F6',
-            icon: '👤'
+            icon: '👤',
+            defaultBlockMode: 'inherit',
         });
         setShowGroupModal(true);
         groupModalRef.current?.showModal();
@@ -91,7 +93,8 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
             name: group.name,
             description: group.description || '',
             color: group.color,
-            icon: group.icon
+            icon: group.icon,
+            defaultBlockMode: group.defaultBlockMode || 'inherit',
         });
         setShowGroupModal(true);
         groupModalRef.current?.showModal();
@@ -603,6 +606,23 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                                         />
                                     ))}
                                 </div>
+                            </div>
+
+                            <div>
+                                <label className="label">
+                                    <span className="label-text">Default Block Mode</span>
+                                    <span className="label-text-alt">Applied to devices in this group that don&#39;t have their own mode</span>
+                                </label>
+                                <select
+                                    className="select select-bordered w-full"
+                                    value={groupForm.defaultBlockMode}
+                                    onChange={(e) => setGroupForm(prev => ({ ...prev, defaultBlockMode: e.target.value }))}
+                                >
+                                    <option value="inherit">Inherit from global default</option>
+                                    <option value="full">Full Block — device disconnected from network</option>
+                                    <option value="internet">Internet Block — device online, no internet access</option>
+                                    <option value="speedlimit">Speed Limit — device online, very slow speed</option>
+                                </select>
                             </div>
                         </div>
 

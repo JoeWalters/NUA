@@ -487,6 +487,33 @@ export default function SiteSettings({ isOpen, onClose })
                     </div>
                 </div>
 
+                {/* Block Mode Defaults */}
+                <div className="flex w-full mt-2">
+                    <div className="flex flex-col items-center justify-center w-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 p-4 gap-4">
+                        <div className="text-2xl font-bold">Block Mode Defaults</div>
+                        <div className="divider mt-0"></div>
+                        <p className="text-sm text-center opacity-70 max-w-xs">
+                            The global default block mode. Devices and groups that don&#39;t have their own setting use this.
+                        </p>
+                        <div className="flex flex-col items-center gap-3">
+                            <select
+                                name="defaultBlockMode"
+                                className="select select-bordered w-64"
+                                disabled={dataExists && locked && !clicked}
+                                onChange={handleInput}
+                                defaultValue={dataExists ? preExistingData?.defaultBlockMode || 'full' : data?.defaultBlockMode || 'full'}
+                            >
+                                <option value="full">Full Block — device disconnected from network</option>
+                                <option value="internet">Internet Block — device online, no internet access</option>
+                                <option value="speedlimit">Speed Limit — device online, very slow speed</option>
+                            </select>
+                            <p className="text-xs opacity-50">
+                                Individual devices and groups can override this default.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
                     {/* <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 mt-4">
                         <div className="flex w-full mt-2 justify-around">
                             <div className="text-2xl font-bold">General</div>

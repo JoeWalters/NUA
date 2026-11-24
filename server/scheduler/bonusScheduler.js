@@ -12,6 +12,8 @@ const { easyBonusTimeEndJobReinitiation } = require('../server_util_funcs/easyBo
 const { convertToMilitaryTime } = require('../server_util_funcs/convert_to_military_time');
 const { minutesHoursToMilli } = require('../server_util_funcs/minutesHoursToMilli');
 const { startTimeout, endTimeout, startTimeoutFromExpiry } = require('../server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
+const { clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
+const { logActivity } = require('../server_util_funcs/activityLog');
 
 /**
  * Start bonus time for a device
@@ -27,16 +29,24 @@ async function startBonusTime(deviceId, hours, minutes, unifi, prisma, scheduler
     data: { bonusTimeActive: true, bonusTimeExpiresAt: expiresAt }
   });
 
+  logActivity(prisma, 'bonus_start', {
+    deviceName: getMacAddressForDevice?.name,
+    deviceMac: getMacAddressForDevice?.macAddress,
+    detail: `${hours ? hours + 'h ' : ''}${minutes}min`,
+  });
+
   const getMacAddressForDevice = await prisma.device.findUnique({ 
-    where: { id: deviceId }
+    where: { id: deviceId },
+    include: { deviceGroup: true },
   });
   console.log('getMacAddressForDevice\t', getMacAddressForDevice);
 
-  // Unblock device if it's currently blocked
+  // Unblock device if it's currently blocked — use the device's resolved block mode.
   if (getMacAddressForDevice.active === false) {
     console.log('getMacAddressForDevice.active === false', getMacAddressForDevice.active === false);
-    const confirmAllow = await unifi?.unblockClient(getMacAddressForDevice.macAddress);
-    console.log(`${getMacAddressForDevice.macAddress} has been unblocked: ${confirmAllow}`);
+    const resolvedMode = await resolveBlockMode(prisma, getMacAddressForDevice);
+    const confirmAllow = await clearBlock(getMacAddressForDevice.macAddress, resolvedMode, unifi, prisma);
+    console.log(`${getMacAddressForDevice.macAddress} has been cleared (${resolvedMode}): ${confirmAllow}`);
     await prisma.device.update({
       where: { id: deviceId },
       data: { active: true }

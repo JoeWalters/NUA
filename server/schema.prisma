@@ -19,6 +19,7 @@ model Credentials {
   defaultPage             String?
   initialSetup            Boolean?
   diagnosticsEnabled      Boolean?  @default(false)
+  defaultBlockMode        String?  // global default: "full" | "internet" | "speedlimit"; null = "full"
 }
 
 model Device {
@@ -28,6 +29,8 @@ model Device {
   active                  Boolean
   bonusTimeActive         Boolean  @default(false)
   bonusTimeExpiresAt      DateTime?
+  blockMode               String?
+  pausedUntil             DateTime?
   createdAt               DateTime @default(now())
   crons                   Cron[]
   easySchedules           EasySchedule[]
@@ -176,6 +179,7 @@ model DeviceGroup {
   color                   String?      @default("#3B82F6")
   icon                    String?      @default("👤")
   active                  Boolean      @default(true)
+  defaultBlockMode        String?      // group default; null = inherit from global
   createdAt               DateTime     @default(now())
   updatedAt               DateTime     @updatedAt
   devices                 Device[]
@@ -195,5 +199,21 @@ model TrafficRuleTags {
 
   @@unique([trafficRulesId, deviceGroupId])
 }
+
+// Activity Log — a queryable audit trail of all block/unblock/pause/bonus events.
+// Each entry records what happened, to which device, in which mode, and when.
+// Written by logActivity() at the key event points (jobFunction, manual toggle,
+// pause/unpause, bonus start/stop). Reads are served by GET /activity-log.
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime @default(now())
+  eventType String   // "block" | "unblock" | "pause" | "unpause" | "bonus_start" | "bonus_end"
+  deviceName String?
+  deviceMac  String?
+  blockMode  String?  // "full" | "internet" | "speedlimit"
+  detail     String?  // additional context (e.g. "30min preset", "cron: 0 9 * * *")
+  success    Boolean  @default(true)
+}
+
 
 

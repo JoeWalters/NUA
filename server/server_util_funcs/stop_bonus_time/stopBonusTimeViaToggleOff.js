@@ -2,6 +2,8 @@ const { convertToMilitaryTime } = require('../convert_to_military_time');
 const { logger } = require('../server_log_utils/customLogger');
 const { endTimeout } = require('../start_&_clear_timeouts/start_end_timeouts');
 const { jobFunction } = require('../jobfunction');
+const { applyBlock, resolveBlockMode } = require('../blockMode');
+const { logActivity } = require('../activityLog');
 const { dateFromDateString } = require('../ez_sched_utils/dateFromDateString');
 
 async function stopBonusTime(deviceId, cancelTimer, schedule, prisma, unifi) {
@@ -13,7 +15,7 @@ async function stopBonusTime(deviceId, cancelTimer, schedule, prisma, unifi) {
     const getEasyBonusTogglesToDelete = await prisma.easyBonusToggles.findMany({ where: { deviceId: deviceId }});
     // const getOriginalCrons = await prisma.cron.findMany({ where: { deviceId: deviceId }});
     // console.log('getCronBonusTogglesToDelete\t', getCronBonusTogglesToDelete);
-    const getMacAddressForDevice = await prisma.device.findUnique({ where: { id: deviceId }});
+    const getMacAddressForDevice = await prisma.device.findUnique({ where: { id: deviceId }, include: { deviceGroup: true } });
 
     let jb;
     for (const bonusToggle of getCronBonusTogglesToDelete) {
@@ -78,16 +80,23 @@ async function stopBonusTime(deviceId, cancelTimer, schedule, prisma, unifi) {
         await prisma.easyBonusToggles.delete({ where: { id: bonusToggle.id }});
       }
     }
-    // await unifi.blockClient(getMacAddressForDevice.macAddress);
-    // console.log("blockDevice\t", blockDevice);
-    const confirmBlocked = await unifi?.blockClient(getMacAddressForDevice.macAddress);
-    console.log(`${getMacAddressForDevice.macAddress} has been blocked: ${confirmBlocked}`);
+    // Re-block the device using its resolved block mode.
+    const resolvedMode = await resolveBlockMode(prisma, getMacAddressForDevice);
+    const confirmBlocked = await applyBlock(getMacAddressForDevice.macAddress, resolvedMode, unifi, prisma);
+    console.log(`${getMacAddressForDevice.macAddress} has been blocked (${resolvedMode}): ${confirmBlocked}`);
     await prisma.device.update({
       where: { id: deviceId },
       data: {
         active: false,
         bonusTimeActive: false
       }
+    });
+
+    logActivity(prisma, 'bonus_end', {
+      deviceName: getMacAddressForDevice?.name,
+      deviceMac: getMacAddressForDevice?.macAddress,
+      blockMode: resolvedMode,
+      detail: 'manual_stop',
     });
 
     // res.sendStatus(200);
