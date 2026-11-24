@@ -43,7 +43,7 @@ export default function RuleCard({ data, onToggle, onDelete, onUnmanage, onEdit,
 
     return (
         <li className="list-none">
-            <div className={`bg-white dark:bg-base-200 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(enabled)}`}>
+            <div className={`bg-base-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group ${getCardBorderClasses(enabled)}`}>
                 {/* Stylized top accent border */}
                 <div
                     className="absolute top-0 left-0 w-1/3 h-1 rounded-tl-xl"

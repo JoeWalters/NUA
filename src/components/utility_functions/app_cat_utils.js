@@ -3,7 +3,7 @@ import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
 import {
     dbCategoryDeviceObject,
     appDbDeviceObject,
-} from "../see_all_apps/app_objects";
+} from "../../traffic_rule_apps/app_objects";
 
 function flattenAll (arr) {
     return arr.flat(Infinity)

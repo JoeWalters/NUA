@@ -16,6 +16,7 @@ export default function ModernDeviceGrid({
     timerCancelled,
     timerHandler,
     handleRenderToggle,
+    showToast,
     onManageTags,
 }) {
     const [searchTerm, setSearchTerm] = useState('');
@@ -265,6 +266,7 @@ export default function ModernDeviceGrid({
                             timerCancelled={timerCancelled}
                             timerHandler={timerHandler}
                             handleRenderToggle={handleRenderToggle}
+                            showToast={showToast}
                         />
                     ))}
                 </div>

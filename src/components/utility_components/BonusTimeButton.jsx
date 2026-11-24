@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { MdMoreTime } from "react-icons/md";
 import { debugLog } from "../../utility_functions/debugMode";
 
-export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler, handleRenderToggle, bonusTimeActive }) {
+export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler, handleRenderToggle, bonusTimeActive, showToast }) {
 
     const bonusDialogRef = useRef();
     const [submitBtnLoading, setSubmitBtnLoading] = useState(false);
+    const [stopLoading, setStopLoading] = useState(false);
     const [hours, setHours] = useState(0);
     const [minutes, setMinutes] = useState(30);
     const numsCheckArr = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
@@ -148,15 +149,19 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
                     bonusDialogRef.current?.close();
                     handleRenderToggle();
                 }, 400);
+            } else {
+                showToast?.('Failed to add bonus time');
             }
         } catch (error) {
             console.error(error);
+            showToast?.('Network error while adding bonus time');
         } finally {
             timer(500).then(() => setSubmitBtnLoading(false));
         }
     }
 
     const handleStopBonusTime = async () => {
+        setStopLoading(true);
         try {
             timerHandler(true);
             const res = await fetch("/deletebonustoggles", {
@@ -170,10 +175,16 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
             if (res.ok) {
                 setMilliTime(null);
                 timerHandler(false);
+                showToast?.('Bonus time ended');
                 handleRenderToggle();
+            } else {
+                showToast?.('Failed to end bonus time');
             }
         } catch (error) {
             console.error(error);
+            showToast?.('Network error while ending bonus time');
+        } finally {
+            setStopLoading(false);
         }
     }
 
@@ -195,17 +206,17 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
                     <div className="flex flex-col items-center justify-center gap-4 m-8">
                         <form className="max-w-xs mx-auto">
                             <div className="relative flex items-center max-w-[11rem]">
-                                <button type="button" id="decrementHours" onClick={handleHoursIncDec} data-input-counter-decrement="bedrooms-input" className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-s-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
-                                    <svg className="w-3 h-3 text-gray-900 dark:text-white z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+                                <button type="button" id="decrementHours" onClick={handleHoursIncDec} data-input-counter-decrement="bedrooms-input" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-s-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                    <svg className="w-3 h-3 text-base-content z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 1h16"/>
                                     </svg>
                                 </button>
-                                <input type="text" id="bedrooms-input" onChange={handleInputHoursChange} data-input-counter-max="23" className="bg-gray-50 border-x-0 border-gray-300 h-11 font-medium text-center text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full pb-6 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="" value={hours} required />
-                                <div className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-gray-400 space-x-1 rtl:space-x-reverse">
+                                <input type="text" id="bedrooms-input" onChange={handleInputHoursChange} data-input-counter-max="23" className="bg-base-100 border-base-300 text-base-content" placeholder="" value={hours} required />
+                                <div className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-base-content/50 space-x-1 rtl:space-x-reverse">
                                     <span>Hours</span>
                                 </div>
-                                <button type="button" id="incrementHours" onClick={handleHoursIncDec} data-input-counter-increment="bedrooms-input" className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-e-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
-                                    <svg className="w-3 h-3 text-gray-900 dark:text-white z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+                                <button type="button" id="incrementHours" onClick={handleHoursIncDec} data-input-counter-increment="bedrooms-input" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-e-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                    <svg className="w-3 h-3 text-base-content z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 1v16M1 9h16"/>
                                     </svg>
                                 </button>
@@ -213,17 +224,17 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
                         </form>
                         <form className="max-w-xs mx-auto">
                             <div className="relative flex items-center max-w-[11rem]">
-                                <button type="button" id="decrementMinutes" onClick={handleMinutesIncDec} data-input-counter-decrement="bedrooms-input" className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-s-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
-                                    <svg className="w-3 h-3 text-gray-900 dark:text-white z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
+                                <button type="button" id="decrementMinutes" onClick={handleMinutesIncDec} data-input-counter-decrement="bedrooms-input" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-s-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                    <svg className="w-3 h-3 text-base-content z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 1h16"/>
                                     </svg>
                                 </button>
-                                <input type="text" id="bedrooms-input" onChange={handleInputMinutesChange} className="bg-gray-50 border-x-0 border-gray-300 h-11 font-medium text-center text-gray-900 text-sm focus:ring-blue-500 focus:border-blue-500 block w-full pb-6 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="" value={minutes} required />
-                                <div className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-gray-400 space-x-1 rtl:space-x-reverse">
+                                <input type="text" id="bedrooms-input" onChange={handleInputMinutesChange} className="bg-base-100 border-base-300 text-base-content" placeholder="" value={minutes} required />
+                                <div className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-base-content/50 space-x-1 rtl:space-x-reverse">
                                     <span>Minutes</span>
                                 </div>
-                                <button type="button" id="incrementMinutes" onClick={handleMinutesIncDec} data-input-counter-increment="bedrooms-input" className="bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 hover:bg-gray-200 border border-gray-300 rounded-e-lg p-3 h-11 focus:ring-gray-100 dark:focus:ring-gray-700 focus:ring-2 focus:outline-none z-50">
-                                    <svg className="w-3 h-3 text-gray-900 dark:text-white pointer-events-none z-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
+                                <button type="button" id="incrementMinutes" onClick={handleMinutesIncDec} data-input-counter-increment="bedrooms-input" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-e-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                    <svg className="w-3 h-3 text-base-content pointer-events-none z-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 1v16M1 9h16"/>
                                     </svg>
                                 </button>
@@ -234,8 +245,11 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
                                 type="button"
                                 className="btn btn-error btn-outline btn-sm w-full"
                                 onClick={handleStopBonusTime}
+                                disabled={stopLoading}
                             >
-                                Stop Current Timer
+                                {stopLoading
+                                    ? <span className="loading loading-spinner w-4 h-4"></span>
+                                    : 'Stop Current Timer'}
                             </button>
                         )}
                     </div>

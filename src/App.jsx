@@ -1,9 +1,11 @@
 import { Outlet, useLocation } from "react-router-dom";
 import Navbar from './components/Navbar.jsx'
 import Login from './components/Login.jsx'
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import BreadCrumbs from "./components/breadcrumbs/BreadCrumbs.jsx";
 import SiteSettings from "./components/SiteSettings.jsx";
+import ActivityLog from "./components/ActivityLog.jsx";
+import { applyTheme, cacheTheme } from './utility_functions/applyTheme.js';
 
 
 export default function App() {
@@ -14,6 +16,7 @@ export default function App() {
     const [syncBannerOpen, setSyncBannerOpen] = useState(false);
     const [auth, setAuth] = useState({ enabled: false, authenticated: false });
     const location = useLocation();
+    const activityLogRef = useRef();
 
     const toggleSyncBanner = () => setSyncBannerOpen(prev => !prev);
 
@@ -53,8 +56,8 @@ export default function App() {
         const getTheme = await fetch('/getcurrenttheme');
       if (getTheme.ok) {
         const currentTheme = await getTheme.json();
-        document.querySelector('html').dataset.theme = currentTheme;
-        document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+        applyTheme(currentTheme);
+        cacheTheme(currentTheme);
         setThemeValue(currentTheme);
       }
       } catch (error) {
@@ -70,12 +73,13 @@ export default function App() {
 
   return (
     <>
-      <Navbar themeValue={themeValue} callBackChanged={callBackChanged} onSettingsClick={() => setSettingsOpen(true)} onLogout={handleLogout} showLogout={auth.enabled} onHealthToggle={toggleSyncBanner} />
+      <Navbar themeValue={themeValue} callBackChanged={callBackChanged} onSettingsClick={() => setSettingsOpen(true)} onLogout={handleLogout} showLogout={auth.enabled} onHealthToggle={toggleSyncBanner} onActivityLogClick={() => activityLogRef.current?.open()} />
       {location.pathname !== '/' && <BreadCrumbs />}
       <div key={location.pathname} className="page-enter w-full">
         <Outlet context={{ openSettings: () => setSettingsOpen(true), syncBannerOpen, onToggleSyncBanner: toggleSyncBanner }} />
       </div>
       <SiteSettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <ActivityLog ref={activityLogRef} />
     </>
   )
 }

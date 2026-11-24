@@ -9,7 +9,7 @@ import { HiOutlinePause, HiOutlinePlay } from 'react-icons/hi2';
 //   paused         — whether the device is currently paused (from pausedUntil)
 //   pausedUntil    — ISO timestamp of when the pause will expire (or null)
 //   handleRenderToggle — called after a pause/unpause to trigger a re-render
-export default function PauseButton({ deviceId, paused, pausedUntil, handleRenderToggle }) {
+export default function PauseButton({ deviceId, paused, pausedUntil, handleRenderToggle, showToast }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [milliTime, setMilliTime] = useState(null);
@@ -102,12 +102,15 @@ export default function PauseButton({ deviceId, paused, pausedUntil, handleRende
       const data = await res.json();
       if (res.ok && data.success) {
         setMilliTime(data.timer);
+        showToast?.('Internet paused');
         handleRenderToggle?.();
       } else {
         console.error('Pause failed:', data.error || data.message);
+        showToast?.(data.error || data.message || 'Failed to pause internet');
       }
     } catch (error) {
       console.error('Pause error:', error);
+      showToast?.('Network error while pausing internet');
     } finally {
       setLoading(false);
     }
@@ -125,12 +128,15 @@ export default function PauseButton({ deviceId, paused, pausedUntil, handleRende
       const data = await res.json();
       if (res.ok && data.success) {
         setMilliTime(null);
+        showToast?.('Internet resumed');
         handleRenderToggle?.();
       } else {
         console.error('Unpause failed:', data.error || data.message);
+        showToast?.(data.error || data.message || 'Failed to resume internet');
       }
     } catch (error) {
       console.error('Unpause error:', error);
+      showToast?.('Network error while resuming internet');
     } finally {
       setLoading(false);
     }
@@ -180,7 +186,7 @@ export default function PauseButton({ deviceId, paused, pausedUntil, handleRende
       </button>
 
       {menuOpen && (
-        <div className="absolute z-50 mt-1 w-40 bg-white dark:bg-base-200 rounded-lg shadow-lg border border-base-300 py-1">
+        <div className="absolute z-50 mt-1 w-40 bg-base-100 rounded-lg shadow-lg border border-base-300 py-1">
           {presets.map((preset) => (
             <button
               key={preset.value}

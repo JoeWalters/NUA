@@ -3,7 +3,7 @@ import { GoTrash } from "react-icons/go";
 
 export function EZScheduleTable({ returnData, handleDeleteEZSched, handleEZToggle, submitButtonRef }) {
     return (
-        <div className="overflow-x-auto border rounded-lg shadow dark:border-gray-700 dark:shadow-gray-900 mb-8">
+        <div className="overflow-x-auto border border-base-300 rounded-lg shadow-sm mb-8">
         <table className="table table-zebra">
             <thead>
                 <tr className="font-bold sm:text-xl" align="center">
