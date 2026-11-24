@@ -10,7 +10,7 @@ const delay = (t) => new Promise((res) => setTimeout(res, t));
 // `macData`    : the current list of managed devices
 // `blockedUsers`: the current list of blocked devices (for block/unblock all)
 // `onDataChange`: called after any successful mutation to re-fetch the list
-export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
+export function useDeviceActions({ macData, blockedUsers, onDataChange, onDeviceUpdated }) {
     const [loading, setLoading] = useState(false);
     const [updatedDeviceData, setUpdatedDeviceData] = useState(null);
     const [toggleIsLoading, setToggleIsLoading] = useState(false);
@@ -70,7 +70,7 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
                 setLoading(false);
                 // The server toggles the state that was sent, so the new state is its negation.
                 showToast(dataToUpdate?.[0]?.active ? 'Device blocked' : 'Device allowed');
-                onDataChange?.();
+                onDeviceUpdated ? onDeviceUpdated(result) : onDataChange?.();
 
                 delay(2000).then(() => {
                     setToggleIsLoading(false);
@@ -80,6 +80,7 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
                 console.error('Toggle failed:', result.error || result.message);
                 setLoading(false);
                 showToast(`Operation failed: ${result.error || result.message || 'Unknown error'}`);
+                onDataChange?.();
 
                 delay(2000).then(() => {
                     setToggleIsLoading(false);
@@ -213,16 +214,17 @@ export function useDeviceActions({ macData, blockedUsers, onDataChange }) {
                     body: JSON.stringify(updatedDeviceData)
                 });
                 if (updates.ok) {
-                    await updates.json();
+                    const result = await updates.json();
                     setLoading(false);
                     showToast('Device updated');
-                    onDataChange?.();
+                    onDeviceUpdated ? onDeviceUpdated(result) : onDataChange?.();
                     editRef.current.close();
                     newDeviceNameRef.current.value = '';
                     newMacAddressRef.current.value = '';
                 } else {
                     setLoading(false);
                     showToast('Failed to update device');
+                    onDataChange?.();
                 }
             } catch (error) {
                 setLoading(false);

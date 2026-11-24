@@ -4,7 +4,7 @@ import DeviceGroupManager from "./DeviceGroupManager";
 import DeviceModals from "./DeviceModals";
 import { useDeviceActions } from "./custom_hooks/useDeviceActions";
 
-export default function ModernDevices({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
+export default function ModernDevices({ macData, blockedUsers, handleRenderToggle, onDeviceUpdated, loadingMacData }) {
     // Tag management is opened on demand from the device filter bar; the group
     // manager keeps its (heavy) modals mounted but renders nothing on the page.
     const groupManagerRef = useRef();
@@ -34,7 +34,7 @@ export default function ModernDevices({ macData, blockedUsers, handleRenderToggl
         handleSaveEdits,
         handleBlockAll,
         handleUnBlockAll,
-    } = useDeviceActions({ macData, blockedUsers, onDataChange: handleRenderToggle });
+    } = useDeviceActions({ macData, blockedUsers, onDataChange: handleRenderToggle, onDeviceUpdated });
 
     return (
         <div className="space-y-6">
