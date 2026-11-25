@@ -31,6 +31,7 @@ model Device {
   bonusTimeExpiresAt      DateTime?
   blockMode               String?
   pausedUntil             DateTime?
+  blockBeforeBonus        Boolean?  // true while bonus time is running over a blocked device; re-blocked at expiry
   createdAt               DateTime @default(now())
   crons                   Cron[]
   easySchedules           EasySchedule[]
