@@ -1,4 +1,6 @@
+import { useState, useRef } from 'react';
 import useFetchBlockedDevices from "./useFetchBlockedDevices";
+import useFetchBlockedReasons from "./useFetchBlockedReasons";
 import BlockedDeviceCard from "./BlockedDeviceCard";
 import DeviceCardSkeleton from "../skeletons/DeviceCardSkeleton";
 import { HiOutlineShieldCheck } from "react-icons/hi2";
@@ -8,6 +10,14 @@ import { HiOutlineShieldCheck } from "react-icons/hi2";
 export default function BlockedDevices()
 {
 const { blockedDevices, loading, reFetch } = useFetchBlockedDevices();
+const macs = (blockedDevices || []).map((device) => device.mac).filter(Boolean);
+const { reasons } = useFetchBlockedReasons(macs);
+const [allowLoadingMac, setAllowLoadingMac] = useState(null);
+const [allowErrorMac, setAllowErrorMac] = useState(null);
+const [allowErrorText, setAllowErrorText] = useState(null);
+// Synchronous in-flight guard: React state is async, so `allowLoading` alone
+// cannot stop a fast double-click from sending two /addbonustime requests.
+const allowInFlightRef = useRef(new Set());
 
 
 const handleAddToDevices = async (deviceToAdd) => {
@@ -46,6 +56,43 @@ const handleUnblock = async (deviceToUnblock) => {
         console.error(error);
     }
 }
+const handleAllow30 = async (deviceToAllow) => {
+    const mac = deviceToAllow.mac;
+    if (!deviceToAllow.prismaDeviceId) return;
+    if (allowInFlightRef.current.has(mac)) return;
+    allowInFlightRef.current.add(mac);
+    setAllowLoadingMac(mac);
+    setAllowErrorMac(null);
+    setAllowErrorText(null);
+    try {
+        const response = await fetch('/addbonustime', {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                "Content-Type" : "application/json"
+            },
+            body: JSON.stringify({
+                deviceId: deviceToAllow.prismaDeviceId,
+                hours: 0,
+                minutes: 30,
+                isAdditionalTime: false
+            })
+        });
+        if (response.ok) {
+            reFetch();
+        } else {
+            setAllowErrorMac(mac);
+            setAllowErrorText(`Failed to allow bonus time for ${mac}`);
+        }
+    } catch (error) {
+        console.error(error);
+        setAllowErrorMac(mac);
+        setAllowErrorText(error?.message || `Failed to allow bonus time for ${mac}`);
+    } finally {
+        allowInFlightRef.current.delete(mac);
+        setAllowLoadingMac(null);
+    }
+}
 
     return (
         <>
@@ -66,7 +113,7 @@ const handleUnblock = async (deviceToUnblock) => {
                     return (
                         <>
                         <div className="flex items-center justify-center">
-                            <BlockedDeviceCard key={device.mac} props={device} handleAddToDevices={handleAddToDevices} handleUnblock={handleUnblock} />
+                            <BlockedDeviceCard key={device.mac} props={device} reason={reasons[device?.mac?.toLowerCase()]} handleAddToDevices={handleAddToDevices} handleUnblock={handleUnblock} onAllow30={handleAllow30} allowLoading={allowLoadingMac === device.mac} allowError={allowErrorMac === device.mac ? allowErrorText : null} />
                         </div>
                         </>
                     )

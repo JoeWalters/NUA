@@ -12,7 +12,7 @@ const { easyBonusTimeEndJobReinitiation } = require('../server_util_funcs/easyBo
 const { convertToMilitaryTime } = require('../server_util_funcs/convert_to_military_time');
 const { minutesHoursToMilli } = require('../server_util_funcs/minutesHoursToMilli');
 const { startTimeout, endTimeout, startTimeoutFromExpiry } = require('../server_util_funcs/start_&_clear_timeouts/start_end_timeouts');
-const { clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
+const { applyBlock, clearBlock, resolveBlockMode } = require('../server_util_funcs/blockMode');
 const { logActivity } = require('../server_util_funcs/activityLog');
 
 /**
@@ -29,17 +29,17 @@ async function startBonusTime(deviceId, hours, minutes, unifi, prisma, scheduler
     data: { bonusTimeActive: true, bonusTimeExpiresAt: expiresAt }
   });
 
-  logActivity(prisma, 'bonus_start', {
-    deviceName: getMacAddressForDevice?.name,
-    deviceMac: getMacAddressForDevice?.macAddress,
-    detail: `${hours ? hours + 'h ' : ''}${minutes}min`,
-  });
-
   const getMacAddressForDevice = await prisma.device.findUnique({ 
     where: { id: deviceId },
     include: { deviceGroup: true },
   });
   console.log('getMacAddressForDevice\t', getMacAddressForDevice);
+
+  logActivity(prisma, 'bonus_start', {
+    deviceName: getMacAddressForDevice?.name,
+    deviceMac: getMacAddressForDevice?.macAddress,
+    detail: `${hours ? hours + 'h ' : ''}${minutes}min`,
+  });
 
   // Unblock device if it's currently blocked — use the device's resolved block mode.
   if (getMacAddressForDevice.active === false) {
@@ -49,7 +49,7 @@ async function startBonusTime(deviceId, hours, minutes, unifi, prisma, scheduler
     console.log(`${getMacAddressForDevice.macAddress} has been cleared (${resolvedMode}): ${confirmAllow}`);
     await prisma.device.update({
       where: { id: deviceId },
-      data: { active: true }
+      data: { active: true, blockBeforeBonus: true }
     });
   }
 
@@ -150,6 +150,35 @@ async function restartPausedJobs(deviceId, unifi, prisma, jobFunction, scheduler
       where: { id: deviceId },
       data: { bonusTimeActive: false, bonusTimeExpiresAt: null }
     });
+
+    // Re-block a device that was blocked when bonus time started (D3).
+    // Only on a successful re-block do we clear the flag and mark the device
+    // inactive; on failure we log an explicit error and leave the flag set so
+    // the re-block is still owed. Schedule-fired re-blocks (above) take
+    // precedence, so C3 is preserved.
+    const device = await prisma.device.findUnique({
+      where: { id: deviceId },
+      include: { deviceGroup: true },
+    });
+    if (device?.blockBeforeBonus) {
+      const mac = device.macAddress;
+      const mode = await resolveBlockMode(prisma, device);
+      const applied = await applyBlock(mac, mode, unifi, prisma);
+      if (applied) {
+        await prisma.device.update({
+          where: { id: deviceId },
+          data: { blockBeforeBonus: false, active: false }
+        });
+        await logActivity(prisma, 'block', {
+          deviceName: device.name,
+          deviceMac: mac,
+          blockMode: mode,
+          detail: 'bonus_expiry',
+        });
+      } else {
+        console.error(`restartPausedJobs: failed to re-block ${mac} (${mode}) after bonus expiry; leaving blockBeforeBonus set`);
+      }
+    }
   } catch (error) {
     console.error('Error in restartPausedJobs:', error);
   }

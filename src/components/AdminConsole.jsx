@@ -53,8 +53,15 @@ export default function AdminConsole()
 
     const handleDeviceUpdated = (result) => {
         const updatedUser = result?.updatedUser ?? result;
+        if (!updatedUser?.id) {
+            // No device in the response: patching nothing would leave the row stale and
+            // silent. Fall back to the full refresh, which is always correct.
+            console.warn('handleDeviceUpdated: response carried no device id; refetching list');
+            handleRenderToggle();
+            return;
+        }
         setMacData(prev => prev.map(d =>
-            String(d.id) === String(updatedUser?.id) ? { ...d, ...updatedUser } : d));
+            String(d.id) === String(updatedUser.id) ? { ...d, ...updatedUser } : d));
         if (result?.blockedUsers) setBlockedUsers(result.blockedUsers);
     };
 

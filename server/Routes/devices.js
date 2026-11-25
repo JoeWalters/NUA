@@ -678,7 +678,15 @@ function registerdevices(app, ctx) {
   app.get('/activity-log', async (req, res) => {
     try {
       const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+      const raw = req.query.deviceMac;
+      const macs = (Array.isArray(raw) ? raw : [raw])
+        .filter((v) => typeof v === 'string')
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .slice(0, 100);
+      const where = macs.length ? { deviceMac: { in: macs } } : {};
       const logs = await prisma.activityLog.findMany({
+        where,
         orderBy: { timestamp: 'desc' },
         take: limit,
       });
