@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { HiCheck, HiWifi } from "react-icons/hi2";
 import { HiOutlineDesktopComputer } from "react-icons/hi";
+import { isValidMac } from "../utility_functions/validate_mac";
 
 export default function AllDevicesCard({ props, length, handleAddToDevices })
 {
     const [nameInput, setNameInput] = useState("");
     const [submittedName, setSubmittedName] = useState("");
     const [added, setAdded] = useState(false);
+    const [error, setError] = useState(null);
+    const [adding, setAdding] = useState(false);
 
     const handleAddOuiName = e => {
         setNameInput(e.target.value);
@@ -18,9 +21,21 @@ export default function AllDevicesCard({ props, length, handleAddToDevices })
     const handleCloseDialog = () => {
         document.getElementById(props?._id)?.close();
     };
-    const handleAdd = () => {
-        handleAddToDevices(props, submittedName);
-        setAdded(true);
+    const handleAdd = async () => {
+        if (!isValidMac(props?.mac)) {
+            setError('This device has an invalid MAC address, so it cannot be added.');
+            return;
+        }
+        setError(null);
+        setAdding(true);
+        try {
+            await handleAddToDevices(props, submittedName);
+            setAdded(true);
+        } catch (e) {
+            setError(e?.message || 'Could not add this device. Try again.');
+        } finally {
+            setAdding(false);
+        }
     };
 
     const wired = props?.is_wired === true;
@@ -95,11 +110,13 @@ export default function AllDevicesCard({ props, length, handleAddToDevices })
                         <button
                             className="btn btn-sm btn-primary w-full gap-2"
                             onClick={handleAdd}
+                            disabled={adding}
                         >
                             <HiCheck className="w-4 h-4" />
                             Add to Devices
                         </button>
                     )}
+                    {error && <p role="alert" className="text-error text-xs mt-2">{error}</p>}
                 </div>
             </div>
 

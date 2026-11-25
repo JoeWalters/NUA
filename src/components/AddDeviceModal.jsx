@@ -3,6 +3,7 @@ import { HiMagnifyingGlass, HiXMark } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import useFetchAllDevices from "./all_devices/useFetchAllDevices";
 import AllDevicesCard from "./all_devices/AllDevicesCard";
+import { NETWORK_ERROR_MESSAGE, responseErrorMessage } from "./utility_functions/response_error_message";
 
 // Modal to add UniFi controller clients to the managed (firewall-blockable)
 // device list. Fetching the large controller client list is lazy: it only
@@ -14,6 +15,7 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
     const [allDevicesFilter, setAllDevicesFilter] = useState('all');
     const [allDevicesSearch, setAllDevicesSearch] = useState('');
     const [filteredAllDevices, setFilteredAllDevices] = useState([]);
+    const [addError, setAddError] = useState(null);
 
     const dialogRef = useRef();
     const allDevicesSearchRef = useRef();
@@ -24,13 +26,15 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
     useImperativeHandle(ref, () => ({
         open: () => {
             setAddModalOpen(true);
+            setAddError(null);
             dialogRef.current?.showModal();
         },
     }));
 
     const handleAddToDevices = async (deviceToAdd, submittedName) => {
+        const payload = { ...deviceToAdd };
         if (submittedName !== "" && submittedName !== undefined) {
-            deviceToAdd.customName = submittedName;
+            payload.customName = submittedName;
         }
         try {
             const response = await fetch('/addtodevicelist', {
@@ -39,15 +43,30 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify(deviceToAdd)
+                body: JSON.stringify(payload)
             });
             if (response.ok) {
                 await response.json();
+                setAddError(null);
                 reFetch();
                 onAdded?.(); // Refresh the main device list
+            } else {
+                const message = await responseErrorMessage(
+                    response,
+                    `Could not add this device (server said ${response.status}).`
+                );
+                setAddError(message);
+                throw new Error(message);
             }
         } catch (error) {
+            if (error instanceof TypeError) {
+                // fetch() failed before any response — network problem. Re-throw a
+                // readable error so the card shows the same wording as the modal.
+                setAddError(NETWORK_ERROR_MESSAGE);
+                throw new Error(NETWORK_ERROR_MESSAGE);
+            }
             console.error(error);
+            throw error;
         }
     };
 
@@ -121,6 +140,15 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
                         </button>
                     </form>
                 </div>
+
+                {addError && (
+                    <div role="alert" className="alert alert-error mx-6 mt-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{addError}</span>
+                    </div>
+                )}
 
                 {/* Search and Filter Bar */}
                 <div className="flex-shrink-0 px-6 py-4 border-b border-base-200">
