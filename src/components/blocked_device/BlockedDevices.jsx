@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import useFetchBlockedDevices from "./useFetchBlockedDevices";
 import useFetchBlockedReasons from "./useFetchBlockedReasons";
 import BlockedDeviceCard from "./BlockedDeviceCard";
@@ -11,6 +12,9 @@ export default function BlockedDevices()
 const { blockedDevices, loading, reFetch } = useFetchBlockedDevices();
 const macs = (blockedDevices || []).map((device) => device.mac).filter(Boolean);
 const { reasons } = useFetchBlockedReasons(macs);
+const [allowLoadingMac, setAllowLoadingMac] = useState(null);
+const [allowErrorMac, setAllowErrorMac] = useState(null);
+const [allowErrorText, setAllowErrorText] = useState(null);
 
 
 const handleAddToDevices = async (deviceToAdd) => {
@@ -49,6 +53,40 @@ const handleUnblock = async (deviceToUnblock) => {
         console.error(error);
     }
 }
+const handleAllow30 = async (deviceToAllow) => {
+    const mac = deviceToAllow.mac;
+    if (!deviceToAllow.prismaDeviceId) return;
+    setAllowLoadingMac(mac);
+    setAllowErrorMac(null);
+    setAllowErrorText(null);
+    try {
+        const response = await fetch('/addbonustime', {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                "Content-Type" : "application/json"
+            },
+            body: JSON.stringify({
+                deviceId: deviceToAllow.prismaDeviceId,
+                hours: 0,
+                minutes: 30,
+                isAdditionalTime: false
+            })
+        });
+        if (response.ok) {
+            reFetch();
+        } else {
+            setAllowErrorMac(mac);
+            setAllowErrorText(`Failed to allow bonus time for ${mac}`);
+        }
+    } catch (error) {
+        console.error(error);
+        setAllowErrorMac(mac);
+        setAllowErrorText(error?.message || `Failed to allow bonus time for ${mac}`);
+    } finally {
+        setAllowLoadingMac(null);
+    }
+}
 
     return (
         <>
@@ -69,7 +107,7 @@ const handleUnblock = async (deviceToUnblock) => {
                     return (
                         <>
                         <div className="flex items-center justify-center">
-                            <BlockedDeviceCard key={device.mac} props={device} reason={reasons[device?.mac?.toLowerCase()]} handleAddToDevices={handleAddToDevices} handleUnblock={handleUnblock} />
+                            <BlockedDeviceCard key={device.mac} props={device} reason={reasons[device?.mac?.toLowerCase()]} handleAddToDevices={handleAddToDevices} handleUnblock={handleUnblock} onAllow30={handleAllow30} allowLoading={allowLoadingMac === device.mac} allowError={allowErrorMac === device.mac ? allowErrorText : null} />
                         </div>
                         </>
                     )
