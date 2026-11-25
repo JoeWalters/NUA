@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import useFetchBlockedDevices from "./useFetchBlockedDevices";
 import useFetchBlockedReasons from "./useFetchBlockedReasons";
 import BlockedDeviceCard from "./BlockedDeviceCard";
@@ -15,6 +15,9 @@ const { reasons } = useFetchBlockedReasons(macs);
 const [allowLoadingMac, setAllowLoadingMac] = useState(null);
 const [allowErrorMac, setAllowErrorMac] = useState(null);
 const [allowErrorText, setAllowErrorText] = useState(null);
+// Synchronous in-flight guard: React state is async, so `allowLoading` alone
+// cannot stop a fast double-click from sending two /addbonustime requests.
+const allowInFlightRef = useRef(new Set());
 
 
 const handleAddToDevices = async (deviceToAdd) => {
@@ -56,6 +59,8 @@ const handleUnblock = async (deviceToUnblock) => {
 const handleAllow30 = async (deviceToAllow) => {
     const mac = deviceToAllow.mac;
     if (!deviceToAllow.prismaDeviceId) return;
+    if (allowInFlightRef.current.has(mac)) return;
+    allowInFlightRef.current.add(mac);
     setAllowLoadingMac(mac);
     setAllowErrorMac(null);
     setAllowErrorText(null);
@@ -84,6 +89,7 @@ const handleAllow30 = async (deviceToAllow) => {
         setAllowErrorMac(mac);
         setAllowErrorText(error?.message || `Failed to allow bonus time for ${mac}`);
     } finally {
+        allowInFlightRef.current.delete(mac);
         setAllowLoadingMac(null);
     }
 }
