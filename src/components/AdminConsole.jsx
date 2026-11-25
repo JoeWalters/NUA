@@ -51,6 +51,13 @@ export default function AdminConsole()
         setToggleReRender(prev => !prev)
     }
 
+    const handleDeviceUpdated = (result) => {
+        const updatedUser = result?.updatedUser ?? result;
+        setMacData(prev => prev.map(d =>
+            String(d.id) === String(updatedUser?.id) ? { ...d, ...updatedUser } : d));
+        if (result?.blockedUsers) setBlockedUsers(result.blockedUsers);
+    };
+
     useEffect(() => { // /getmacaddresses initial fetch
         const requestId = ++macRequestCounterRef.current;
         if (macRequestAbortRef.current) {
@@ -193,6 +200,7 @@ export default function AdminConsole()
                             macData={macData && macData}
                             blockedUsers={blockedUsers}
                             handleRenderToggle={handleRenderToggle}
+                            onDeviceUpdated={handleDeviceUpdated}
                             loadingMacData={loadingMacData}
                         />
                     </div>

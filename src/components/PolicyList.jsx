@@ -18,7 +18,7 @@ import { useTrafficRules } from "./custom_hooks/useTrafficRules";
 // Unified main list: devices and traffic rules live in one grid with a shared
 // search / status / tag filter and a type filter, visually distinguished by
 // icon + accent color + badge.
-export default function PolicyList({ macData, blockedUsers, handleRenderToggle, loadingMacData }) {
+export default function PolicyList({ macData, blockedUsers, handleRenderToggle, onDeviceUpdated, loadingMacData }) {
     const groupManagerRef = useRef();
     const addDeviceModalRef = useRef();
 
@@ -75,7 +75,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
         handleClose,
         handleEditInput,
         handleSaveEdits,
-    } = useDeviceActions({ macData, blockedUsers, onDataChange: handleRenderToggle });
+    } = useDeviceActions({ macData, blockedUsers, onDataChange: handleRenderToggle, onDeviceUpdated });
 
     const [typeFilter, setTypeFilter] = useState('all'); // all | devices | rules
     const [searchTerm, setSearchTerm] = useState('');
