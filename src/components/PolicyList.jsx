@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
     HiMagnifyingGlass,
     HiOutlineDeviceTablet,
@@ -14,6 +14,7 @@ import RuleModals from "./traffic_rules/RuleModals";
 import ModernDeviceSkeleton from "./skeletons/ModernDeviceSkeleton";
 import { useDeviceActions } from "./custom_hooks/useDeviceActions";
 import { useTrafficRules } from "./custom_hooks/useTrafficRules";
+import { sortDevices, getCachedDeviceSort, cacheDeviceSort } from "../utility_functions/sortDevices";
 
 // Unified main list: devices and traffic rules live in one grid with a shared
 // search / status / tag filter and a type filter, visually distinguished by
@@ -82,6 +83,12 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
     const [statusFilter, setStatusFilter] = useState('all');
     const [tagFilter, setTagFilter] = useState('all');
     const [showFilters, setShowFilters] = useState(true);
+    const [sortMode, setSortMode] = useState(() => getCachedDeviceSort());
+
+    // Persist the sort choice across reloads (C3).
+    useEffect(() => {
+        cacheDeviceSort(sortMode);
+    }, [sortMode]);
 
     // Tags are shared between devices and rules (DeviceGroup), so one combined set.
     const tagOptions = [...new Map(
@@ -151,6 +158,12 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
 
     const total = (macData || []).length + (customAPIRules || []).length;
     const shown = filteredDevices.length + filteredRules.length;
+
+    // Sort only the already-filtered list (C4): reorder, don't change what's shown.
+    const visibleDevices = useMemo(
+        () => sortDevices(filteredDevices, sortMode),
+        [filteredDevices, sortMode]
+    );
 
     const handleRefresh = () => {
         setSearchTerm('');
@@ -265,6 +278,17 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                                 <option value="bonus">Bonus time</option>
                             </select>
 
+                            {/* Sort filter */}
+                            <select
+                                className="select select-bordered min-w-[130px]"
+                                value={sortMode}
+                                onChange={(e) => setSortMode(e.target.value)}
+                                aria-label="Sort devices"
+                            >
+                                <option value="name">Name (A–Z)</option>
+                                <option value="status">Status</option>
+                            </select>
+
                             {/* Tag filter */}
                             <select
                                 className="select select-bordered min-w-[130px]"
@@ -326,7 +350,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                 </div>
             ) : (
                 <ul className="grid gap-6 grid-cols-1 md:[grid-template-columns:repeat(auto-fill,minmax(300px,1fr))] m-0 p-0">
-                    {filteredDevices.map((device) => (
+                    {visibleDevices.map((device) => (
                         <ModernDeviceCard
                             key={device?.id}
                             device={device}
