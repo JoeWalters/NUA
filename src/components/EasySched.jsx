@@ -4,6 +4,7 @@ import { dateIsInPast } from "./utility_functions/date_in_past_checker";
 import { convertSelectedDateForComparison } from "./utility_functions/convertSelectedDate";
 import LoadingDialog from "./utility_components/LoadingDialog";
 import SubmitButtonComponent from "./utility_components/SubmitButtonComponent";
+import { NETWORK_ERROR_MESSAGE, responseErrorMessage } from "./utility_functions/response_error_message";
 
 
 export default function EasySched({ triggerRender, deviceId, deviceName }) {
@@ -48,8 +49,6 @@ export default function EasySched({ triggerRender, deviceId, deviceName }) {
             }));
         }
     }, [deviceId]);
-
-    const timer = t => new Promise(res => setTimeout(res, t));
 
     const d1 = useRef();
     const d2 = useRef();
@@ -154,6 +153,7 @@ export default function EasySched({ triggerRender, deviceId, deviceName }) {
     }
 
     const handleSubmit = async () => {
+        setInvalidscheduleMessage({});
         if (!localDeviceId) {
             setInvalidscheduleMessage({ error: true, message: "Device ID is missing!" });
             return;
@@ -200,25 +200,22 @@ export default function EasySched({ triggerRender, deviceId, deviceName }) {
             if (submitData.ok) {
                 setInvalidscheduleMessage({ error: false });
 
-                timer(400)
-                    .then(() => setSubmitButtonLoading(false))
-
                 console.log('submitData \t', submitData);
 
                 triggerRender();
                 resetToInitialState();
-            } else if (submitData.status === 422) {
-                timer(400)
-                    .then(() => setSubmitButtonLoading(false))
-                
-                setInvalidscheduleMessage({
-                    error: true,
-                });
+            } else {
+                const fallback = submitData.status === 422
+                    ? 'The server could not accept this schedule. Check the date/time and selected days, then try again.'
+                    : `Could not create the schedule (server said ${submitData.status}). Try again.`;
+                const message = await responseErrorMessage(submitData, fallback);
+                setInvalidscheduleMessage({ error: true, message });
             }
         } catch (error) {
-            timer(400)
-                .then(() => setSubmitButtonLoading(false))
             console.error(error);
+            setInvalidscheduleMessage({ error: true, message: NETWORK_ERROR_MESSAGE });
+        } finally {
+            setSubmitButtonLoading(false);
         }
     }
 
@@ -396,6 +393,15 @@ export default function EasySched({ triggerRender, deviceId, deviceName }) {
                         submitButtonLoading={submitButtonLoading}
                         enabledCriteria={oneTimeSchedule ? oneTimeSchedule : dayOfTheWeekSelected ? dayOfTheWeekSelected : false}
                     />
+
+                    {invalidscheduleMessage.error && invalidscheduleMessage.message && (
+                        <div role="alert" className="alert alert-error mt-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{invalidscheduleMessage.message}</span>
+                        </div>
+                    )}
                 </div>
             </div>
             
