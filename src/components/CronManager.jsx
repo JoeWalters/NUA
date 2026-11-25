@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { GoInfo } from "react-icons/go";
+import { NETWORK_ERROR_MESSAGE, responseErrorMessage } from "./utility_functions/response_error_message";
 
 export default function CronManager({ triggerRender, deviceId }) {
     const [cron, setCron] = useState({
@@ -46,6 +47,7 @@ export default function CronManager({ triggerRender, deviceId }) {
     }
 
     const handleSubmit = async () => {
+        setInvalidCronMessage({});
         if (!cron.id) {
             setInvalidCronMessage({ error: true, message: "Device ID is missing!" });
             return;
@@ -73,26 +75,16 @@ export default function CronManager({ triggerRender, deviceId }) {
                 if (inputRef.current) inputRef.current.value = '';
                 setCron(prev => ({ ...prev, croninput: '' }));
                 triggerRender();
-            } else if (submitData.status === 422) {
-                const badResults = await submitData.json();
-                console.log('subdata message ', badResults.message);
-                setInvalidCronMessage({
-                    message: badResults.message,
-                    error: true,
-                });
             } else {
-                setInvalidCronMessage({
-                    message: "Failed to create schedule. Please try again.",
-                    error: true,
-                });
+                const fallback = submitData.status === 422
+                    ? "Failed to create schedule. Please try again."
+                    : `Failed to create schedule (server said ${submitData.status}). Please try again.`;
+                const message = await responseErrorMessage(submitData, fallback);
+                setInvalidCronMessage({ error: true, message });
             }
         } catch (e) {
-            if (e) throw e;
-            console.log('e: ', e);
-            setInvalidCronMessage({
-                message: "Error submitting schedule. Please check your connection.",
-                error: true,
-            });
+            console.error(e);
+            setInvalidCronMessage({ error: true, message: NETWORK_ERROR_MESSAGE });
         }
     }
     
