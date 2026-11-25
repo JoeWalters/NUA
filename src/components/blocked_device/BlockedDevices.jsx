@@ -1,4 +1,5 @@
 import useFetchBlockedDevices from "./useFetchBlockedDevices";
+import useFetchBlockedReasons from "./useFetchBlockedReasons";
 import BlockedDeviceCard from "./BlockedDeviceCard";
 import DeviceCardSkeleton from "../skeletons/DeviceCardSkeleton";
 import { HiOutlineShieldCheck } from "react-icons/hi2";
@@ -8,6 +9,8 @@ import { HiOutlineShieldCheck } from "react-icons/hi2";
 export default function BlockedDevices()
 {
 const { blockedDevices, loading, reFetch } = useFetchBlockedDevices();
+const macs = (blockedDevices || []).map((device) => device.mac).filter(Boolean);
+const { reasons } = useFetchBlockedReasons(macs);
 
 
 const handleAddToDevices = async (deviceToAdd) => {
@@ -66,7 +69,7 @@ const handleUnblock = async (deviceToUnblock) => {
                     return (
                         <>
                         <div className="flex items-center justify-center">
-                            <BlockedDeviceCard key={device.mac} props={device} handleAddToDevices={handleAddToDevices} handleUnblock={handleUnblock} />
+                            <BlockedDeviceCard key={device.mac} props={device} reason={reasons[device?.mac?.toLowerCase()]} handleAddToDevices={handleAddToDevices} handleUnblock={handleUnblock} />
                         </div>
                         </>
                     )
