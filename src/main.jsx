@@ -8,6 +8,7 @@ import {
 } from 'react-router-dom';
 import './globals.css'
 import { TimerProvider } from './components/providers/TimerProvider.jsx';
+import { DevicesProvider } from './components/providers/DevicesProvider.jsx';
 
 // Route-level code splitting: heavy screens are loaded on demand instead of
 // shipping in the initial bundle.
@@ -23,6 +24,7 @@ root.render(
   <React.StrictMode>
     <BrowserRouter>
       <TimerProvider>
+      <DevicesProvider>
       <Suspense fallback={<div className="flex items-center justify-center h-full w-full">Loading...</div>}>
         <Routes>
           <Route path="/" element={<App />}>
@@ -37,6 +39,7 @@ root.render(
           </Route>
         </Routes>
       </Suspense>
+      </DevicesProvider>
       </TimerProvider>
     </BrowserRouter>
   </React.StrictMode>,

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDevices } from "../providers/devicesContext.js";
 import PropTypes from 'prop-types';
 import {
     HiShieldCheck,
@@ -41,31 +42,23 @@ export default function EditRuleModal({ dialogRef, rule, rawRule, categoryName, 
         if (dialogRef.current) dialogRef.current.close();
     };
 
+    // Shared device list (one /getcurrentdevices fetch for every rule modal).
+    const { devices: sharedDevices, loading: devicesLoading, ensureLoaded: ensureDevicesLoaded } = useDevices();
+
     useEffect(() => {
-        const getDevices = async () => {
-            try {
-                const res = await fetch("/getcurrentdevices");
-                if (res.ok) {
-                    const data = await res.json();
-                    const list = data.getDeviceList || [];
-                    setDevices(list);
-                    const existingMacs = new Set(
-                        (rule?.matchingTargetDevices || [])
-                            .map((d) => (d.client_mac || "").toLowerCase())
-                    );
-                    const preSelected = list.filter((d) =>
-                        existingMacs.has((d.macAddress || "").toLowerCase())
-                    );
-                    setDeviceSelection(preSelected);
-                }
-            } catch (error) {
-                console.error(error);
-            } finally {
-                setPageLoading(false);
-            }
-        };
-        getDevices();
-    }, [rule]);
+        ensureDevicesLoaded();
+    }, [ensureDevicesLoaded]);
+
+    useEffect(() => {
+        const list = sharedDevices || [];
+        setDevices(list);
+        const existingMacs = new Set(
+            (rule?.matchingTargetDevices || [])
+                .map((d) => (d.client_mac || "").toLowerCase())
+        );
+        setDeviceSelection(list.filter((d) => existingMacs.has((d.macAddress || "").toLowerCase())));
+        if (!devicesLoading) setPageLoading(false);
+    }, [rule, sharedDevices, devicesLoading]);
 
     // Seed the speed-limit fields from the rule and pin the action to ALLOW.
     useEffect(() => {

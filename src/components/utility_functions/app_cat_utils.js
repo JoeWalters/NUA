@@ -1,5 +1,4 @@
 import { allAppsList } from "../../traffic_rule_apps/unifi_match_list";
-import { useGetAllDevices } from "../custom_hooks/useGetAllDevices";
 import {
     dbCategoryDeviceObject,
     appDbDeviceObject,

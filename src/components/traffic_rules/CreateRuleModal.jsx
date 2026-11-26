@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDevices } from "../providers/devicesContext.js";
 import { Link } from "react-router-dom";
 import { IoMdRefresh } from "react-icons/io";
 import {
@@ -294,22 +295,19 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
 
     // ─── Effects ──────────────────────────────────────────────────────────────
 
+    // Device list comes from the page-wide DevicesProvider: one fetch shared by
+    // every rule modal instead of one per modal.
+    const { devices: sharedDevices, ensureLoaded: ensureDevicesLoaded } = useDevices();
+
     useEffect(() => {
-        const getDevices = async () => {
-            try {
-                const res = await fetch("/getcurrentdevices");
-                if (res.ok) {
-                    const data = await res.json();
-                    setDevices(data.getDeviceList);
-                }
-            } catch (error) {
-                console.error(error);
-            }
-        };
-        getDevices();
+        ensureDevicesLoaded();
         setFilteredArray(allApps);
         setSearchableCopy(allApps);
-    }, []);
+    }, [ensureDevicesLoaded]);
+
+    useEffect(() => {
+        setDevices(sharedDevices);
+    }, [sharedDevices]);
 
     useEffect(() => {
         const run = (criteria) => {

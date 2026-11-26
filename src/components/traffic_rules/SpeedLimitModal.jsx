@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDevices } from "../providers/devicesContext.js";
 import PropTypes from 'prop-types';
 import {
     HiBolt,
@@ -40,20 +41,16 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
         setDeviceSelection([]);
     };
 
+    // Shared device list (one /getcurrentdevices fetch for every rule modal).
+    const { devices: sharedDevices, ensureLoaded: ensureDevicesLoaded } = useDevices();
+
     useEffect(() => {
-        const getDevices = async () => {
-            try {
-                const res = await fetch("/getcurrentdevices");
-                if (res.ok) {
-                    const data = await res.json();
-                    setDevices(data.getDeviceList || []);
-                }
-            } catch (error) {
-                console.error(error);
-            }
-        };
-        getDevices();
-    }, []);
+        ensureDevicesLoaded();
+    }, [ensureDevicesLoaded]);
+
+    useEffect(() => {
+        setDevices(sharedDevices || []);
+    }, [sharedDevices]);
 
     const handleSelectDevice = (e) => {
         if (e.target.checked) {

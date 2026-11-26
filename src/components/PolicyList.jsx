@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect } from "react";
+import { useDevices } from "./providers/devicesContext.js";
 import {
     HiMagnifyingGlass,
     HiOutlineDeviceTablet,
@@ -165,10 +166,14 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
         [filteredDevices, sortMode]
     );
 
+    // The shared device list's single invalidation point (card #33).
+    const { refetch: refetchDevices } = useDevices();
+
     const handleRefresh = () => {
         setSearchTerm('');
         setStatusFilter('all');
         setTagFilter('all');
+        refetchDevices();
         handleRenderToggle();
     };
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { importToDbConverter } from "../utility_functions/app_cat_utils";
-import { useGetAllDevices } from "./useGetAllDevices";
+import useFetchAllDevices from "../all_devices/useFetchAllDevices";
 import { debugLog } from "../../utility_functions/debugMode";
 
 // Shared traffic-rule logic (fetch, toggle, delete, unmanage, edit, import).
@@ -11,7 +11,10 @@ export function useTrafficRules() {
     // so fetch it lazily the first time the import modal is opened instead of on
     // page load (keeps the large list out of memory until it's actually used).
     const [importModalOpened, setImportModalOpened] = useState(false);
-    const { existingDeviceList, allClientDeviceList } = useGetAllDevices(importModalOpened);
+    // One hook owns /getalldevices (useFetchAllDevices); the import modal only
+    // turns it on when it opens, so the large list is still fetched lazily.
+    const { clientDevices: allClientDeviceList, deviceList: existingDeviceList } =
+        useFetchAllDevices(importModalOpened);
     const [customAPIRules, setCustomAPIRules] = useState([]);
     const [unifiRuleObject, setUnifiRuleObject] = useState([]);
     const [importRuleChoices, setImportRuleChoices] = useState([]);
