@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { HiOutlinePause, HiOutlinePlay } from 'react-icons/hi2';
+import { useCountdown } from '../providers/useCountdown.js';
 
 // Pause Internet Timer button. Shows a quick preset menu when the device is
 // online, and a countdown + unpause button when the device is paused.
@@ -12,43 +13,51 @@ import { HiOutlinePause, HiOutlinePlay } from 'react-icons/hi2';
 export default function PauseButton({ deviceId, paused, pausedUntil, handleRenderToggle, showToast }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [milliTime, setMilliTime] = useState(null);
+  // Absolute deadline for the running pause. `pausedUntil` is authoritative;
+  // /getpausetimer is asked once, only when the caller has no timestamp, instead
+  // of being polled every five seconds.
+  const [pauseDeadline, setPauseDeadline] = useState(() => {
+    const parsed = pausedUntil ? Date.parse(pausedUntil) : NaN;
+    return Number.isFinite(parsed) ? parsed : null;
+  });
   const menuRef = useRef(null);
 
-  // Poll the server for the timer when a pause is active.
   useEffect(() => {
-    let isMounted = true;
-    if (paused && deviceId) {
-      const poll = async () => {
-        try {
-          const res = await fetch('/getpausetimer', {
-            method: 'POST',
-            mode: 'cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deviceId }),
-          });
-          if (res.status === 200) {
-            const data = await res.json();
-            if (isMounted) setMilliTime(data.timer);
-          } else if (res.status === 204) {
-            if (isMounted) setMilliTime(null);
-          }
-        } catch (error) {
-          console.error('Pause timer poll error:', error);
-        }
-      };
-      poll();
-      const interval = setInterval(poll, 5000);
-      return () => {
-        isMounted = false;
-        clearInterval(interval);
-      };
+    const parsed = pausedUntil ? Date.parse(pausedUntil) : NaN;
+    if (Number.isFinite(parsed)) {
+      setPauseDeadline(parsed);
+      return undefined;
     }
+
+    if (!paused || !deviceId) {
+      setPauseDeadline(null);
+      return undefined;
+    }
+
+    let isMounted = true;
+    (async () => {
+      try {
+        const res = await fetch('/getpausetimer', {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId }),
+        });
+        if (res.status === 200) {
+          const data = await res.json();
+          if (isMounted && data?.timer) setPauseDeadline(Date.now() + data.timer);
+        } else if (res.status === 204 && isMounted) {
+          setPauseDeadline(null);
+        }
+      } catch (error) {
+        console.error('Pause timer lookup failed:', error);
+      }
+    })();
+
     return () => {
       isMounted = false;
-      setMilliTime(null);
     };
-  }, [deviceId, paused]);
+  }, [deviceId, paused, pausedUntil]);
 
   // Close menu on outside click.
   useEffect(() => {
@@ -61,22 +70,12 @@ export default function PauseButton({ deviceId, paused, pausedUntil, handleRende
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Countdown display.
-  useEffect(() => {
-    if (!milliTime || milliTime <= 0) return;
-    const interval = setInterval(() => {
-      setMilliTime((prev) => {
-        if (prev <= 1000) {
-          setMilliTime(null);
-          handleRenderToggle?.();
-          return 0;
-        }
-        return prev - 1000;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [milliTime]);
+  // Countdown display ticks off the page's shared clock (one interval for every
+  // countdown on screen); expiry clears the deadline and asks for a refresh.
+  const { remaining: milliTime } = useCountdown(pauseDeadline, () => {
+    setPauseDeadline(null);
+    handleRenderToggle?.();
+  });
 
   const formatRemaining = (ms) => {
     if (!ms || ms <= 0) return 'Expired';
@@ -101,7 +100,7 @@ export default function PauseButton({ deviceId, paused, pausedUntil, handleRende
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setMilliTime(data.timer);
+        setPauseDeadline(data.timer ? Date.now() + data.timer : null);
         showToast?.('Internet paused');
         handleRenderToggle?.();
       } else {
@@ -127,7 +126,7 @@ export default function PauseButton({ deviceId, paused, pausedUntil, handleRende
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setMilliTime(null);
+        setPauseDeadline(null);
         showToast?.('Internet resumed');
         handleRenderToggle?.();
       } else {

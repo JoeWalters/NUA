@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MdMoreTime } from "react-icons/md";
 import { debugLog } from "../../utility_functions/debugMode";
+import { useCountdown } from "../providers/useCountdown.js";
 
 export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler, handleRenderToggle, bonusTimeActive, showToast }) {
 
@@ -20,7 +21,9 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
         return arr;
     })();
     const timer = t => new Promise(res => setTimeout(res, t));
-    const [milliTime, setMilliTime] = useState(null);
+    // The server sends a remaining-ms duration; keep the absolute deadline and
+    // derive the display from the page's shared clock (one interval for all timers).
+    const [bonusDeadline, setBonusDeadline] = useState(null);
     const [showAdded, setShowAdded] = useState(false);
 
     const handleHoursIncDec = e => {
@@ -62,7 +65,7 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
 
     useEffect(() => {
       if (bonusTimeActive === false) {
-        setMilliTime(null);
+        setBonusDeadline(null);
       }
     }, [bonusTimeActive]);
 
@@ -86,8 +89,7 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
                         const res = await retrieveTimes.json();
                         debugLog('res\t', res);
                         if (isMounted) {
-                            const time = res.timer;
-                            setMilliTime(time);
+                            setBonusDeadline(res.timer ? Date.now() + res.timer : null);
                         }
                     } else if (retrieveTimes.status === 204) {
                         debugLog("No bonus time data to be retrieved!");
@@ -103,26 +105,12 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
         }
     }, [deviceId]);
 
-    useEffect(() => {
-        if (!milliTime || milliTime <= 0) return;
-
-        const interval = setInterval(() => {
-            setMilliTime(prev => {
-                if (prev <= 1000) {
-                    // Time expired: clear and notify parent to refresh state
-                    setMilliTime(null);
-                    handleRenderToggle();
-                    return 0;
-                }
-                return prev - 1000;
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);
-        // handleRenderToggle is intentionally omitted: parent re-renders are
-        // handled by the parent itself; including it would restart the interval.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [milliTime]);
+    // Countdown display comes from the shared clock; on expiry we clear the
+    // deadline and ask the parent to refresh, exactly as the old interval did.
+    const { remaining: milliTime } = useCountdown(bonusDeadline, () => {
+        setBonusDeadline(null);
+        handleRenderToggle();
+    });
 
     const handleAddTime = async () => {
         try {
@@ -139,7 +127,7 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
             });
             if (addBonusTime.ok) {
                 const response = await addBonusTime.json();
-                setMilliTime(response.timer);
+                setBonusDeadline(response.timer ? Date.now() + response.timer : null);
                 setHours(0);
                 setMinutes(30);
                 // Brief visual confirmation, then close the modal
@@ -173,7 +161,7 @@ export default function BonusTimeButton({ deviceId, timerCancelled, timerHandler
                 body: JSON.stringify({ deviceId: deviceId, cancelTimer: true })
             });
             if (res.ok) {
-                setMilliTime(null);
+                setBonusDeadline(null);
                 timerHandler(false);
                 showToast?.('Bonus time ended');
                 handleRenderToggle();

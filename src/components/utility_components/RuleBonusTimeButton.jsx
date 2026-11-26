@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { MdMoreTime } from "react-icons/md";
+import { useCountdown } from "../providers/useCountdown.js";
 
 export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, onStateChange }) {
     const bonusDialogRef = useRef();
     const [submitBtnLoading, setSubmitBtnLoading] = useState(false);
     const [hours, setHours] = useState(0);
     const [minutes, setMinutes] = useState(30);
-    const [milliTime, setMilliTime] = useState(null);
+    // Absolute deadline derived from the server's remaining-ms duration; the
+    // display ticks off the page's shared clock.
+    const [bonusDeadline, setBonusDeadline] = useState(null);
     const [showAdded, setShowAdded] = useState(false);
 
     const numsCheckArr = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23];
@@ -53,7 +56,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
     // Reset countdown when bonus time is no longer active
     useEffect(() => {
         if (bonusTimeActive === false) {
-            setMilliTime(null);
+            setBonusDeadline(null);
         }
     }, [bonusTimeActive]);
 
@@ -71,7 +74,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                     });
                     if (res.status === 200) {
                         const data = await res.json();
-                        if (isMounted) setMilliTime(data.timer);
+                        if (isMounted) setBonusDeadline(data.timer ? Date.now() + data.timer : null);
                     }
                 } catch (error) {
                     console.error(error);
@@ -81,27 +84,12 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
         return () => { isMounted = false; };
     }, [trafficRuleId]);
 
-    // Countdown ticker — single stable interval; stops cleanly when time hits 0.
-    useEffect(() => {
-        if (!milliTime || milliTime <= 0) return;
-
-        const interval = setInterval(() => {
-            setMilliTime(prev => {
-                if (prev <= 1000) {
-                    // Time expired: clear and notify parent to refresh state
-                    setMilliTime(null);
-                    onStateChange?.();
-                    return 0;
-                }
-                return prev - 1000;
-            });
-        }, 1000);
-
-        return () => clearInterval(interval);
-        // onStateChange is intentionally omitted: parent re-renders are handled
-        // by the parent itself; including it would restart the interval needlessly.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [milliTime]);
+    // Countdown comes from the page's shared clock; expiry clears the deadline
+    // and asks the parent to refresh, as the old per-component interval did.
+    const { remaining: milliTime } = useCountdown(bonusDeadline, () => {
+        setBonusDeadline(null);
+        onStateChange?.();
+    });
 
     const handleAddTime = async () => {
         try {
@@ -116,7 +104,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
             });
             if (addBonusTime.ok) {
                 const response = await addBonusTime.json();
-                setMilliTime(response.timer);
+                setBonusDeadline(response.timer ? Date.now() + response.timer : null);
                 setHours(0);
                 setMinutes(30);
                 // Brief visual confirmation, then close the modal
@@ -143,7 +131,7 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                 body: JSON.stringify({ trafficRuleId, cancelTimer: true })
             });
             if (res.ok) {
-                setMilliTime(null);
+                setBonusDeadline(null);
                 onStateChange?.();
             }
         } catch (error) {
