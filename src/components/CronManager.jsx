@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { GoInfo } from "react-icons/go";
 import { NETWORK_ERROR_MESSAGE, responseErrorMessage } from "./utility_functions/response_error_message";
+import { describeCron } from "../utility_functions/describeCron";
 
 export default function CronManager({ triggerRender, deviceId }) {
     const [cron, setCron] = useState({
@@ -58,6 +59,13 @@ export default function CronManager({ triggerRender, deviceId }) {
             return;
         }
 
+        // Catch a malformed expression here instead of after a failed round trip.
+        const described = describeCron(cron.croninput);
+        if (!described.valid) {
+            setInvalidCronMessage({ error: true, message: described.error });
+            return;
+        }
+
         try {
             const submitData = await fetch('/addschedule', {
                 method: "POST",
@@ -110,6 +118,19 @@ export default function CronManager({ triggerRender, deviceId }) {
                         </div>
                     </div>
                     
+                    {(() => {
+                        if (!cron.croninput.trim()) return null;
+                        const described = describeCron(cron.croninput);
+                        return (
+                            <div
+                                className={`text-center text-sm mt-1 mb-1 ${described.valid ? 'opacity-70' : 'text-error'}`}
+                                aria-live="polite"
+                            >
+                                {described.valid ? `Runs: ${described.description}` : described.error}
+                            </div>
+                        );
+                    })()}
+
                     <div className="flex items-center justify-center gap-4 my-2">
                         <label className="label cursor-pointer">
                             <span className="label-text">Allow</span>
