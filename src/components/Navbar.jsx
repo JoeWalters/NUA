@@ -3,28 +3,32 @@ import { useEffect, useState } from "react";
 import { HiCog6Tooth, HiBars3, HiOutlineClipboardDocumentList } from "react-icons/hi2";
 import NuaSvg from "../images/nua.svg";
 import PropTypes from 'prop-types';
+import { useRefreshStream } from './custom_hooks/useRefreshStream';
 
 export default function Navbar({ themeValue, callBackChanged, onSettingsClick, onLogout, showLogout, onHealthToggle, onActivityLogClick }) {
   const [connected, setConnected] = useState(null);
 
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const res = await fetch('/health');
-        if (res.ok) {
-          const data = await res.json();
-          setConnected(data.unifiConnected ?? true);
-        } else {
-          setConnected(false);
-        }
-      } catch {
+  const checkHealth = async () => {
+    try {
+      const res = await fetch('/health');
+      if (res.ok) {
+        const data = await res.json();
+        setConnected(data.unifiConnected ?? true);
+      } else {
         setConnected(false);
       }
-    };
+    } catch {
+      setConnected(false);
+    }
+  };
+
+  useEffect(() => {
     checkHealth();
-    const id = setInterval(checkHealth, 30000);
-    return () => clearInterval(id);
   }, []);
+
+  // Refresh on the page's shared SSE channel (one connection, one fallback
+  // timer for the whole page) instead of a private 30s poll.
+  useRefreshStream(checkHealth);
 
   const updateTheme = async () => {
     const next = themeValue === 'light' ? 'dark' : 'light';

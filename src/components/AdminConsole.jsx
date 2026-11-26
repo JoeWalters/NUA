@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useRefreshStream } from './custom_hooks/useRefreshStream';
 import PolicyList from "./PolicyList";
 import { useOutletContext } from 'react-router-dom';
 import NuaSvg from "../images/nua.svg";
@@ -130,25 +131,9 @@ export default function AdminConsole()
         };
     }, [toggleReRender]);
 
-    useEffect(() => { // live updates via SSE
-        let eventSource;
-        try {
-            eventSource = new EventSource('/pingmacaddresses');
-            eventSource.onmessage = (event) => {
-                if (event) {
-                    handleRenderToggle();
-                }
-            }
-            eventSource.onerror = (error) => {
-                console.error(error);
-            };
-            return () => {
-                eventSource.close();
-            }
-        } catch (error) {
-            console.error(error);
-        }
-    }, []);
+    // Live updates come from the page's single shared SSE channel; this component
+    // no longer opens a connection of its own.
+    useRefreshStream(handleRenderToggle);
 
     useEffect(() => { // check if server crash & jobs need re-initiation
         if (!initialized.current) {

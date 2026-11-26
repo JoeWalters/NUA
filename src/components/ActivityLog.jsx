@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { HiOutlineClipboardDocumentList, HiOutlineClock, HiXMark } from 'react-icons/hi2';
 import { HiOutlineCheckCircle, HiOutlineXCircle } from 'react-icons/hi2';
+import { useRefreshStream } from './custom_hooks/useRefreshStream';
 
 // Activity Log modal — shows the most recent block/unblock/pause/bonus events.
-// Fetched from GET /activity-log?limit=50. Auto-refreshes every 30s while open.
+// Fetched from GET /activity-log?limit=50 and refreshed on the shared SSE
+// channel (useRefreshStream), which falls back to a poll while the stream is down.
 //
 // Props:
 //   ref — exposes { open() } to trigger the modal
@@ -15,12 +17,6 @@ const ActivityLog = forwardRef(function ActivityLog({ onClose }, ref) {
   useImperativeHandle(ref, () => ({
     open: () => dialogRef.current?.showModal(),
   }));
-
-  useEffect(() => {
-    fetchLogs();
-    const interval = setInterval(fetchLogs, 30000);
-    return () => clearInterval(interval);
-  }, []);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -36,6 +32,13 @@ const ActivityLog = forwardRef(function ActivityLog({ onClose }, ref) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchLogs();
+  }, []);
+
+  // Refresh on the page's shared SSE channel rather than a private 30s poll.
+  useRefreshStream(fetchLogs);
 
   // Format a timestamp relative to now (e.g. "2m ago", "3h ago", "yesterday").
   const formatTimeAgo = (isoString) => {

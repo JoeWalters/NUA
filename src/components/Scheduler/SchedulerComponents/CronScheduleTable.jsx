@@ -1,4 +1,5 @@
 import { GoTrash } from "react-icons/go";
+import { describeCron } from "../../../utility_functions/describeCron";
 
 export function CronScheduleTable({ returnData, handleDeleteCron, handleCronToggle, submitButtonRef }) {
     return (
@@ -19,7 +20,16 @@ export function CronScheduleTable({ returnData, handleDeleteCron, handleCronTogg
                                 <>
                                     <tr key={cronData.id} align="center">
                                         <td className="w-1/4">
-                                            <div className="text-xs sm:text-sm">{cronData.crontime}</div>
+                                            {/* The raw expression stays visible; the sentence sits under it. */}
+                                            <div className="text-xs sm:text-sm font-mono">{cronData.crontime}</div>
+                                            {(() => {
+                                                const described = describeCron(cronData.crontime);
+                                                return (
+                                                    <div className={`text-xs ${described.valid ? 'opacity-70' : 'text-error'}`}>
+                                                        {described.valid ? described.description : described.error}
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                         <td className={`uppercase ${cronData.crontype === 'block' ? 'text-red-500' : 'text-green-500'}`}>
                                             {cronData.crontype}
