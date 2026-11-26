@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 // One shared refresh channel for the whole page.
 //
 // The server exposes /pingmacaddresses as a fixed-interval Server-Sent Events
-// ping (server/Routes/devices.js): every `refreshRate` it writes a message and
-// nothing more. It carries no payload, so a subscriber only learns "something
-// may have changed".
+// ping (server/Routes/devices.js): every `refreshRate` it writes
+// `{"sendFakeEventObj":{"refresh":true}}`. The payload is ignored — a
+// subscriber only learns "something may have changed".
 //
 // Before this existed, three components each ran their own 30 s timer and
 // AdminConsole opened its own EventSource, so a single tab held four timers and
@@ -20,14 +20,14 @@ import { useEffect, useRef, useState } from 'react';
 // while the stream is unavailable (it recovers on reconnect).
 
 const STREAM_URL = '/pingmacaddresses';
-export const DEFAULT_FALLBACK_MS = 30000;
+export const FALLBACK_INTERVAL_MS = 30000;
 
 const subscribers = new Set();
 const stateListeners = new Set();
 
 let source = null;
 let fallbackTimer = null;
-let fallbackIntervalMs = DEFAULT_FALLBACK_MS;
+let closeTimer = null;
 let connected = false;
 
 function notifySubscribers() {
@@ -60,11 +60,40 @@ function ensureFallbackTimer() {
     }
 
     if (fallbackTimer === null) {
-        fallbackTimer = setInterval(notifySubscribers, fallbackIntervalMs);
+        fallbackTimer = setInterval(notifySubscribers, FALLBACK_INTERVAL_MS);
     }
 }
 
+// Close on the next task, not immediately: React (and StrictMode in dev)
+// unmounts and remounts effects back to back, and closing inside the cleanup
+// would open a second connection a tick later.
+function scheduleClose() {
+    if (closeTimer !== null || subscribers.size > 0) return;
+    closeTimer = setTimeout(() => {
+        closeTimer = null;
+        if (subscribers.size === 0) closeSource();
+    }, 0);
+}
+
+function cancelScheduledClose() {
+    if (closeTimer === null) return;
+    clearTimeout(closeTimer);
+    closeTimer = null;
+}
+
+function closeSource() {
+    if (source === null) return;
+    try {
+        source.close();
+    } catch {
+        // Already closed: nothing to do.
+    }
+    source = null;
+    setConnected(false);
+}
+
 function ensureSource() {
+    cancelScheduledClose();
     if (source !== null) return;
     if (typeof window === 'undefined' || typeof window.EventSource !== 'function') return;
 
@@ -88,7 +117,7 @@ function ensureSource() {
     };
 }
 
-export function useRefreshStream(onRefresh, { fallbackIntervalMs: intervalMs = DEFAULT_FALLBACK_MS } = {}) {
+export function useRefreshStream(onRefresh) {
     const callbackRef = useRef(onRefresh);
     callbackRef.current = onRefresh;
 
@@ -97,7 +126,6 @@ export function useRefreshStream(onRefresh, { fallbackIntervalMs: intervalMs = D
     useEffect(() => {
         const subscriber = () => callbackRef.current?.();
         subscribers.add(subscriber);
-        fallbackIntervalMs = Math.min(fallbackIntervalMs, intervalMs);
 
         const listener = (value) => setStreamConnected(value);
         stateListeners.add(listener);
@@ -110,8 +138,11 @@ export function useRefreshStream(onRefresh, { fallbackIntervalMs: intervalMs = D
             subscribers.delete(subscriber);
             stateListeners.delete(listener);
             ensureFallbackTimer();
+            // Last subscriber gone: stop the connection rather than leave it open
+            // for the lifetime of the module (HMR, tests, a full-tree unmount).
+            scheduleClose();
         };
-    }, [intervalMs]);
+    }, []);
 
     return { streamConnected };
 }
