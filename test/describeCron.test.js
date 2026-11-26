@@ -13,6 +13,8 @@ test('interval schedules read as a cadence', () => {
     assert.equal(describeCron('*/15 * * * *').description, 'Every 15 minutes');
     assert.equal(describeCron('* * * * *').description, 'Every minute');
     assert.equal(describeCron('0 * * * *').description, 'Every hour');
+    assert.equal(describeCron('30 * * * *').description, 'At 30 minutes past every hour');
+    assert.equal(describeCron('5 * * * *').description, 'At 5 minutes past every hour');
 });
 
 test('a fixed time of day reads as a clock time', () => {

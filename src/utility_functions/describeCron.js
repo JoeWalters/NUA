@@ -178,7 +178,13 @@ export function describeCron(expression) {
     // says the same thing twice.
     if (hourField.every && !hourField.fromStar && !hourField.range) {
         const minuteOnly = describeMinute(minuteField);
-        if (minuteOnly) timePart = minuteOnly;
+        if (minuteOnly) {
+            timePart = minuteOnly;
+        } else if (minuteField.values && minuteField.values.length === 1) {
+            // "30 * * * *" is not "every hour": it is :30 of every hour.
+            const minute = minuteField.values[0];
+            timePart = minute === 0 ? 'Every hour' : `At ${minute} minutes past every hour`;
+        }
     }
 
     // A single non-zero minute with several hours ("15 9-17 * * *") must say the
