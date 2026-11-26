@@ -151,7 +151,7 @@ export function describeCron(expression) {
         return {
             valid: false,
             description: '',
-            error: `A cron expression has 5 fields (minute hour day month weekday); this one has ${parts.length}.`
+            error: `This app schedules 5-field cron expressions (minute hour day month weekday); this one has ${parts.length} field${parts.length === 1 ? '' : 's'}.`
         };
     }
 
@@ -179,6 +179,13 @@ export function describeCron(expression) {
     if (hourField.every && !hourField.fromStar && !hourField.range) {
         const minuteOnly = describeMinute(minuteField);
         if (minuteOnly) timePart = minuteOnly;
+    }
+
+    // A single non-zero minute with several hours ("15 9-17 * * *") must say the
+    // minute, or the sentence describes a schedule that fires on the hour.
+    if (minuteField.values && minuteField.values.length === 1 && minuteField.values[0] !== 0 &&
+        hourField.values && hourField.values.length > 1) {
+        timePart = `At ${minuteField.values[0]} minutes past ${describeHour(hourField)}`;
     }
 
     const dowPart = dowField.every ? null : describeDayOfWeek(dowField);

@@ -30,7 +30,8 @@ test('day-of-week is spelled out, ranges included', () => {
 });
 
 test('hour ranges and day/month clauses are described', () => {
-    assert.equal(describeCron('15 9-17 * * 1-5').description, 'Every hour from 09:00 to 17:59 Mon-Fri');
+    assert.equal(describeCron('15 9-17 * * 1-5').description, 'At 15 minutes past every hour from 09:00 to 17:59 Mon-Fri');
+    assert.equal(describeCron('0 9-17 * * *').description, 'Every hour from 09:00 to 17:59');
     assert.equal(describeCron('0 9 1 1 *').description, 'At 09:00 on day 1 in January');
     assert.equal(describeCron('0 0 1 * *').description, 'At 00:00 on day 1');
 });
