@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MdMoreTime } from "react-icons/md";
 import { useCountdown } from "../providers/useCountdown.js";
 
 export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, onStateChange }) {
     const bonusDialogRef = useRef();
+    // Unique per instance: two bonus-time controls can be on screen at once.
+    const stepperId = useId();
+    const hoursInputId = `bonus-hours-${stepperId}`;
+    const minutesInputId = `bonus-minutes-${stepperId}`;
     const [submitBtnLoading, setSubmitBtnLoading] = useState(false);
     const [hours, setHours] = useState(0);
     const [minutes, setMinutes] = useState(30);
@@ -24,17 +28,19 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
     })();
     const timer = t => new Promise(res => setTimeout(res, t));
 
-    const handleHoursIncDec = e => {
-        if (e.target.id === "decrementHours") {
+    const handleHoursIncDec = (e) => {
+        const action = e.currentTarget.dataset.action;
+        if (action === "decrement") {
             setHours(prev => Math.max(prev - 1, 0));
-        } else if (e.target.id === "incrementHours") {
+        } else if (action === "increment") {
             setHours(prev => Math.min(prev + 1, 23));
         }
     };
-    const handleMinutesIncDec = e => {
-        if (e.target.id === "decrementMinutes") {
+    const handleMinutesIncDec = (e) => {
+        const action = e.currentTarget.dataset.action;
+        if (action === "decrement") {
             setMinutes(prev => Math.max(prev - 1, 0));
-        } else if (e.target.id === "incrementMinutes") {
+        } else if (action === "increment") {
             setMinutes(prev => Math.min(prev + 1, 59));
         }
     };
@@ -162,36 +168,32 @@ export default function RuleBonusTimeButton({ trafficRuleId, bonusTimeActive, on
                     <h3 className="font-bold text-lg">Add Bonus Time</h3>
 
                     <div className="flex flex-col items-center justify-center gap-4 m-8">
-                        <form className="max-w-xs mx-auto">
+                        <form className="max-w-xs mx-auto" onSubmit={(e) => e.preventDefault()}>
                             <div className="relative flex items-center max-w-[11rem]">
-                                <button type="button" id="decrementHours" onClick={handleHoursIncDec} className="bg-base-200 hover:bg-base-300 border-base-300 rounded-s-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                <button type="button" data-action="decrement" data-unit="hours" onClick={handleHoursIncDec} aria-label="Decrease hours" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-s-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-base-content z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 1h16"/>
                                     </svg>
                                 </button>
-                                <input type="text" id="bedrooms-input" onChange={handleInputHoursChange} className="bg-base-100 border-base-300 text-base-content" placeholder="" value={hours} required />
-                                <div className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-base-content/50 space-x-1 rtl:space-x-reverse">
-                                    <span>Hours</span>
-                                </div>
-                                <button type="button" id="incrementHours" onClick={handleHoursIncDec} className="bg-base-200 hover:bg-base-300 border-base-300 rounded-e-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                <input type="text" id={hoursInputId} inputMode="numeric" aria-label="Bonus time hours" onChange={handleInputHoursChange} className="bg-base-100 border-base-300 text-base-content" placeholder="" value={hours} required />
+                                <label htmlFor={hoursInputId} className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-base-content/50 space-x-1 rtl:space-x-reverse">Hours</label>
+                                <button type="button" data-action="increment" data-unit="hours" onClick={handleHoursIncDec} aria-label="Increase hours" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-e-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-base-content pointer-events-none z-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 1v16M1 9h16"/>
                                     </svg>
                                 </button>
                             </div>
                         </form>
-                        <form className="max-w-xs mx-auto">
+                        <form className="max-w-xs mx-auto" onSubmit={(e) => e.preventDefault()}>
                             <div className="relative flex items-center max-w-[11rem]">
-                                <button type="button" id="decrementMinutes" onClick={handleMinutesIncDec} className="bg-base-200 hover:bg-base-300 border-base-300 rounded-s-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                <button type="button" data-action="decrement" data-unit="minutes" onClick={handleMinutesIncDec} aria-label="Decrease minutes" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-s-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-base-content z-0 pointer-events-none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 2">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M1 1h16"/>
                                     </svg>
                                 </button>
-                                <input type="text" id="bedrooms-input" onChange={handleInputMinutesChange} className="bg-base-100 border-base-300 text-base-content" placeholder="" value={minutes} required />
-                                <div className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-base-content/50 space-x-1 rtl:space-x-reverse">
-                                    <span>Minutes</span>
-                                </div>
-                                <button type="button" id="incrementMinutes" onClick={handleMinutesIncDec} className="bg-base-200 hover:bg-base-300 border-base-300 rounded-e-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
+                                <input type="text" id={minutesInputId} inputMode="numeric" aria-label="Bonus time minutes" onChange={handleInputMinutesChange} className="bg-base-100 border-base-300 text-base-content" placeholder="" value={minutes} required />
+                                <label htmlFor={minutesInputId} className="absolute bottom-1 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 flex items-center text-xs text-base-content/50 space-x-1 rtl:space-x-reverse">Minutes</label>
+                                <button type="button" data-action="increment" data-unit="minutes" onClick={handleMinutesIncDec} aria-label="Increase minutes" className="bg-base-200 hover:bg-base-300 border-base-300 rounded-e-lg p-3 h-11 focus:ring-base-300 focus:ring-2 focus:outline-none z-50">
                                     <svg className="w-3 h-3 text-base-content pointer-events-none z-0" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 18 18">
                                         <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 1v16M1 9h16"/>
                                     </svg>
