@@ -181,6 +181,7 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
                             <button
                                 className="btn btn-ghost btn-sm btn-square"
                                 onClick={handleAllDevicesRefresh}
+                                aria-label="Refresh the device list"
                                 title="Refresh"
                             >
                                 <IoMdRefresh className="w-4 h-4" />

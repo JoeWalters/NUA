@@ -316,12 +316,13 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                                 >
                                     🏷️ Manage Tags
                                 </button>
-                                <button className="btn btn-ghost btn-square" onClick={handleRefresh} title="Refresh">
+                                <button className="btn btn-ghost btn-square" onClick={handleRefresh} aria-label="Refresh devices and rules" title="Refresh">
                                     <IoMdRefresh className="w-5 h-5" />
                                 </button>
                                 <button
                                     className="btn btn-ghost btn-square"
                                     onClick={() => setShowFilters(false)}
+                                    aria-label="Hide search and filters"
                                     title="Hide search and filters"
                                 >
                                     ✕

@@ -96,6 +96,7 @@ const ActivityLog = forwardRef(function ActivityLog({ onClose }, ref) {
               onClick={fetchLogs}
               className="btn btn-ghost btn-sm btn-circle"
               disabled={loading}
+              aria-label="Refresh the activity log"
               title="Refresh"
             >
               {loading ? (
@@ -105,7 +106,7 @@ const ActivityLog = forwardRef(function ActivityLog({ onClose }, ref) {
               )}
             </button>
             <form method="dialog">
-              <button className="btn btn-ghost btn-sm btn-circle" onClick={onClose}>
+              <button className="btn btn-ghost btn-sm btn-circle" onClick={onClose} aria-label="Close the activity log">
                 <HiXMark className="w-4 h-4" />
               </button>
             </form>

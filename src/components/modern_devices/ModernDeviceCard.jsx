@@ -165,6 +165,7 @@ export default function ModernDeviceCard({
                         <button
                             onClick={() => onScheduleClick(device?.id, device?.name)}
                             className="btn btn-xs gap-0 btn-outline btn-warning"
+                            aria-label="Schedule this device"
                             title="Schedule this device"
                         >
                             <MdSchedule className="w-3.5 h-3.5" />
@@ -183,6 +184,7 @@ export default function ModernDeviceCard({
                         <button
                             onClick={() => onEdit(device?.id)}
                             className="btn btn-ghost btn-xs text-base-content/50 hover:text-primary"
+                            aria-label="Edit this device"
                             title="Edit Device"
                         >
                             <HiMiniPencilSquare className="w-4 h-4" />

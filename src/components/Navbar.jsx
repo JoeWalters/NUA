@@ -95,6 +95,7 @@ export default function Navbar({ themeValue, callBackChanged, onSettingsClick, o
       <button
         className="btn btn-ghost btn-sm btn-circle"
         title="Site Settings"
+        aria-label="Site Settings"
         onClick={onSettingsClick}
       >
         <HiCog6Tooth className="w-5 h-5" />

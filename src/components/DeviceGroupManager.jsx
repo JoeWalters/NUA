@@ -602,6 +602,8 @@ const DeviceGroupManager = forwardRef(function DeviceGroupManager({ devices, rul
                                                 groupForm.color === color ? 'border-base-content' : 'border-base-300'
                                             }`}
                                             style={{ backgroundColor: color }}
+                                            aria-label={`Tag colour ${color}`}
+                                            aria-pressed={groupForm.color === color}
                                             onClick={() => setGroupForm(prev => ({ ...prev, color }))}
                                         />
                                     ))}
