@@ -310,6 +310,13 @@ export default function DeviceDetail() {
                         ))}
                     </ul>
                 )}
+
+                {overview.status === 'ready' && overview.cron.concat(overview.easy).some((row) => row.scope === 'group') && (
+                    <p className="text-xs text-base-content/50 mt-2">
+                        Rows marked &ldquo;From the device group&rdquo; come from a group default; the
+                        scheduler below shows this device&rsquo;s own rows only, so edit those in the group settings.
+                    </p>
+                )}
             </section>
 
             <section className="rounded-xl border border-base-300 bg-base-100 p-4 sm:p-6 mt-4" aria-labelledby="device-rules-heading">
