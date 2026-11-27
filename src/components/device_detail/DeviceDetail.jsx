@@ -19,6 +19,25 @@ function blockModeInfo(mode) {
     return BLOCK_MODES[mode] || BLOCK_MODES.full;
 }
 
+const EVENT_LABELS = {
+    block: 'Blocked',
+    unblock: 'Unblocked',
+    pause: 'Paused',
+    unpause: 'Resumed',
+    bonus_start: 'Bonus time started',
+    bonus_end: 'Bonus time ended'
+};
+
+function eventLabel(type) {
+    return EVENT_LABELS[type] || type || 'Event';
+}
+
+function formatTimestamp(value) {
+    if (!value) return '';
+    const when = new Date(value);
+    return Number.isNaN(when.getTime()) ? String(value) : when.toLocaleString();
+}
+
 function formatPausedUntil(value) {
     if (!value) return null;
     const when = new Date(value);
@@ -29,6 +48,7 @@ function formatPausedUntil(value) {
 export default function DeviceDetail() {
     const { id } = useParams();
     const [state, setState] = useState({ status: 'loading', device: null, error: null });
+    const [history, setHistory] = useState({ status: 'idle', logs: [], error: null });
 
     useEffect(() => {
         let active = true;
@@ -63,6 +83,29 @@ export default function DeviceDetail() {
         load();
         return () => { active = false; };
     }, [id]);
+
+    // Activity history for this device. The endpoint filters server-side
+    // (?deviceMac=) and returns newest first, so no client-side sorting is needed.
+    const deviceMac = state.status === 'ready' ? state.device.macAddress : null;
+    useEffect(() => {
+        if (!deviceMac) return undefined;
+        let active = true;
+        setHistory({ status: 'loading', logs: [], error: null });
+
+        (async () => {
+            try {
+                const response = await fetch(`/activity-log?deviceMac=${encodeURIComponent(deviceMac)}&limit=25`);
+                if (!response.ok) throw new Error(`Could not load activity (${response.status})`);
+                const body = await response.json();
+                const logs = Array.isArray(body?.logs) ? body.logs : [];
+                if (active) setHistory({ status: 'ready', logs, error: null });
+            } catch (error) {
+                if (active) setHistory({ status: 'error', logs: [], error: error.message || 'Could not load activity' });
+            }
+        })();
+
+        return () => { active = false; };
+    }, [deviceMac]);
 
     if (state.status === 'loading') {
         return (
@@ -160,8 +203,41 @@ export default function DeviceDetail() {
                 </dl>
             </section>
 
+            <section className="rounded-xl border border-base-300 bg-base-100 p-4 sm:p-6 mt-4" aria-labelledby="device-activity-heading">
+                <h2 id="device-activity-heading" className="text-lg font-semibold mb-4">Activity</h2>
+
+                {history.status === 'loading' && (
+                    <p className="text-base-content/60 flex items-center gap-2">
+                        <span className="loading loading-spinner loading-xs" />
+                        Loading activity…
+                    </p>
+                )}
+
+                {history.status === 'error' && (
+                    <p role="alert" className="text-error">{history.error}</p>
+                )}
+
+                {history.status === 'ready' && history.logs.length === 0 && (
+                    <p className="text-base-content/60">No activity recorded for this device yet.</p>
+                )}
+
+                {history.status === 'ready' && history.logs.length > 0 && (
+                    <ul className="divide-y divide-base-300">
+                        {history.logs.map((log) => (
+                            <li key={log.id} className="py-2 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                                <span className="font-medium">{eventLabel(log.eventType)}</span>
+                                <span className="text-sm text-base-content/70">{log.detail || '—'}</span>
+                                <time className="text-xs text-base-content/50" dateTime={log.timestamp}>
+                                    {formatTimestamp(log.timestamp)}
+                                </time>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
             <p className="text-xs text-base-content/50 mt-4">
-                Activity history, schedules and rules are on their own cards.
+                Schedules and rules are on their own cards.
             </p>
         </div>
     );

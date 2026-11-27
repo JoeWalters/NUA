@@ -143,9 +143,13 @@ export const ezScheduleRow = {
     toggleSched: true, deviceId: 1, jobName: 'evening'
 };
 
+// /activity-log rows. `mac` is what the server calls deviceMac; eventType/detail
+// are the fields the detail page renders. Device 4 has none, so the empty state
+// can be exercised by pointing the scenario at /devices/4.
 export const activityLog = [
-    { id: 1, action: 'blocked', reason: 'schedule', mac: 'aa:bb:cc:dd:ee:01', timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(), device_name: 'Kid iPad' },
-    { id: 2, action: 'unblocked', reason: 'bonus', mac: 'aa:bb:cc:dd:ee:02', timestamp: new Date(Date.now() - 65 * 60 * 1000).toISOString(), device_name: 'Teen Phone' }
+    { id: 1, mac: 'aa:bb:cc:dd:ee:01', eventType: 'block', detail: 'schedule_fire', timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(), device_name: 'Kid iPad' },
+    { id: 2, mac: 'aa:bb:cc:dd:ee:02', eventType: 'unpause', detail: 'manual_toggle', timestamp: new Date(Date.now() - 65 * 60 * 1000).toISOString(), device_name: 'Teen Phone' },
+    { id: 3, mac: 'aa:bb:cc:dd:ee:01', eventType: 'bonus_start', detail: '30min', timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), device_name: 'Kid iPad' }
 ];
 
 export const theme = { theme: 'light' };

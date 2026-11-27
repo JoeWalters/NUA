@@ -12,6 +12,7 @@ const json = (body, status = 200) =>
 
 export function installFetchStub() {
     const calls = [];
+    let currentUrl = '';
     window.__harness = { calls };
 
     const routes = {
@@ -38,7 +39,14 @@ export function installFetchStub() {
         '/getbonusrulesmap': () => json({ timer: 20 * 60 * 1000 }),
         '/getpausetimer': () => json({ timer: 25 * 60 * 1000 }),
         '/getactivitylog': () => json({ logs: activityLog }),
-        '/activity-log': () => json({ logs: activityLog }),
+        '/activity-log': () => {
+            // Newest first, filtered by ?deviceMac= exactly like the server.
+            const mac = new URLSearchParams(String(currentUrl || '').split('?')[1] || '').get('deviceMac');
+            const rows = (mac ? activityLog.filter((l) => l.mac === mac) : activityLog)
+                .slice()
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            return json({ success: true, logs: rows });
+        },
         '/getdevicelog': () => json({ logs: activityLog }),
         '/getversion': () => json({ version: 'harness' }),
         '/version': () => json({ version: 'harness' }),
@@ -50,6 +58,7 @@ export function installFetchStub() {
     const realFetch = window.fetch.bind(window);
     window.fetch = (input, init) => {
         const url = typeof input === 'string' ? input : input.url;
+        currentUrl = url;
         const path = url.split('?')[0];
         calls.push({ url, method: (init && init.method) || 'GET', at: Date.now() });
 

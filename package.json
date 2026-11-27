@@ -9,7 +9,8 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives",
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
-    "harness": "vite --config harness/vite.harness.config.js"
+    "harness": "vite --config harness/vite.harness.config.js",
+    "test:server": "node --test server/test/*.test.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
