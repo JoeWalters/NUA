@@ -160,6 +160,7 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
                                 type="text"
                                 placeholder="Search by alias, hostname, vendor, IP, or MAC..."
                                 className="input input-bordered input-sm w-full pl-9"
+                                aria-label="Search devices to add"
                                 onChange={handleAllDevicesSearch}
                             />
                         </div>
@@ -167,6 +168,7 @@ const AddDeviceModal = forwardRef(function AddDeviceModal({ onAdded }, ref) {
                             <select
                                 ref={allDevicesSelectRef}
                                 className="select select-bordered select-sm w-full sm:w-auto"
+                                aria-label="Filter devices to add by status"
                                 onChange={handleAllDevicesFilterChange}
                                 value={allDevicesFilter}
                             >

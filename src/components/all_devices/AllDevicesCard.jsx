@@ -124,7 +124,7 @@ export default function AllDevicesCard({ props, length, handleAddToDevices })
             <dialog id={`${props?._id}`} className="modal">
                 <div className="modal-box">
                     <h3 className="font-bold text-lg mb-4">Enter Name for Device</h3>
-                    <input data-inputdata={props?._id} className="input input-bordered w-full" placeholder="Custom name..." onChange={handleAddOuiName} />
+                    <input data-inputdata={props?._id} className="input input-bordered w-full" placeholder="Custom name..." aria-label="Custom device name" onChange={handleAddOuiName} />
                     <div className="modal-action">
                         <button className="btn btn-ghost" onClick={handleCloseDialog}>Cancel</button>
                         <button className="btn btn-primary" onClick={handleSaveName}>Save Name</button>
