@@ -96,6 +96,7 @@ const ActivityLog = forwardRef(function ActivityLog({ onClose }, ref) {
               onClick={fetchLogs}
               className="btn btn-ghost btn-sm btn-circle"
               disabled={loading}
+              aria-label="Refresh the activity log"
               title="Refresh"
             >
               {loading ? (
@@ -105,7 +106,7 @@ const ActivityLog = forwardRef(function ActivityLog({ onClose }, ref) {
               )}
             </button>
             <form method="dialog">
-              <button className="btn btn-ghost btn-sm btn-circle" onClick={onClose}>
+              <button className="btn btn-ghost btn-sm btn-circle" onClick={onClose} aria-label="Close the activity log">
                 <HiXMark className="w-4 h-4" />
               </button>
             </form>
@@ -174,7 +175,7 @@ const ActivityLog = forwardRef(function ActivityLog({ onClose }, ref) {
         {/* Footer */}
         <div className="px-6 py-3 border-t border-base-300 text-xs text-base-content/40 flex-shrink-0 flex justify-between">
           <span>{logs.length} events</span>
-          <span>Auto-refreshes every 30s</span>
+          <span>Refreshes with the page&apos;s live channel</span>
         </div>
       </div>
       <form method="dialog" className="modal-backdrop">

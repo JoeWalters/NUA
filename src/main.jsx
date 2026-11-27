@@ -1,3 +1,6 @@
+/* eslint-disable react-refresh/only-export-components --
+   the app entry point: it declares the lazy route components and renders once,
+   it is never hot-reloaded as a component module. */
 import React, { Suspense, lazy } from 'react';
 import App from './App.jsx';
 import './index.css';
@@ -14,6 +17,8 @@ import { DevicesProvider } from './components/providers/DevicesProvider.jsx';
 // shipping in the initial bundle.
 const AdminConsole = lazy(() => import('./components/AdminConsole.jsx'));
 const BlockedDevices = lazy(() => import('./components/blocked_device/BlockedDevices.jsx'));
+const DeviceDetail = lazy(() => import('./components/device_detail/DeviceDetail.jsx'));
+const Scheduler = lazy(() => import('./components/Scheduler/Scheduler.jsx'));
 
 
 const root = createRoot(document.getElementById('root'));
@@ -31,6 +36,10 @@ root.render(
             {/* <Route path="/" element={<Login />} /> */}
             <Route path="/" element={<AdminConsole />} />
             <Route path="/blockeddevices" element={<BlockedDevices />} />
+            <Route path="/devices/:id" element={<DeviceDetail />} />
+            {/* The scheduler already reads :id from the route, so it can serve the
+                device detail page's "Open the scheduler" link. */}
+            <Route path="/devices/:id/schedule" element={<Scheduler />} />
             {/* <Route path="/admin/:id/scheduler" element={<Scheduler />} /> */}
             {/* <Route path="/admin/:id/cronmanager" element={<CronManager />} /> */}
             {/* <Route path="/admin/:id/easysched" element={<EasySched />} /> */}

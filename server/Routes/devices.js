@@ -68,8 +68,15 @@ function registerdevices(app, ctx) {
           }));
         }
 
+        // The device detail page must show the mode a block would actually apply,
+        // so resolve it here with the same helper the block path uses.
+        const macDataWithMode = await Promise.all(responseMacData.map(async (device) => ({
+          ...device,
+          resolvedBlockMode: await resolveBlockMode(prisma, device, currentCredentials)
+        })));
+
         return res.json({
-          macData: responseMacData,
+          macData: macDataWithMode,
           blockedUsers,
           stale: !unifiSyncOk,
           stateSource: unifiSyncOk ? 'unifi-reconciled' : 'database-fallback'
@@ -240,12 +247,79 @@ function registerdevices(app, ctx) {
       const deviceInfo = await prisma.device.findUnique({
         where: {
           id: id
+        },
+        include: {
+          deviceGroup: true
         }
       });
-      res.json(deviceInfo);
+      if (!deviceInfo) {
+        return res.status(404).json({ error: 'Device not found' });
+      }
+
+      const credentials = await prisma.credentials.findUnique({ where: { id: 1 } });
+      res.json({
+        ...deviceInfo,
+        resolvedBlockMode: await resolveBlockMode(prisma, deviceInfo, credentials)
+      });
     } catch (error) {
       console.error(error);
       await sendError(res, error, 'Internal server error.');
+    }
+  });
+
+  // Read-only overview for the device detail page: the schedules that apply to a
+  // device (its own rows and, if it is in a group, the group's) and the traffic
+  // rules that target its MAC address. DB-only on purpose — the rule list the
+  // editors use (/getdbcustomapirules) needs a live controller.
+  app.post('/getdeviceoverview', async (req, res) => {
+    const id = Number(req.body?.id);
+    if (!Number.isInteger(id)) {
+      return res.status(400).json({ error: 'A numeric device id is required' });
+    }
+
+    try {
+      const device = await prisma.device.findUnique({ where: { id } });
+      if (!device) {
+        return res.status(404).json({ error: 'Device not found' });
+      }
+
+      const scheduleWhere = device.deviceGroupId
+        ? { OR: [{ deviceId: id }, { deviceGroupId: device.deviceGroupId }] }
+        : { deviceId: id };
+
+      const [cron, easy, rules] = await Promise.all([
+        prisma.cron.findMany({ where: scheduleWhere }),
+        prisma.easySchedule.findMany({ where: scheduleWhere }),
+        prisma.trafficRules.findMany({
+          include: { target_devices: true, trafficRuleDevices: true }
+        })
+      ]);
+
+      const mac = String(device.macAddress || '').toLowerCase();
+      const matchingRules = rules
+        .filter((rule) => (
+          (rule.target_devices || []).some((t) => String(t.client_mac || '').toLowerCase() === mac) ||
+          (rule.trafficRuleDevices || []).some((t) => String(t.macAddress || '').toLowerCase() === mac)
+        ))
+        .map((rule) => ({
+          id: rule.id,
+          description: rule.description,
+          blockAllow: rule.blockAllow,
+          enabled: rule.enabled,
+          bonusTimeExpiresAt: rule.bonusTimeExpiresAt
+        }));
+
+      const scope = (row) => (row.deviceId === id ? 'device' : 'group');
+
+      return res.json({
+        deviceId: id,
+        cron: cron.map((row) => ({ ...row, scope: scope(row) })),
+        easy: easy.map((row) => ({ ...row, scope: scope(row) })),
+        rules: matchingRules
+      });
+    } catch (error) {
+      console.error('Error in /getdeviceoverview:', error);
+      return res.status(500).json({ error: 'Failed to load the device overview' });
     }
   });
 

@@ -258,7 +258,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                             </div>
 
                             {/* Search */}
-                            <div className="flex-1 relative min-w-[160px]">
+                            <div className="flex-1 relative min-w-0 sm:min-w-[160px]">
                                 <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 w-4 h-4" />
                                 <input
                                     type="text"
@@ -316,12 +316,13 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                                 >
                                     🏷️ Manage Tags
                                 </button>
-                                <button className="btn btn-ghost btn-square" onClick={handleRefresh} title="Refresh">
+                                <button className="btn btn-ghost btn-square" onClick={handleRefresh} aria-label="Refresh devices and rules" title="Refresh">
                                     <IoMdRefresh className="w-5 h-5" />
                                 </button>
                                 <button
                                     className="btn btn-ghost btn-square"
                                     onClick={() => setShowFilters(false)}
+                                    aria-label="Hide search and filters"
                                     title="Hide search and filters"
                                 >
                                     ✕

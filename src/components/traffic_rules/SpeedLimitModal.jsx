@@ -147,7 +147,7 @@ export default function SpeedLimitModal({ dialogRef, onSuccess }) {
                         <HiBolt className="w-5 h-5 text-primary" />
                         <h2 className="font-bold text-lg">New Speed Limit Rule</h2>
                     </div>
-                    <button onClick={handleClose} className="btn btn-ghost btn-sm btn-circle">
+                    <button onClick={handleClose} className="btn btn-ghost btn-sm btn-circle" aria-label="Close">
                         <HiXMark className="w-5 h-5" />
                     </button>
                 </div>

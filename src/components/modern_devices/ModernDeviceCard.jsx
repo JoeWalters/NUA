@@ -1,5 +1,5 @@
 import { useState } from "react";
-// Removed: import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { HiMiniPencilSquare, HiWifi, HiSignal } from "react-icons/hi2";
 import { MdSchedule } from "react-icons/md";
 import { 
@@ -77,7 +77,7 @@ export default function ModernDeviceCard({
             ></div>
             
             {/* Card Header */}
-            <div className="p-6 pb-4">
+            <div className="p-4 pb-4 sm:p-6 sm:pb-4">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                         {/* Device Icon */}
@@ -88,7 +88,10 @@ export default function ModernDeviceCard({
                         {/* Device Info */}
                         <div className="flex-1 min-w-0">
                             <h3 className="text-lg font-semibold text-base-content truncate">
-                                {device?.name || device?.macAddress || 'Unknown Device'}
+                                {/* Link to the device's own page; the rest of the card is unchanged. */}
+                                <Link to={`/devices/${device?.id}`} className="link link-hover">
+                                    {device?.name || device?.macAddress || 'Unknown Device'}
+                                </Link>
                             </h3>
                             <p className="text-sm text-base-content/60 truncate">
                                 {device?.macAddress}
@@ -165,6 +168,7 @@ export default function ModernDeviceCard({
                         <button
                             onClick={() => onScheduleClick(device?.id, device?.name)}
                             className="btn btn-xs gap-0 btn-outline btn-warning"
+                            aria-label="Schedule this device"
                             title="Schedule this device"
                         >
                             <MdSchedule className="w-3.5 h-3.5" />
@@ -183,6 +187,7 @@ export default function ModernDeviceCard({
                         <button
                             onClick={() => onEdit(device?.id)}
                             className="btn btn-ghost btn-xs text-base-content/50 hover:text-primary"
+                            aria-label="Edit this device"
                             title="Edit Device"
                         >
                             <HiMiniPencilSquare className="w-4 h-4" />

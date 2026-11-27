@@ -252,6 +252,7 @@ export default function RuleScheduleButton({ trafficRuleId, ruleSchedules, onSta
                 type="button"
                 className={`btn btn-xs gap-0 ${anyScheduleEnabled ? "btn-warning" : "btn-outline btn-warning"}`}
                 onClick={() => scheduleDialogRef.current.showModal()}
+                aria-label={schedules.length > 0 ? "Edit schedules" : "Schedule this rule"}
                 title={schedules.length > 0 ? "Edit schedules" : "Schedule this rule"}
             >
                 <MdSchedule className="w-3.5 h-3.5" />

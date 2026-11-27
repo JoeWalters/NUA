@@ -506,6 +506,7 @@ export default function CreateRuleModal({ dialogRef, onSuccess }) {
                                     <button
                                         className="btn btn-sm btn-ghost btn-circle"
                                         onClick={handleReset}
+                                        aria-label="Reset the app filters"
                                         title="Reset filters"
                                     >
                                         <IoMdRefresh className="w-4 h-4" />

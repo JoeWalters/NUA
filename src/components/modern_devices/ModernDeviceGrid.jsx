@@ -205,6 +205,7 @@ export default function ModernDeviceGrid({
                                 <button
                                     onClick={handleRefresh}
                                     className="btn btn-ghost btn-square"
+                                    aria-label="Refresh the device list"
                                     title="Refresh"
                                 >
                                     <IoMdRefresh className="w-5 h-5" />
@@ -213,6 +214,7 @@ export default function ModernDeviceGrid({
                                 <button
                                     onClick={() => { setShowFilters(false); setSearchTerm(''); setStatusFilter('all'); setGroupFilter('all'); }}
                                     className="btn btn-ghost btn-square"
+                                    aria-label="Hide search and filters"
                                     title="Hide search and filters"
                                 >
                                     ✕
