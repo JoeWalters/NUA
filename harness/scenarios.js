@@ -3,7 +3,7 @@
 // only data.
 import {
     DevicesScenario, PoliciesScenario, SchedulerScenario, ConsoleScenario, ShellScenario,
-    AllDevicesScenario, AddDeviceScenario, DeviceDetailScenario
+    AllDevicesScenario, AddDeviceScenario, DeviceDetailScenario, DeviceScheduleScenario
 } from './scenarios.jsx';
 
 export const scenarios = {
@@ -17,7 +17,8 @@ export const scenarios = {
     // pathPattern lets the same scenario serve /devices/1, /devices/2, … — anything
     // matching the pattern keeps the requested id instead of being rewritten.
     devicedetail: { title: 'Device detail page', Component: DeviceDetailScenario, path: '/devices/1', pathPattern: '/devices/:id' },
-    devicedetail404: { title: 'Device detail page (unknown id)', Component: DeviceDetailScenario, path: '/devices/999', pathPattern: '/devices/:id' }
+    devicedetail404: { title: 'Device detail page (unknown id)', Component: DeviceDetailScenario, path: '/devices/999', pathPattern: '/devices/:id' },
+    deviceschedule: { title: 'Scheduler at /devices/:id/schedule', Component: DeviceScheduleScenario, path: '/devices/1/schedule' }
 };
 
 export const defaultScenario = 'devices';

@@ -107,6 +107,16 @@ export function DeviceDetailScenario() {
     );
 }
 
+// The detail page's "Open the scheduler" target: the scheduler is now routable at
+// /devices/:id/schedule so a row can deep-link to it.
+export function DeviceScheduleScenario() {
+    return (
+        <Routes>
+            <Route path="/devices/:id/schedule" element={<Scheduler />} />
+        </Routes>
+    );
+}
+
 export function ShellScenario() {
     return (
         <div>

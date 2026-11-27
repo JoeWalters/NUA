@@ -49,6 +49,7 @@ export default function DeviceDetail() {
     const { id } = useParams();
     const [state, setState] = useState({ status: 'loading', device: null, error: null });
     const [history, setHistory] = useState({ status: 'idle', logs: [], error: null });
+    const [overview, setOverview] = useState({ status: 'idle', cron: [], easy: [], rules: [], error: null });
 
     useEffect(() => {
         let active = true;
@@ -83,6 +84,40 @@ export default function DeviceDetail() {
         load();
         return () => { active = false; };
     }, [id]);
+
+    // Schedules and rules that apply to this device. One DB-only endpoint, because
+    // the rule list the editors use needs a live controller.
+    useEffect(() => {
+        if (state.status !== 'ready') return undefined;
+        let active = true;
+        setOverview({ status: 'loading', cron: [], easy: [], rules: [], error: null });
+
+        (async () => {
+            try {
+                const response = await fetch('/getdeviceoverview', {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: Number(id) })
+                });
+                if (!response.ok) throw new Error(`Could not load schedules and rules (${response.status})`);
+                const body = await response.json();
+                if (active) {
+                    setOverview({
+                        status: 'ready',
+                        cron: Array.isArray(body?.cron) ? body.cron : [],
+                        easy: Array.isArray(body?.easy) ? body.easy : [],
+                        rules: Array.isArray(body?.rules) ? body.rules : [],
+                        error: null
+                    });
+                }
+            } catch (error) {
+                if (active) setOverview({ status: 'error', cron: [], easy: [], rules: [], error: error.message || 'Could not load schedules and rules' });
+            }
+        })();
+
+        return () => { active = false; };
+    }, [state.status, id]);
 
     // Activity history for this device. The endpoint filters server-side
     // (?deviceMac=) and returns newest first, so no client-side sorting is needed.
@@ -236,8 +271,74 @@ export default function DeviceDetail() {
                 )}
             </section>
 
+            <section className="rounded-xl border border-base-300 bg-base-100 p-4 sm:p-6 mt-4" aria-labelledby="device-schedules-heading">
+                <div className="flex items-baseline justify-between gap-2 mb-4">
+                    <h2 id="device-schedules-heading" className="text-lg font-semibold">Schedules</h2>
+                    <Link to={`/devices/${id}/schedule`} className="link text-sm">Open the scheduler</Link>
+                </div>
+
+                {overview.status === 'loading' && (
+                    <p className="text-base-content/60 flex items-center gap-2">
+                        <span className="loading loading-spinner loading-xs" />
+                        Loading schedules…
+                    </p>
+                )}
+                {overview.status === 'error' && <p role="alert" className="text-error">{overview.error}</p>}
+
+                {overview.status === 'ready' && overview.cron.length === 0 && overview.easy.length === 0 && (
+                    <p className="text-base-content/60">No schedules apply to this device.</p>
+                )}
+
+                {overview.status === 'ready' && (overview.cron.length > 0 || overview.easy.length > 0) && (
+                    <ul className="divide-y divide-base-300">
+                        {overview.cron.map((row) => (
+                            <li key={`cron-${row.id}`} className="py-2 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                                <span className="font-mono text-sm">{row.crontime}</span>
+                                <span className="text-sm">{row.crontype === 'block' ? 'Blocks' : 'Allows'}</span>
+                                <span className="text-xs text-base-content/50">{row.scope === 'group' ? 'From the device group' : 'On this device'}</span>
+                            </li>
+                        ))}
+                        {overview.easy.map((row) => (
+                            <li key={`easy-${row.id}`} className="py-2 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                                <span className="font-mono text-sm">
+                                    {String(row.hour).padStart(2, '0')}:{String(row.minute).padStart(2, '0')} {row.ampm}
+                                    {row.oneTime ? ` on ${row.date}` : ''}
+                                </span>
+                                <span className="text-sm">{row.blockAllow === 'block' ? 'Blocks' : 'Allows'}</span>
+                                <span className="text-xs text-base-content/50">{row.scope === 'group' ? 'From the device group' : 'On this device'}</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
+            <section className="rounded-xl border border-base-300 bg-base-100 p-4 sm:p-6 mt-4" aria-labelledby="device-rules-heading">
+                <div className="flex items-baseline justify-between gap-2 mb-4">
+                    <h2 id="device-rules-heading" className="text-lg font-semibold">Traffic rules</h2>
+                    <Link to="/" className="link text-sm">Manage rules</Link>
+                </div>
+
+                {overview.status === 'error' && <p role="alert" className="text-error">{overview.error}</p>}
+
+                {overview.status === 'ready' && overview.rules.length === 0 && (
+                    <p className="text-base-content/60">No traffic rules target this device.</p>
+                )}
+
+                {overview.status === 'ready' && overview.rules.length > 0 && (
+                    <ul className="divide-y divide-base-300">
+                        {overview.rules.map((rule) => (
+                            <li key={`rule-${rule.id}`} className="py-2 flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-1">
+                                <span className="font-medium">{rule.description || `Rule ${rule.id}`}</span>
+                                <span className="text-sm">{rule.blockAllow === 'block' ? 'Block' : 'Allow'}</span>
+                                <span className="text-xs text-base-content/50">{rule.enabled ? 'Enabled' : 'Disabled'}</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
+
             <p className="text-xs text-base-content/50 mt-4">
-                Schedules and rules are on their own cards.
+                Editing happens in the scheduler and the rules manager — this page is read-only.
             </p>
         </div>
     );

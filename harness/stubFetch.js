@@ -38,6 +38,26 @@ export function installFetchStub() {
         '/getbonustimesmap': () => json({ timer: 20 * 60 * 1000 }),
         '/getbonusrulesmap': () => json({ timer: 20 * 60 * 1000 }),
         '/getpausetimer': () => json({ timer: 25 * 60 * 1000 }),
+        '/getdeviceoverview': (init) => {
+            let id = null;
+            try { id = JSON.parse(init?.body || '{}').id; } catch { id = null; }
+            if (id !== 1 && id !== 2) return json({ error: 'Device not found' }, 404);
+            // Device 2 gets an empty overview so the "none" states are exercisable.
+            if (id === 2) return json({ deviceId: id, cron: [], easy: [], rules: [] });
+            return json({
+                deviceId: id,
+                cron: [
+                    { id: 1, crontime: '0 22 * * 1-5', crontype: 'block', deviceId: 1, scope: 'device' },
+                    { id: 9, crontime: '0 7 * * *', crontype: 'allow', deviceId: null, deviceGroupId: 1, scope: 'group' }
+                ],
+                easy: [
+                    { id: 3, hour: 18, minute: 30, ampm: 'PM', blockAllow: 'block', oneTime: false, deviceId: 1, scope: 'device' }
+                ],
+                rules: [
+                    { id: 1, description: 'Block social', blockAllow: 'block', enabled: true }
+                ]
+            });
+        },
         '/getactivitylog': () => json({ logs: activityLog }),
         '/activity-log': () => {
             // Newest first, filtered by ?deviceMac= exactly like the server.

@@ -18,6 +18,7 @@ import { DevicesProvider } from './components/providers/DevicesProvider.jsx';
 const AdminConsole = lazy(() => import('./components/AdminConsole.jsx'));
 const BlockedDevices = lazy(() => import('./components/blocked_device/BlockedDevices.jsx'));
 const DeviceDetail = lazy(() => import('./components/device_detail/DeviceDetail.jsx'));
+const Scheduler = lazy(() => import('./components/Scheduler/Scheduler.jsx'));
 
 
 const root = createRoot(document.getElementById('root'));
@@ -36,6 +37,9 @@ root.render(
             <Route path="/" element={<AdminConsole />} />
             <Route path="/blockeddevices" element={<BlockedDevices />} />
             <Route path="/devices/:id" element={<DeviceDetail />} />
+            {/* The scheduler already reads :id from the route, so it can serve the
+                device detail page's "Open the scheduler" link. */}
+            <Route path="/devices/:id/schedule" element={<Scheduler />} />
             {/* <Route path="/admin/:id/scheduler" element={<Scheduler />} /> */}
             {/* <Route path="/admin/:id/cronmanager" element={<CronManager />} /> */}
             {/* <Route path="/admin/:id/easysched" element={<EasySched />} /> */}
