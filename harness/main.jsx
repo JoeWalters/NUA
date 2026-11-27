@@ -8,7 +8,10 @@ import { installFetchStub } from './stubFetch.js';
 import { scenarios, defaultScenario } from './scenarios.js';
 import { TimerProvider } from '../src/components/providers/TimerProvider.jsx';
 import { DevicesProvider } from '../src/components/providers/DevicesProvider.jsx';
+// Same stylesheets as the app (src/main.jsx), so a layout measurement here means
+// something: index.css carries Tailwind + daisyUI, globals.css the app's own rules.
 import '../src/index.css';
+import '../src/globals.css';
 
 // ?scenario=<name> picks a tree (see scenarios.jsx); ?w=<px> pins the viewport
 // width so responsive checks are reproducible without device emulation.

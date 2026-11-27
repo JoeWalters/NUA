@@ -258,7 +258,7 @@ export default function PolicyList({ macData, blockedUsers, handleRenderToggle, 
                             </div>
 
                             {/* Search */}
-                            <div className="flex-1 relative min-w-[160px]">
+                            <div className="flex-1 relative min-w-0 sm:min-w-[160px]">
                                 <HiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 w-4 h-4" />
                                 <input
                                     type="text"

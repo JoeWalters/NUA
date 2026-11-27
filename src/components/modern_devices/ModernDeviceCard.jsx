@@ -77,7 +77,7 @@ export default function ModernDeviceCard({
             ></div>
             
             {/* Card Header */}
-            <div className="p-6 pb-4">
+            <div className="p-4 pb-4 sm:p-6 sm:pb-4">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-3 flex-1 min-w-0">
                         {/* Device Icon */}

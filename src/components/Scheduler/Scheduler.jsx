@@ -45,7 +45,7 @@ export default function Scheduler() {
         <>
             <div className="flex items-center justify-center w-full h-full sm:w-3/4 lg:w-1/2 mx-auto pb-12 pt-12">
                 <div className="flex w-full mx-2">
-                    <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 m-8">
+                    <div className="flex flex-col items-center justify-center w-full h-full mx-auto border rounded-lg shadow overflow-hidden border-neutral shadow-base-300 m-2 sm:m-4 lg:m-8">
                         <div className="flex mt-8">
                             <h1 className="text-3xl text-center my-2">&quot;{deviceInfo?.name}&quot; Schedule</h1>
                         </div>
