@@ -91,7 +91,8 @@ export function AllDevicesScenario() {
 // inspected without opening it through the policy list.
 export function AddDeviceScenario() {
     const ref = React.useRef();
-    React.useEffect(() => { ref.current?.showModal?.(); }, []);
+    // AddDeviceModal exposes { open } through useImperativeHandle.
+    React.useEffect(() => { ref.current?.open?.(); }, []);
     return <AddDeviceModal dialogRef={ref} onAdded={noop} />;
 }
 
