@@ -18,7 +18,14 @@ export function installFetchStub() {
         '/getmacaddresses': () => json({ getDeviceList: devices, blockedUsers }),
         '/getcurrentdevices': () => json({ getDeviceList: devices }),
         '/getalldevices': () => json({ getDeviceList: devices, getClientDevices: devices }),
-        '/getspecificdevice': () => json(devices[0]),
+        // The device detail page asks by id; an unknown id must 404 so the page can
+        // show its "not found" state.
+        '/getspecificdevice': (init) => {
+            let id = null;
+            try { id = JSON.parse(init?.body || '{}').id; } catch { id = null; }
+            const found = devices.find((d) => d.id === id);
+            return found ? json(found) : json({ error: 'Device not found' }, 404);
+        },
         '/getcurrenttheme': () => json(theme),
         '/updatetheme': () => json({ success: true }),
         '/health': () => json({ unifiConnected: true }),
@@ -48,7 +55,7 @@ export function installFetchStub() {
 
         if (path.startsWith('/api/device-groups')) return groupRoutes();
         const handler = routes[path];
-        if (handler) return handler();
+        if (handler) return handler(init);
 
         // Anything unmapped resolves to an empty OK so a stray GET cannot blow up
         // a scenario; it is still recorded so the README's "unmapped" report works.

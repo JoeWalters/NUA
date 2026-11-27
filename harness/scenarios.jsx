@@ -10,6 +10,7 @@ import AdminConsole from '../src/components/AdminConsole.jsx';
 import Navbar from '../src/components/Navbar.jsx';
 import AllDevicesCard from '../src/components/all_devices/AllDevicesCard.jsx';
 import AddDeviceModal from '../src/components/AddDeviceModal.jsx';
+import DeviceDetail from '../src/components/device_detail/DeviceDetail.jsx';
 import ActivityLog from '../src/components/ActivityLog.jsx';
 
 import { devices, blockedUsers } from './fixtures.js';
@@ -94,6 +95,16 @@ export function AddDeviceScenario() {
     // AddDeviceModal exposes { open } through useImperativeHandle.
     React.useEffect(() => { ref.current?.open?.(); }, []);
     return <AddDeviceModal dialogRef={ref} onAdded={noop} />;
+}
+
+// The per-device page, mounted under its real route so :id resolves.
+export function DeviceDetailScenario() {
+    return (
+        <Routes>
+            <Route path="/devices/:id" element={<DeviceDetail />} />
+            <Route path="*" element={<DeviceDetail />} />
+        </Routes>
+    );
 }
 
 export function ShellScenario() {

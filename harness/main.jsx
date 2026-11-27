@@ -22,8 +22,15 @@ const width = Number(params.get('w')) || 0;
 
 installFetchStub();
 
-const { Component, path } = scenario;
-if (path && window.location.pathname !== path) {
+const { Component, path, pathPattern } = scenario;
+// A scenario declares the path it needs. When it also declares a pattern with a
+// parameter, an explicitly requested id is honoured (so /devices/2 works, not
+// just the fixture default).
+const requestedPath = window.location.pathname;
+const matchesPattern = pathPattern
+    ? new RegExp('^' + pathPattern.replace(/:[^/]+/g, '[^/]+') + '$').test(requestedPath)
+    : requestedPath === path;
+if (path && !matchesPattern) {
     window.history.replaceState({}, '', path + window.location.search);
 }
 

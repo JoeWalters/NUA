@@ -215,7 +215,7 @@ async function toggleQosRule(macAddress, deviceName, prefix, speedKbps, enabled,
  * @param {object} device       a device record (with deviceGroup included, or without)
  * @returns {Promise<string>}   the resolved mode: "full" | "internet" | "speedlimit"
  */
-async function resolveBlockMode(prisma, device) {
+async function resolveBlockMode(prisma, device, prefetchedCredentials = null) {
   // Level 1: device's own setting.
   if (device?.blockMode) {
     return device.blockMode;
@@ -234,9 +234,10 @@ async function resolveBlockMode(prisma, device) {
     return group.defaultBlockMode;
   }
 
-  // Level 3: the global default from Credentials.
+  // Level 3: the global default from Credentials. Callers that resolve a whole
+  // list can pass the row in so this is one lookup instead of one per device.
   try {
-    const credentials = await prisma.credentials.findUnique({ where: { id: 1 } });
+    const credentials = prefetchedCredentials || await prisma.credentials.findUnique({ where: { id: 1 } });
     if (credentials?.defaultBlockMode) {
       return credentials.defaultBlockMode;
     }

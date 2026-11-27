@@ -68,8 +68,15 @@ function registerdevices(app, ctx) {
           }));
         }
 
+        // The device detail page must show the mode a block would actually apply,
+        // so resolve it here with the same helper the block path uses.
+        const macDataWithMode = await Promise.all(responseMacData.map(async (device) => ({
+          ...device,
+          resolvedBlockMode: await resolveBlockMode(prisma, device, currentCredentials)
+        })));
+
         return res.json({
-          macData: responseMacData,
+          macData: macDataWithMode,
           blockedUsers,
           stale: !unifiSyncOk,
           stateSource: unifiSyncOk ? 'unifi-reconciled' : 'database-fallback'
@@ -240,9 +247,20 @@ function registerdevices(app, ctx) {
       const deviceInfo = await prisma.device.findUnique({
         where: {
           id: id
+        },
+        include: {
+          deviceGroup: true
         }
       });
-      res.json(deviceInfo);
+      if (!deviceInfo) {
+        return res.status(404).json({ error: 'Device not found' });
+      }
+
+      const credentials = await prisma.credentials.findUnique({ where: { id: 1 } });
+      res.json({
+        ...deviceInfo,
+        resolvedBlockMode: await resolveBlockMode(prisma, deviceInfo, credentials)
+      });
     } catch (error) {
       console.error(error);
       await sendError(res, error, 'Internal server error.');

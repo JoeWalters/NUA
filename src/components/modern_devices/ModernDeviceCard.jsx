@@ -1,5 +1,5 @@
 import { useState } from "react";
-// Removed: import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { HiMiniPencilSquare, HiWifi, HiSignal } from "react-icons/hi2";
 import { MdSchedule } from "react-icons/md";
 import { 
@@ -88,7 +88,10 @@ export default function ModernDeviceCard({
                         {/* Device Info */}
                         <div className="flex-1 min-w-0">
                             <h3 className="text-lg font-semibold text-base-content truncate">
-                                {device?.name || device?.macAddress || 'Unknown Device'}
+                                {/* Link to the device's own page; the rest of the card is unchanged. */}
+                                <Link to={`/devices/${device?.id}`} className="link link-hover">
+                                    {device?.name || device?.macAddress || 'Unknown Device'}
+                                </Link>
                             </h3>
                             <p className="text-sm text-base-content/60 truncate">
                                 {device?.macAddress}

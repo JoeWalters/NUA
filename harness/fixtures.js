@@ -23,7 +23,10 @@ export const devices = [
         dailyTimeLimit: 120,
         timeUsedToday: 45,
         watchConnection: true,
-        watchOffline: false
+        watchOffline: false,
+        blockMode: null,
+        resolvedBlockMode: 'internet',
+        deviceGroup: { id: 1, name: 'Kids', defaultBlockMode: 'internet' }
     },
     {
         id: 2,
@@ -46,7 +49,10 @@ export const devices = [
         dailyTimeLimit: 180,
         timeUsedToday: 170,
         watchConnection: false,
-        watchOffline: true
+        watchOffline: true,
+        blockMode: 'full',
+        resolvedBlockMode: 'full',
+        deviceGroup: null
     },
     {
         id: 3,

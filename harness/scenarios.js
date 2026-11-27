@@ -3,7 +3,7 @@
 // only data.
 import {
     DevicesScenario, PoliciesScenario, SchedulerScenario, ConsoleScenario, ShellScenario,
-    AllDevicesScenario, AddDeviceScenario
+    AllDevicesScenario, AddDeviceScenario, DeviceDetailScenario
 } from './scenarios.jsx';
 
 export const scenarios = {
@@ -13,7 +13,11 @@ export const scenarios = {
     console: { title: 'Admin console (home screen)', Component: ConsoleScenario },
     shell: { title: 'Navbar + activity log', Component: ShellScenario },
     alldevices: { title: 'All devices (add-name dialogs)', Component: AllDevicesScenario },
-    adddevice: { title: 'Add Device modal', Component: AddDeviceScenario }
+    adddevice: { title: 'Add Device modal', Component: AddDeviceScenario },
+    // pathPattern lets the same scenario serve /devices/1, /devices/2, … — anything
+    // matching the pattern keeps the requested id instead of being rewritten.
+    devicedetail: { title: 'Device detail page', Component: DeviceDetailScenario, path: '/devices/1', pathPattern: '/devices/:id' },
+    devicedetail404: { title: 'Device detail page (unknown id)', Component: DeviceDetailScenario, path: '/devices/999', pathPattern: '/devices/:id' }
 };
 
 export const defaultScenario = 'devices';
